@@ -1,0 +1,369 @@
+/* ============================ MEMBERS GATE + ADMIN ============================ */
+/* Claves compartidas:
+   members:codes  -> {"CODE":{label,active,created,uses}}
+   admin:pin      -> pin del dueño (se crea la primera vez, solo tú)            */
+async function sGet(key,shared){ try{const r=await window.storage.get(key,shared); return r?JSON.parse(r.value):null;}catch{return null;} }
+async function sSet(key,val,shared){ try{await window.storage.set(key,JSON.stringify(val),shared); return true;}catch{return false;} }
+
+function Gate({onEnter}){
+  const [stage,setStage]=useState("loading"); // loading | code | newadmin | adminpin | planes
+  const [val,setVal]=useState("");
+  const [err,setErr]=useState("");
+  const [payLinks,setPayLinks]=useState(null);
+  useEffect(()=>{(async()=>{
+    const sess=await sGet("session",false);
+    if(sess?.ok){ onEnter(sess.admin===true); return; }
+    setPayLinks(await sGet("pay:links",true));
+    const pin=await sGet("admin:pin",true);
+    setStage(pin?"code":"newadmin");
+  })();},[]);
+  const enterMember=async()=>{
+    setErr("");
+    const codes=await sGet("members:codes",true)||{};
+    const c=codes[val.trim().toUpperCase()];
+    if(c&&c.active){
+      c.uses=(c.uses||0)+1; await sSet("members:codes",codes,true);
+      await sSet("session",{ok:true,admin:false,code:val.trim().toUpperCase()},false);
+      onEnter(false);
+    } else setErr("Código inválido o desactivado. Pídele acceso al administrador.");
+  };
+  const enterAdmin=async()=>{
+    setErr("");
+    const pin=await sGet("admin:pin",true);
+    if(pin&&pin.pin===val.trim()){ await sSet("session",{ok:true,admin:true},false); onEnter(true); }
+    else setErr("PIN incorrecto.");
+  };
+  const createAdmin=async()=>{
+    setErr("");
+    if(val.trim().length<4){ setErr("Usa un PIN de al menos 4 dígitos."); return; }
+    const exists=await sGet("admin:pin",true);
+    if(exists){ setErr("Ya existe un administrador. Entra con tu PIN."); setStage("adminpin"); setVal(""); return; }
+    await sSet("admin:pin",{pin:val.trim(),created:Date.now()},true);
+    await sSet("members:codes",{},true);
+    await sSet("session",{ok:true,admin:true},false);
+    onEnter(true);
+  };
+  if(stage==="loading") return <GateShell><div style={{color:T.dim}}>Cargando…</div></GateShell>;
+  if(stage==="planes") return <Planes payLinks={payLinks} onBack={()=>setStage("code")}/>;
+  return (
+    <GateShell>
+      {stage==="newadmin"&&(<>
+        <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Bienvenido, dueño 👑</div>
+        <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Eres el primero en entrar. Crea tu PIN de administrador — solo tú controlarás quién accede.</p>
+        <input className="input" type="password" inputMode="numeric" placeholder="Crea tu PIN de admin" value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createAdmin()}/>
+        <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={createAdmin}>Crear y entrar</button>
+      </>)}
+      {stage==="code"&&(<>
+        <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Solo miembros 🎟️</div>
+        <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Escribe tu código de acceso.</p>
+        <input className="input" placeholder="CÓDIGO" value={val} onChange={e=>setVal(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&enterMember()} style={{textTransform:"uppercase",letterSpacing:"0.15em",textAlign:"center",fontFamily:"IBM Plex Mono"}}/>
+        <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={enterMember}>Entrar</button>
+        <button className="btn ghost" style={{width:"100%",marginTop:10}} onClick={()=>setStage("planes")}>Ver planes · desde $19.99/mes</button>
+        <button className="chip" style={{marginTop:14}} onClick={()=>{setStage("adminpin");setVal("");setErr("");}}>👑 Soy el administrador</button>
+      </>)}
+      {stage==="adminpin"&&(<>
+        <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Acceso admin 👑</div>
+        <input className="input" type="password" inputMode="numeric" placeholder="PIN de administrador" value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&enterAdmin()}/>
+        <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={enterAdmin}>Entrar como admin</button>
+        <button className="chip" style={{marginTop:14}} onClick={()=>{setStage("code");setVal("");setErr("");}}>Soy miembro</button>
+      </>)}
+      {err&&<div style={{color:T.coral,fontSize:12,marginTop:12}}>{err}</div>}
+    </GateShell>
+  );
+}
+const GateShell=({children})=>(
+  <div className="bol-app" style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+    <style>{FONT_CSS}</style>
+    <div className="card fade-in" style={{width:"100%",maxWidth:360,textAlign:"center",padding:"28px 22px"}}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:14}}><Logo size={72}/></div>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:18}}><Wordmark size={1.2} center/></div>
+      {children}
+    </div>
+  </div>
+);
+
+/* ---------- ENV: esquema de variables (página de secretos) ---------- */
+const ENV_SCHEMA=[
+  {g:"Aplicación",vars:[
+    {k:"APP_NAME",d:"HERMES EL BOLITERO",h:"Nombre público de la app"},
+    {k:"APP_URL",d:"",h:"URL publicada que compartes con miembros"},
+    {k:"PORT",d:"3000",h:"Puerto del backend"},
+  ]},
+  {g:"Cerebro · selecciona el motor",vars:[
+    {k:"ENGINE_PROVIDER",d:"anthropic",sel:["anthropic","openai","hermes"],h:"Quién piensa por Hermes en tu backend"},
+    {k:"ANTHROPIC_API_KEY",d:"",sec:1,h:"Clave Anthropic (Claude)"},
+    {k:"ANTHROPIC_MODEL",d:"claude-sonnet-4-6",h:"Modelo Anthropic"},
+    {k:"OPENAI_API_KEY",d:"",sec:1,h:"Clave OpenAI (GPT)"},
+    {k:"OPENAI_MODEL",d:"gpt-4o",h:"Modelo OpenAI"},
+    {k:"ENGINE_API_KEY",d:"",sec:1,h:"Clave del motor Hermes (router de modelos abiertos)"},
+    {k:"ENGINE_MODEL",d:"nousresearch/hermes-4-70b",h:"Modelo Hermes"},
+    {k:"ENGINE_BASE_URL",d:"https://openrouter.ai/api/v1",h:"Base URL del motor Hermes"},
+  ]},
+  {g:"Voz (llamadas a miembros)",vars:[
+    {k:"VOICE_API_KEY",d:"",sec:1,h:"Clave del servicio de voz"},
+    {k:"VOICE_FROM_NUMBER",d:"",h:"Número saliente, ej +1786…"},
+  ]},
+  {g:"Correo (alertas)",vars:[
+    {k:"MAIL_API_KEY",d:"",sec:1,h:"Clave del servicio de correo"},
+    {k:"MAIL_FROM",d:"alertas@tudominio.com",h:"Remitente verificado"},
+  ]},
+  {g:"Señal en vivo",vars:[
+    {k:"LIVE_REFRESH_MIN",d:"8",h:"Minutos entre actualizaciones"},
+  ]},
+  {g:"Estudio visual",vars:[
+    {k:"STUDIO_MCP_URL",d:"https://mcp.higgsfield.ai/mcp",sec:1,h:"Conector del estudio (privado)"},
+  ]},
+  {g:"Seguridad",vars:[
+    {k:"JWT_SECRET",d:"",sec:1,gen:1,h:"Firma de sesiones — usa Generar"},
+    {k:"DATABASE_URL",d:"",sec:1,h:"Conexión a tu base de datos"},
+  ]},
+];
+const ENV_DEFAULTS=Object.fromEntries(ENV_SCHEMA.flatMap(s=>s.vars.map(v=>[v.k,v.d])));
+const randSecret=(n=48)=>Array.from(crypto.getRandomValues(new Uint8Array(n))).map(b=>"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[b%62]).join("");
+
+function EnvPage(){
+  const [env,setEnv]=useState(ENV_DEFAULTS);
+  const [show,setShow]=useState({});
+  const [imp,setImp]=useState(false);
+  const [impText,setImpText]=useState("");
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{
+    const saved=await sGet("env",false);
+    const legacy=await sGet("cfg",false);
+    const merged={...ENV_DEFAULTS,
+      ...(legacy?{ENGINE_MODEL:legacy.hermesModel||ENV_DEFAULTS.ENGINE_MODEL,ENGINE_API_KEY:legacy.hermesKey||"",VOICE_API_KEY:legacy.blandKey||"",VOICE_FROM_NUMBER:legacy.blandFrom||"",MAIL_API_KEY:legacy.emailKey||"",MAIL_FROM:legacy.emailFrom||ENV_DEFAULTS.MAIL_FROM}:{}),
+      ...(saved||{})};
+    setEnv(merged);
+  })();},[]);
+  const save=async()=>{ setMsg((await sSet("env",env,false))?"Secretos guardados solo en este dispositivo. 🔐":"No se pudo guardar — reintenta."); };
+  const envText=ENV_SCHEMA.map(s=>`# ── ${s.g} ──\n`+s.vars.map(v=>`${v.k}=${env[v.k]??""}`).join("\n")).join("\n\n");
+  const copy=async()=>{ try{await navigator.clipboard.writeText(envText); setMsg(".env copiado al portapapeles ✔");}catch{ setMsg("Copia manual: abre \"Ver .env\" y selecciona el texto."); } };
+  const doImport=()=>{
+    const next={...env};
+    impText.split(/\n/).forEach(line=>{
+      const m=line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if(m&&m[1] in ENV_DEFAULTS) next[m[1]]=m[2].replace(/^["']|["']$/g,"");
+    });
+    setEnv(next); setImp(false); setImpText(""); setMsg("Variables importadas — revisa y Guarda.");
+  };
+  return (
+    <div>
+      <div className="card" style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        <button className="btn primary" style={{flex:1}} onClick={save}>💾 Guardar</button>
+        <button className="btn ghost" style={{flex:1}} onClick={copy}>📋 Copiar .env</button>
+        <button className="btn ghost" style={{flex:1}} onClick={()=>setImp(!imp)}>⬆ Importar</button>
+      </div>
+      {imp&&(
+        <div className="card" style={{marginBottom:12}}>
+          <textarea className="input mono" rows={5} placeholder={"Pega aquí tu .env\nCLAVE=valor"} value={impText} onChange={e=>setImpText(e.target.value)} style={{resize:"vertical",fontSize:11}}/>
+          <button className="btn primary" style={{width:"100%",marginTop:8}} onClick={doImport}>Importar variables</button>
+        </div>
+      )}
+      {ENV_SCHEMA.map(s=>(
+        <Section key={s.g} title={s.g}>
+          <div className="card" style={{display:"grid",gap:10}}>
+            {s.vars.map(v=>(
+              <div key={v.k}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <span className="mono" style={{fontSize:11,color:T.mango,fontWeight:700}}>{v.k}</span>
+                  <span style={{display:"flex",gap:6}}>
+                    {v.gen&&<button className="chip" onClick={()=>setEnv({...env,[v.k]:randSecret()})}>⚡ Generar</button>}
+                    {v.sec&&<button className="chip" onClick={()=>setShow({...show,[v.k]:!show[v.k]})}>{show[v.k]?"🙈":"👁"}</button>}
+                  </span>
+                </div>
+                {v.sel?(
+                  <div style={{display:"flex",gap:6}}>
+                    {v.sel.map(o=>(
+                      <button key={o} className={"chip"+(env[v.k]===o?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setEnv({...env,[v.k]:o})}>{o}</button>
+                    ))}
+                  </div>
+                ):(
+                  <input className="input mono" style={{fontSize:12}} type={v.sec&&!show[v.k]?"password":"text"}
+                    value={env[v.k]??""} placeholder={v.d||"—"} autoComplete="off"
+                    onChange={e=>setEnv({...env,[v.k]:e.target.value})}/>
+                )}
+                <div style={{fontSize:10,color:T.dim,marginTop:3}}>{v.h}</div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      ))}
+      <details className="card" style={{marginBottom:12}}>
+        <summary style={{fontSize:12,color:T.mango,cursor:"pointer",fontWeight:700}}>Ver .env completo</summary>
+        <pre className="mono" style={{fontSize:10,whiteSpace:"pre-wrap",background:T.bg,padding:10,borderRadius:10,marginTop:8}}>{envText}</pre>
+      </details>
+      {msg&&<div style={{color:T.teal,fontSize:12,textAlign:"center",marginBottom:10}}>{msg}</div>}
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
+        🔐 Los secretos se guardan únicamente en tu dispositivo (nunca en el almacenamiento compartido de los miembros).
+        Copia el .env a tu servidor: ahí es donde la salsa secreta cobra vida.
+      </div>
+    </div>
+  );
+}
+
+function AlertasAdmin(){
+  const [subs,setSubs]=useState(null);
+  const [msg,setMsg]=useState("");
+  const load=async()=>setSubs(await sGet("alertas:subs",true)||{});
+  useEffect(()=>{load();},[]);
+  const borrar=async(id)=>{ const next={...subs}; delete next[id]; await sSet("alertas:subs",next,true); setSubs(next); };
+  const copiar=async()=>{
+    const rows=Object.values(subs||{}).map(s=>`${s.nombre||"—"}, ${s.tel||"—"}, ${s.email||"—"}, [${Object.entries(s.tiros||{}).filter(([,v])=>v).map(([k])=>k).join(" ")}], ${s.voz?"voz":""}${s.voz&&s.mail?"+":""}${s.mail?"email":""}`).join("\n");
+    try{ await navigator.clipboard.writeText(rows); setMsg("Lista copiada — pégala en tu backend o en una hoja."); }catch{ setMsg("No se pudo copiar automáticamente."); }
+  };
+  const n=subs?Object.keys(subs).length:0;
+  return (
+    <div>
+      <Section title={`Suscriptores de alertas (${n})`} sub="A quién llama y escribe Hermes cuando cae el número"
+        right={<button className="chip" onClick={copiar}>📋 Copiar lista</button>}>
+        {subs&&n===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Nadie se ha inscrito todavía. Diles que abran la pestaña 🔔 Alertas.</div>}
+        <div style={{display:"grid",gap:8}}>
+          {subs&&Object.entries(subs).map(([id,s])=>(
+            <div key={id} className="card" style={{padding:"12px 14px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontWeight:700,fontSize:14}}>{s.nombre||"Sin nombre"}</span>
+                <button className="chip" style={{color:T.coral}} onClick={()=>borrar(id)}>✕</button>
+              </div>
+              <div className="mono" style={{fontSize:12,color:T.dim,marginTop:4}}>
+                {s.tel||"sin tel"} · {s.email||"sin email"}
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
+                {s.voz&&<span className="chip" style={{cursor:"default"}}>📞 voz</span>}
+                {s.mail&&<span className="chip" style={{cursor:"default"}}>✉️ email</span>}
+                {Object.entries(s.tiros||{}).filter(([,v])=>v).map(([k])=><span key={k} className="chip" style={{cursor:"default"}}>{k}</span>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      {msg&&<div style={{color:T.teal,fontSize:12,marginBottom:10}}>{msg}</div>}
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
+        Tu backend lee esta lista y dispara <b>/api/call-result</b> (voz de Hermes) y <b>/api/email-result</b>
+        de server-hermes.js cuando se publica cada tiro. En Vercel: un Cron Job cada 5 min que compara el último
+        resultado con el último avisado y llama a los inscritos del tiro correspondiente.
+      </div>
+    </div>
+  );
+}
+
+function PagosPage(){
+  const [links,setLinks]=useState({miembro:"",vip:"",paypal:"",cashtag:""});
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{ const l=await sGet("pay:links",true); if(l) setLinks(x=>({...x,...l})); })();},[]);
+  const save=async()=>{ setMsg((await sSet("pay:links",links,true))?"Links de pago publicados — ya aparecen en la página de planes. ✔":"No se pudo guardar."); };
+  return (
+    <div>
+      <Section title="Planes y precios" sub="MIEMBRO $19.99/mes · VIP CORONA $39.99/mes">
+        <div className="card" style={{display:"grid",gap:10}}>
+          <div>
+            <Label>Link de pago · MIEMBRO $19.99</Label>
+            <input className="input mono" style={{fontSize:12}} placeholder="https://buy.stripe.com/…" value={links.miembro} onChange={e=>setLinks({...links,miembro:e.target.value})}/>
+          </div>
+          <div>
+            <Label>Link de pago · VIP CORONA $39.99</Label>
+            <input className="input mono" style={{fontSize:12}} placeholder="https://buy.stripe.com/…" value={links.vip} onChange={e=>setLinks({...links,vip:e.target.value})}/>
+          </div>
+          <div>
+            <Label>PayPal.Me (link o usuario)</Label>
+            <input className="input mono" style={{fontSize:12}} placeholder="https://paypal.me/TuUsuario" value={links.paypal} onChange={e=>setLinks({...links,paypal:e.target.value.startsWith("http")||!e.target.value?e.target.value:"https://paypal.me/"+e.target.value})}/>
+          </div>
+          <div>
+            <Label>Cash App · $Cashtag</Label>
+            <input className="input mono" style={{fontSize:12}} placeholder="$TuCashtag" value={links.cashtag} onChange={e=>setLinks({...links,cashtag:e.target.value})}/>
+          </div>
+          <button className="btn primary" onClick={save}>Publicar links de pago</button>
+          {msg&&<div style={{color:T.teal,fontSize:12}}>{msg}</div>}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
+        Tres vías de cobro: <b>Stripe</b> (tarjeta, cobro recurrente automático cada mes — la mejor para suscripciones),
+        <b> PayPal.Me</b> y <b>Cash App</b> (el monto $19.99/$39.99 se añade solo al link; son pagos manuales,
+        así que verifica el comprobante cada mes antes de renovar el código). Tras el pago, envía el código desde 🎟️ Miembros
+        (etiqueta "VIP" a los de corona). Con el backend, un webhook de Stripe puede automatizarlo todo.
+      </div>
+    </div>
+  );
+}
+
+function TabAdmin(){
+  const [view,setView]=useState("miembros");
+  const [codes,setCodes]=useState(null);
+  const [label,setLabel]=useState("");
+  const [pinNew,setPinNew]=useState("");
+  const [saved,setSaved]=useState("");
+  useEffect(()=>{(async()=>{ setCodes(await sGet("members:codes",true)||{}); })();},[]);
+  const newCode=async()=>{
+    const code=Array.from({length:6},()=> "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+    const next={...codes,[code]:{label:label||"Miembro",active:true,created:Date.now(),uses:0}};
+    if(await sSet("members:codes",next,true)){ setCodes(next); setLabel(""); }
+  };
+  const toggle=async(c)=>{ const next={...codes,[c]:{...codes[c],active:!codes[c].active}}; await sSet("members:codes",next,true); setCodes(next); };
+  const remove=async(c)=>{ const next={...codes}; delete next[c]; await sSet("members:codes",next,true); setCodes(next); };
+  const changePin=async()=>{ if(pinNew.trim().length<4) return; await sSet("admin:pin",{pin:pinNew.trim(),created:Date.now()},true); setPinNew(""); setSaved("PIN actualizado."); };
+  return (
+    <div className="fade-in">
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+        <span style={{fontSize:30,filter:"drop-shadow(0 0 10px rgba(255,184,56,.7)) saturate(1.5)"}}>👑</span>
+        <div>
+          <div className="disp" style={{fontWeight:800,fontSize:19,background:"linear-gradient(135deg,#FFE9A8,#FFB838 55%,#E08C00)",WebkitBackgroundClip:"text",backgroundClip:"text",color:"transparent"}}>Panel del Dueño</div>
+          <div style={{fontSize:11,color:T.dim}}>Solo tú ves esto, corona en mano.</div>
+        </div>
+      </div>
+      <div className="scroll-x" style={{marginBottom:14}}>
+        {[["miembros","🎟️ Miembros"],["alertas","🔔 Alertas"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
+          <button key={id} className={"chip"+(view===id?" on":"")} onClick={()=>setView(id)}>{lab}</button>
+        ))}
+      </div>
+      {view==="env"&&<EnvPage/>}
+      {view==="pagos"&&<PagosPage/>}
+      {view==="alertas"&&<AlertasAdmin/>}
+      {view==="miembros"&&(<>
+      <Section title="Códigos de miembros" sub="Crea, desactiva o elimina el acceso — solo tú lo controlas">
+        <div className="card" style={{marginBottom:10}}>
+          <div style={{display:"flex",gap:8}}>
+            <input className="input" placeholder="Etiqueta (ej: Tío Pepe)" value={label} onChange={e=>setLabel(e.target.value)}/>
+            <button className="btn primary" onClick={newCode}>+ Código</button>
+          </div>
+        </div>
+        <div style={{display:"grid",gap:8}}>
+          {codes&&Object.entries(codes).map(([c,info])=>(
+            <div key={c} className="card" style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+              <span className="mono" style={{fontWeight:700,letterSpacing:"0.12em",color:info.active?T.teal:T.dim}}>{c}</span>
+              <span style={{fontSize:12,color:T.dim,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{info.label} · {info.uses||0} usos</span>
+              <button className="chip" onClick={()=>toggle(c)}>{info.active?"Activo":"Pausado"}</button>
+              <button className="chip" style={{color:T.coral}} onClick={()=>remove(c)}>✕</button>
+            </div>
+          ))}
+          {codes&&Object.keys(codes).length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no hay códigos. Crea el primero y compártelo junto al enlace de la app.</div>}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
+        La app funciona en cualquier dispositivo — iPhone, Android, tablet o computadora — con el mismo enlace publicado + código.
+      </div>
+      </>)}
+      {view==="seguridad"&&(<>
+      <Section title="Seguridad" sub="Cambiar PIN de administrador">
+        <div className="card" style={{display:"flex",gap:8}}>
+          <input className="input" type="password" placeholder="Nuevo PIN" value={pinNew} onChange={e=>setPinNew(e.target.value)}/>
+          <button className="btn ghost" onClick={changePin}>Cambiar</button>
+        </div>
+      </Section>
+      {saved&&<div style={{color:T.teal,fontSize:12,textAlign:"center"}}>{saved}</div>}
+      <div style={{fontSize:11,color:T.dim,marginTop:10,lineHeight:1.6}}>
+        Para compartir: publica esta app con el botón <b>Compartir/Publicar</b> del artefacto y entrega el enlace + un código.
+        Esta puerta es un control ligero de comunidad; para producción real usa el backend incluido con autenticación de verdad.
+      </div>
+      </>)}
+    </div>
+  );
+}
+
+/* ============================ APP (con puerta de miembros) ============================ */
+function App(){
+  const [auth,setAuth]=useState(null); // null=gate, {admin:bool}
+  const lock=async()=>{ try{await window.storage.delete("session");}catch{} setAuth(null); };
+  if(auth===null) return <Gate onEnter={(admin)=>setAuth({admin})}/>;
+  return <MainApp admin={auth.admin} onLock={lock}/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
