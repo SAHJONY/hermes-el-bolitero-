@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#0B141A"/>
+<title>HERMES EL BOLITERO</title>
+<style>
+html,body{margin:0;background:#0B141A;color:#F4EFE4;font-family:system-ui,sans-serif}
+#root{min-height:100vh}
+#boot{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px}
+#boot .ball{width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff,#cfd9dd 70%);animation:b 1s ease-in-out infinite alternate}
+@keyframes b{from{transform:translateY(0)}to{transform:translateY(-14px)}}
+#booterr{display:none;padding:22px;color:#FF8A8A;white-space:pre-wrap;font-size:13px}
+</style>
+</head>
+<body>
+<div id="root">
+<div id="boot"><div class="ball"></div><div style="color:#FFB838;font-weight:700;letter-spacing:.18em">HERMES EL BOLITERO</div><div style="color:#8AA0AB;font-size:13px">cargando la bola…</div></div>
+<div id="booterr"></div>
+</div>
+<script>
+function bootErr(m){var e=document.getElementById("booterr"),b=document.getElementById("boot");if(b)b.style.display="none";e.style.display="block";e.textContent="No pude arrancar:\n\n"+m+"\n\nRefresca; si sigue, copia esto al administrador.";}
+window.addEventListener("error",function(e){bootErr(e.message||e.type)},true);
+window.__HB_PROD=true;
+(function(){var K=function(k,s){return (s?"shared":"local")+":"+k};
+window.storage={get:async function(k,s){var v=localStorage.getItem(K(k,!!s));if(v===null)throw new Error("nf");return{key:k,value:v,shared:!!s}},
+set:async function(k,v,s){localStorage.setItem(K(k,!!s),v);return{key:k,value:v,shared:!!s}},
+"delete":async function(k,s){localStorage.removeItem(K(k,!!s));return{key:k,deleted:true,shared:!!s}},
+list:async function(p,s){p=p||"";var ks=Object.keys(localStorage).filter(function(x){return x.indexOf(K(p,!!s))===0}).map(function(x){return x.split(":").slice(1).join(":")});return{keys:ks,prefix:p,shared:!!s}}};})();
+</script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script>
+var V=Date.now();
+Promise.all(["/app/p1.txt","/app/p2.txt","/app/p3.txt","/app/p4.txt"].map(function(u){
+  return fetch(u+"?v="+V).then(function(r){if(!r.ok)throw new Error("Falta "+u+" ("+r.status+")");return r.text();});
+})).then(function(parts){
+  var code=parts.join("\n");
+  var out=Babel.transform(code,{presets:["react"],filename:"app.jsx"}).code;
+  (0,eval)(out);
+}).catch(function(e){bootErr(e.message||String(e))});
+</script>
+</body>
+</html>
