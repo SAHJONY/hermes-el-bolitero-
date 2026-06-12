@@ -1,0 +1,258 @@
+function TabAlertas(){
+  const TIROS=["Mañana","Mediodía","Tarde","Noche"];
+  const [f,setF]=useState({nombre:"",tel:"",email:"",voz:true,mail:true,tiros:{Mañana:false,"Mediodía":true,Tarde:false,Noche:true},activo:true});
+  const [estado,setEstado]=useState("");
+  const [yaInscrito,setYa]=useState(false);
+  useEffect(()=>{(async()=>{
+    const mine=await sGet("alerta:mine",false);
+    if(mine){ setF(x=>({...x,...mine.data})); setYa(true); }
+  })();},[]);
+  const guardar=async()=>{
+    if(!f.tel.trim()&&!f.email.trim()){ setEstado("Pon al menos un teléfono o un email."); return; }
+    if(f.voz&&!f.tel.trim()){ setEstado("Para la llamada de Hermes hace falta tu teléfono."); return; }
+    let mine=await sGet("alerta:mine",false);
+    const id=mine?.id||("s"+Math.random().toString(16).slice(2,10));
+    const data={...f,ts:Date.now()};
+    const subs=await sGet("alertas:subs",true)||{};
+    subs[id]=data;
+    const ok=await sSet("alertas:subs",subs,true);
+    await sSet("alerta:mine",{id,data},false);
+    setYa(true);
+    setEstado(ok?"✔ Inscrito. Cuando caiga el número, Hermes te avisa.":"No se pudo guardar — intenta de nuevo.");
+  };
+  const baja=async()=>{
+    const mine=await sGet("alerta:mine",false);
+    if(mine){ const subs=await sGet("alertas:subs",true)||{}; delete subs[mine.id]; await sSet("alertas:subs",subs,true); }
+    try{ await window.storage.delete("alerta:mine"); }catch{}
+    setYa(false); setEstado("Te diste de baja de las alertas.");
+  };
+  return (
+    <div className="fade-in">
+      <Section title="Alertas de Hermes 🔔" sub="Cuando caiga el número, Hermes te llama con su voz o te escribe al correo">
+        <div className="card" style={{display:"grid",gap:10}}>
+          <input className="input" placeholder="Tu nombre" value={f.nombre} onChange={e=>setF({...f,nombre:e.target.value})}/>
+          <input className="input mono" placeholder="Teléfono (+1 786 …)" inputMode="tel" value={f.tel} onChange={e=>setF({...f,tel:e.target.value})}/>
+          <input className="input mono" placeholder="Email" inputMode="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
+          <div>
+            <Label>¿Cómo te aviso?</Label>
+            <div style={{display:"flex",gap:8}}>
+              <button className={"chip"+(f.voz?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,voz:!f.voz})}>📞 Llamada con la voz de Hermes</button>
+              <button className={"chip"+(f.mail?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,mail:!f.mail})}>✉️ Email</button>
+            </div>
+          </div>
+          <div>
+            <Label>¿Qué tiros?</Label>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {TIROS.map(t=>(
+                <button key={t} className={"chip"+(f.tiros[t]?" on":"")} onClick={()=>setF({...f,tiros:{...f.tiros,[t]:!f.tiros[t]}})}>{t}</button>
+              ))}
+            </div>
+          </div>
+          <button className="btn primary" onClick={guardar}>{yaInscrito?"Actualizar mis alertas":"🔔 Quiero que Hermes me avise"}</button>
+          {yaInscrito&&<button className="btn ghost" onClick={baja}>Darme de baja</button>}
+          {estado&&<div style={{fontSize:12,color:estado.startsWith("✔")?T.teal:T.coral}}>{estado}</div>}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
+        Tu contacto se guarda en el registro de alertas de la comunidad para que el dueño y su sistema
+        puedan avisarte; no se usa para otra cosa y puedes borrarte cuando quieras. Las alertas son
+        informativas — Hermes canta el número, nunca gestiona jugadas.
+      </div>
+    </div>
+  );
+}
+
+/* ============================ SHELL ============================ */
+const TABS=[
+  {id:"hoy",icon:"🎱",label:"Hoy"},
+  {id:"hist",icon:"🗓️",label:"Historial"},
+  {id:"stats",icon:"📊",label:"Stats"},
+  {id:"charada",icon:"🌙",label:"Charada"},
+  {id:"ia",icon:"⚡",label:"Hermes"},
+  {id:"studio",icon:"🎨",label:"Studio"},
+  {id:"alertas",icon:"🔔",label:"Alertas"},
+  {id:"foro",icon:"💬",label:"Foro"},
+];
+function MainApp({admin,onLock}){
+  const [tab,setTab]=useState("hoy");
+  const [lot,setLot]=useState("labolita");
+  const tabs=admin?[...TABS,{id:"admin",icon:"👑",label:"Admin"}]:TABS;
+  return (
+    <div className="bol-app">
+      <style>{FONT_CSS}</style>
+      <div className="wrap" style={{maxWidth:520,margin:"0 auto",padding:"18px 16px 90px"}}>
+        <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <Logo size={40}/>
+            <Wordmark size={0.74}/>
+          </div>
+          <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?"👑 Admin":"🔒 Salir"}</button>
+        </header>
+        {tab==="hoy"&&<TabHoy lot={lot} setLot={setLot}/>}
+        {tab==="hist"&&<TabHistorial lot={lot}/>}
+        {tab==="stats"&&<TabStats lot={lot}/>}
+        {tab==="charada"&&<TabCharada/>}
+        {tab==="ia"&&<TabIA lot={lot}/>}
+        {tab==="studio"&&<TabStudio lot={lot}/>}
+        {tab==="alertas"&&<TabAlertas/>}
+        {tab==="foro"&&<TabForo/>}
+        {tab==="admin"&&admin&&<TabAdmin/>}
+        <footer style={{marginTop:26,fontSize:10,color:T.dim,textAlign:"center",lineHeight:1.6}}>
+          La Bolita IA es una app informativa y de entretenimiento. No vende boletos, no acepta apuestas
+          ni garantiza resultados. Si el juego deja de ser un juego, busca ayuda: 1-800-GAMBLER.
+        </footer>
+      </div>
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(11,20,26,.92)",backdropFilter:"blur(12px)",borderTop:`1px solid ${T.line}`}}>
+        <div style={{maxWidth:520,margin:"0 auto",display:"flex"}}>
+          {tabs.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{
+              flex:1,background:"none",border:"none",cursor:"pointer",padding:"10px 0 14px",
+              color:tab===t.id?T.mango:T.dim,fontFamily:"inherit"
+            }}>
+              <div style={t.id==="admin"?{fontSize:18,filter:"drop-shadow(0 0 6px rgba(255,184,56,.8)) saturate(1.4)"}:{fontSize:18}}>{t.icon}</div>
+              <div style={{fontSize:9,fontWeight:600,marginTop:2}}>{t.label}</div>
+            </button>
+          ))}
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+/* ============================ WORDMARK ============================ */
+function FlagChip({h=14}){
+  return (
+    <svg width={h*1.7} height={h} viewBox="0 0 60 32" style={{borderRadius:2,boxShadow:"0 1px 4px rgba(0,0,0,.5)",flexShrink:0}}>
+      <rect width="60" height="32" fill="#F7F2E6"/>
+      <rect y="0" width="60" height="6.4" fill="#0A3D91"/>
+      <rect y="12.8" width="60" height="6.4" fill="#0A3D91"/>
+      <rect y="25.6" width="60" height="6.4" fill="#0A3D91"/>
+      <path d="M0 0 L26 16 L0 32 Z" fill="#CE2026"/>
+      <polygon points="10,9.8 11.5,14 15.9,14.1 12.4,16.8 13.6,21 10,18.5 6.4,21 7.6,16.8 4.1,14.1 8.5,14" fill="#F7F2E6"/>
+    </svg>
+  );
+}
+function Wordmark({size=1, center=false}){
+  return (
+    <div className="disp" style={{textAlign:center?"center":"left",lineHeight:1}}>
+      <div style={{display:"flex",alignItems:"center",gap:8*size,justifyContent:center?"center":"flex-start"}}>
+        <div className="flag-text" style={{fontWeight:800,fontSize:34*size,letterSpacing:"0.03em"}}>HERMES</div>
+        <FlagChip h={13*size}/>
+      </div>
+      <div style={{fontWeight:800,fontSize:12.5*size,letterSpacing:"0.41em",color:T.mango,marginTop:3,paddingLeft:2}}>EL&nbsp;BOLITERO</div>
+    </div>
+  );
+}
+
+/* ============================ LOGO (bandera cubana) ============================ */
+function Logo({size=40}){
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="La Bolita IA">
+      <defs>
+        <radialGradient id="gloss" cx="32%" cy="26%" r="80%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95"/>
+          <stop offset="45%" stopColor="#ffffff" stopOpacity="0.12"/>
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.28"/>
+        </radialGradient>
+        <clipPath id="ballClip"><circle cx="50" cy="50" r="46"/></clipPath>
+      </defs>
+      <circle cx="50" cy="50" r="48" fill="#0E1B22"/>
+      <g clipPath="url(#ballClip)">
+        {/* 5 franjas cubanas */}
+        <rect x="0" y="4"    width="100" height="18.4" fill="#0A3D91"/>
+        <rect x="0" y="22.4" width="100" height="18.4" fill="#F4EFE4"/>
+        <rect x="0" y="40.8" width="100" height="18.4" fill="#0A3D91"/>
+        <rect x="0" y="59.2" width="100" height="18.4" fill="#F4EFE4"/>
+        <rect x="0" y="77.6" width="100" height="18.4" fill="#0A3D91"/>
+        {/* triángulo rojo */}
+        <path d="M2 4 L58 50 L2 96 Z" fill="#CE2026"/>
+        {/* estrella */}
+        <path d="M22 50 l4.7 9.5 10.5 1.5 -7.6 7.4 1.8 10.4 -9.4 -4.9 -9.4 4.9 1.8 -10.4 -7.6 -7.4 10.5 -1.5 Z"
+              transform="translate(2,-13.5) scale(0.78)" fill="#F4EFE4"/>
+        {/* círculo del número */}
+        <circle cx="66" cy="50" r="22" fill="#F4EFE4"/>
+        <text x="66" y="59.5" textAnchor="middle" fontFamily="Bricolage Grotesque, sans-serif"
+              fontWeight="800" fontSize="30" fill="#14242E">7</text>
+        <circle cx="50" cy="50" r="46" fill="url(#gloss)"/>
+      </g>
+      <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,184,56,.55)" strokeWidth="2.5"/>
+    </svg>
+  );
+}
+
+/* ============================ PLANES ============================ */
+const PLANES=[
+  {id:"miembro",nombre:"MIEMBRO",precio:"$19.99",monto:"19.99",per:"/mes",gold:false,feats:[
+    "Señal EN VIVO · 4 tiros diarios",
+    "Tableros Florida y Chicago en vivo",
+    "Estadísticas: calientes, fríos y atrasados",
+    "Charada 1–100 + intérprete de sueños IA",
+    "Foro de la comunidad",
+  ]},
+  {id:"vip",nombre:"VIP CORONA 👑",precio:"$39.99",monto:"39.99",per:"/mes",gold:true,feats:[
+    "Todo lo de Miembro",
+    "Hermes ilimitado — tu agente personal",
+    "Estudio de arte IA de tu número",
+    "Alerta por llamada y email cuando cae el tiro",
+    "Acceso prioritario a nuevas funciones",
+  ]},
+];
+function Planes({payLinks,onBack}){
+  return (
+    <div className="bol-app" style={{minHeight:"100vh",padding:"24px 16px 40px"}}>
+      <style>{FONT_CSS}</style>
+      <div style={{maxWidth:520,margin:"0 auto"}}>
+        <button className="chip" onClick={onBack} style={{marginBottom:16}}>← Volver</button>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><Wordmark size={1} center/></div>
+        <div style={{textAlign:"center",fontSize:13,color:T.dim,marginBottom:20}}>Elige tu plan y recibe tu código de acceso.</div>
+        <div style={{display:"grid",gap:14}}>
+          {PLANES.map(p=>(
+            <div key={p.id} className="card" style={p.gold?{
+              border:"1.5px solid #FFD978",
+              background:`linear-gradient(180deg, rgba(255,184,56,.12), ${T.surface} 55%)`,
+              boxShadow:"0 0 28px rgba(255,184,56,.18)"
+            }:{}}>
+              {p.gold&&<div className="mono" style={{fontSize:10,letterSpacing:"0.2em",color:"#FFD978",marginBottom:6}}>★ EL MÁS PEDIDO</div>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+                <div className="disp" style={{fontWeight:800,fontSize:18,color:p.gold?"#FFD978":T.ink}}>{p.nombre}</div>
+                <div><span className="disp" style={{fontWeight:800,fontSize:30,color:p.gold?T.mango:T.ink}}>{p.precio}</span><span style={{fontSize:12,color:T.dim}}>{p.per}</span></div>
+              </div>
+              <ul style={{margin:"12px 0 14px",padding:0,listStyle:"none",display:"grid",gap:7}}>
+                {p.feats.map((f,i)=>(
+                  <li key={i} style={{fontSize:13,display:"flex",gap:8}}>
+                    <span style={{color:p.gold?"#FFD978":T.teal}}>✓</span>{f}
+                  </li>
+                ))}
+              </ul>
+              {(()=>{
+                const stripe=payLinks?.[p.id];
+                const pp=payLinks?.paypal? (payLinks.paypal.replace(/\/+$/,"")+"/"+p.monto+"USD") : null;
+                const ca=payLinks?.cashtag? ("https://cash.app/$"+payLinks.cashtag.replace(/^\$/,"")+"/"+p.monto) : null;
+                const goldStyle=p.gold?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604"}:{};
+                if(!stripe&&!pp&&!ca) return (
+                  <div className="card" style={{textAlign:"center",fontSize:12,color:T.dim,background:T.bg}}>
+                    Pídele tu código al administrador para activar este plan.
+                  </div>
+                );
+                return (
+                  <div style={{display:"grid",gap:8}}>
+                    {stripe&&<a href={stripe} target="_blank" rel="noreferrer" className="btn primary" style={{display:"block",textAlign:"center",textDecoration:"none",...goldStyle}}>💳 Tarjeta · {p.precio}/mes</a>}
+                    <div style={{display:"flex",gap:8}}>
+                      {pp&&<a href={pp} target="_blank" rel="noreferrer" className="btn ghost" style={{flex:1,textAlign:"center",textDecoration:"none",borderColor:"#3B7BBF",color:"#7FB4E8"}}>PayPal</a>}
+                      {ca&&<a href={ca} target="_blank" rel="noreferrer" className="btn ghost" style={{flex:1,textAlign:"center",textDecoration:"none",borderColor:"#00C244",color:"#3FE873"}}>Cash App</a>}
+                    </div>
+                    {(pp||ca)&&<div style={{fontSize:10,color:T.dim,textAlign:"center"}}>Con PayPal o Cash App: envía {p.precio} y manda tu comprobante al admin para recibir tu código.</div>}
+                  </div>
+                );
+              })()}
+            </div>
+          ))}
+        </div>
+        <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:18,lineHeight:1.6}}>
+          Tu suscripción paga la señal en vivo, la comunidad y la IA. No es una casa de apuestas:
+          no vendemos boletos ni aceptamos jugadas. Tras el pago recibirás tu código de acceso.
+        </div>
+      </div>
+    </div>
+  );
+}
