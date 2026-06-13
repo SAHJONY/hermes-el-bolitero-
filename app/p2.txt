@@ -1,0 +1,362 @@
+function TabHistorial({lot}){
+  const lottery=LOTTERIES.find(l=>l.id===lot);
+  const [mode,setMode]=useState("30");
+  const [yearsAgo,setYearsAgo]=useState(1);
+  const [sess,setSess]=useState(lottery.sessions[0]);
+  const today=new Date();
+  if(mode==="hoy"){
+    const d=new Date(today); d.setFullYear(d.getFullYear()-yearsAgo);
+    const res=resultFor(lot,dateKey(d),sess);
+    return (
+      <div className="fade-in">
+        <ModeChips mode={mode} setMode={setMode}/>
+        <Section title="Un día como hoy" sub={fmtDate(d)}>
+          <div className="scroll-x" style={{marginBottom:10}}>
+            {[1,2,3,5,10,20].map(y=>(
+              <button key={y} className={"chip"+(yearsAgo===y?" on":"")} onClick={()=>setYearsAgo(y)}>hace {y} {y===1?"año":"años"}</button>
+            ))}
+          </div>
+          <div className="scroll-x" style={{marginBottom:10}}>
+            {lottery.sessions.map(s=><button key={s} className={"chip"+(sess===s?" on":"")} onClick={()=>setSess(s)}>{s}</button>)}
+          </div>
+          <FijoHero res={res} session={sess}/>
+          <ResultDetail res={res}/>
+        </Section>
+      </div>
+    );
+  }
+  const days=pastDays(30);
+  return (
+    <div className="fade-in">
+      <ModeChips mode={mode} setMode={setMode}/>
+      <Section title="Últimos 30 días" sub={lottery.name}>
+        <div style={{display:"grid",gap:8}}>
+          {days.map(d=>{
+            const dk=dateKey(d);
+            return (
+              <div key={dk} className="card" style={{padding:"12px 14px"}}>
+                <div style={{fontSize:11,color:T.dim,marginBottom:8,textTransform:"capitalize"}}>{fmtDate(d)}</div>
+                <div style={{display:"grid",gap:6}}>
+                  {lottery.sessions.map(s=>{
+                    const r=resultFor(lot,dk,s);
+                    return (
+                      <div key={s} style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:11,color:T.dim,width:62}}>{s}</span>
+                        <span className="mono" style={{fontWeight:700,fontSize:16}}>
+                          <span style={{color:"rgba(244,239,228,.25)"}}>{r.fijo3[0]}</span>{r.fijo2}
+                        </span>
+                        <span className="mono" style={{color:T.dim,fontSize:13}}>· {r.corridos.join("  ")}</span>
+                        <span style={{marginLeft:"auto",fontSize:11,color:T.mango}}>{charadaOf(parseInt(r.fijo2,10))}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+    </div>
+  );
+}
+const ModeChips=({mode,setMode})=>(
+  <div className="scroll-x" style={{marginBottom:14}}>
+    <button className={"chip"+(mode==="30"?" on":"")} onClick={()=>setMode("30")}>Últimos 30</button>
+    <button className={"chip"+(mode==="hoy"?" on":"")} onClick={()=>setMode("hoy")}>Un día como hoy</button>
+  </div>
+);
+
+/* ============================ TAB: STATS ============================ */
+function buildStats(lot){
+  const lottery=LOTTERIES.find(l=>l.id===lot);
+  const freq=new Array(100).fill(0); const lastSeen=new Array(100).fill(9999);
+  const days=pastDays(120);
+  days.forEach((d,idx)=>{
+    const dk=dateKey(d);
+    lottery.sessions.forEach(s=>{
+      const r=resultFor(lot,dk,s);
+      [parseInt(r.fijo2,10),...r.corridos.map(c=>parseInt(c,10))].forEach(n=>{
+        freq[n]++; if(idx<lastSeen[n]) lastSeen[n]=idx;
+      });
+    });
+  });
+  const all=Array.from({length:100},(_,n)=>({n,f:freq[n],days:lastSeen[n]===9999?120:lastSeen[n]}));
+  return {
+    hot:[...all].sort((a,b)=>b.f-a.f).slice(0,8),
+    cold:[...all].sort((a,b)=>a.f-b.f).slice(0,8),
+    late:[...all].sort((a,b)=>b.days-a.days).slice(0,8),
+    all,
+  };
+}
+function TabStats({lot}){
+  const stats=useMemo(()=>buildStats(lot),[lot]);
+  const chart=stats.hot.map(x=>({name:String(x.n).padStart(2,"0"),v:x.f}));
+  return (
+    <div className="fade-in">
+      <Section title="Bola caliente" sub="Más frecuentes · últimos 120 días (fijo + corridos)">
+        <div className="card" style={{padding:"14px 6px 4px"}}>
+          <ResponsiveContainer width="100%" height={170}>
+            <BarChart data={chart}>
+              <XAxis dataKey="name" tick={{fill:T.dim,fontSize:11,fontFamily:"IBM Plex Mono"}} axisLine={false} tickLine={false}/>
+              <YAxis hide/>
+              <Tooltip cursor={{fill:"rgba(255,184,56,.08)"}} contentStyle={{background:T.raise,border:`1px solid ${T.line}`,borderRadius:10,color:T.ink}}/>
+              <Bar dataKey="v" radius={[6,6,0,0]}>
+                {chart.map((_,i)=><Cell key={i} fill={i<3?T.mango:"#3A5260"}/>)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Section>
+      <BallRow title="Atrasados" sub="Días sin salir" items={stats.late} fmt={x=>`${x.days}d`} hot/>
+      <BallRow title="Bola fría" sub="Menos frecuentes" items={stats.cold} fmt={x=>`${x.f}×`}/>
+      <div style={{fontSize:11,color:T.dim,textAlign:"center",marginTop:4}}>
+        La estadística describe el pasado; cada tiro es independiente y nada garantiza un resultado.
+      </div>
+    </div>
+  );
+}
+const BallRow=({title,sub,items,fmt,hot})=>(
+  <Section title={title} sub={sub}>
+    <div className="scroll-x">
+      {items.map(x=>(
+        <div key={x.n} style={{textAlign:"center",minWidth:56}}>
+          <div className={"ball"+(hot?" hot":"")} style={{margin:"0 auto"}}>{String(x.n).padStart(2,"0")}</div>
+          <div className="mono" style={{fontSize:10,color:T.dim,marginTop:5}}>{fmt(x)}</div>
+          <div style={{fontSize:9,color:T.dim,marginTop:1,maxWidth:60,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{charadaOf(x.n)}</div>
+        </div>
+      ))}
+    </div>
+  </Section>
+);
+
+/* ============================ TAB: CHARADA ============================ */
+function TabCharada(){
+  const [q,setQ]=useState("");
+  const [dream,setDream]=useState("");
+  const [interp,setInterp]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const list=Object.entries(CHARADA).filter(([n,name])=>
+    !q || name.toLowerCase().includes(q.toLowerCase()) || n.includes(q)
+  );
+  const interpret=async()=>{
+    if(!dream.trim()||busy) return;
+    setBusy(true); setInterp(null);
+    try{
+      const data=await askClaude([{role:"user",content:
+        `Charada cubana (número→significado): ${JSON.stringify(CHARADA)}.\n`+
+        `El usuario soñó o vio: "${dream}".\n`+
+        `Responde SOLO JSON: {"numeros":[{"n":<1-100>,"nombre":"...","razon":"frase corta"}]} con 3 a 5 números de la charada que mejor conecten con los símbolos del relato. Sin texto extra.`}],
+        {maxTokens:600});
+      const j=parseJsonLoose(textOf(data));
+      setInterp(j?.numeros||[]);
+    }catch{ setInterp("err"); }
+    setBusy(false);
+  };
+  return (
+    <div className="fade-in">
+      <Section title="Intérprete de sueños IA" sub="Cuéntale tu sueño y la IA lo traduce a la charada">
+        <div className="card">
+          <textarea className="input" rows={3} placeholder="Anoche soñé con un caballo blanco cruzando un río…" value={dream} onChange={e=>setDream(e.target.value)} style={{resize:"none",marginBottom:10}}/>
+          <button className="btn primary" style={{width:"100%"}} onClick={interpret} disabled={busy}>
+            {busy?"Interpretando…":"Interpretar con IA"}
+          </button>
+          {interp==="err" && <div style={{color:T.coral,fontSize:12,marginTop:10}}>No se pudo interpretar ahora. Intenta de nuevo.</div>}
+          {Array.isArray(interp) && (
+            <div style={{display:"grid",gap:8,marginTop:12}}>
+              {interp.map((x,i)=>(
+                <div key={i} style={{display:"flex",gap:12,alignItems:"center"}}>
+                  <div className="ball hot">{String(x.n%100).padStart(2,"0")}</div>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:14}}>{x.nombre}</div>
+                    <div style={{fontSize:12,color:T.dim}}>{x.razon}</div>
+                  </div>
+                </div>
+              ))}
+              <div style={{fontSize:10,color:T.dim}}>Interpretación cultural, solo por diversión.</div>
+            </div>
+          )}
+        </div>
+      </Section>
+      <Section title="Charada 1–100" right={<span style={{fontSize:11,color:T.dim}}>{list.length}</span>}>
+        <input className="input" placeholder="Buscar: caballo, 17, luna…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:10}}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {list.map(([n,name])=>(
+            <div key={n} className="card" style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+              <span className="mono" style={{color:T.mango,fontWeight:700,fontSize:15}}>{String(n).padStart(2,"0")}</span>
+              <span style={{fontSize:13}}>{name}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/* ============================ TAB: AGENTES IA ============================ */
+function aiContext(lot){
+  const lottery=LOTTERIES.find(l=>l.id===lot);
+  const dk=dateKey(new Date());
+  const lines=lottery.sessions.map(s=>{
+    const r=resultFor(lot,dk,s);
+    return `${s}: fijo ${r.fijo3} (charada ${charadaOf(parseInt(r.fijo2,10))}), corridos ${r.corridos.join(",")}`;
+  }).join(" | ");
+  const st=buildStats(lot);
+  return `Lotería ${lottery.name}, hoy ${dk}. ${lines}. Calientes: ${st.hot.slice(0,5).map(x=>x.n).join(",")}. Atrasados: ${st.late.slice(0,5).map(x=>`${x.n}(${x.days}d)`).join(",")}.`;
+}
+function TabIA({lot}){
+  const [msgs,setMsgs]=useState([{role:"assistant",text:"¡Asere, qué bolá! ⚡ Soy Hermes, el cerebro de La Bolita IA. Pregúntame por los números de hoy, la charada, estadísticas o pídeme la adivinanza del día."}]);
+  const [input,setInput]=useState("");
+  const [busy,setBusy]=useState(false);
+  const endRef=useRef(null);
+  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs]);
+  const send=async(text)=>{
+    const t=(text??input).trim(); if(!t||busy) return;
+    const hist=[...msgs,{role:"user",text:t}];
+    setMsgs(hist); setInput(""); setBusy(true);
+    try{
+      const data=await askClaude(
+        hist.slice(-10).map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.text})),
+        {system:
+          `Eres "Hermes", el agente-cerebro IA de una app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca aceptas ni gestionas apuestas, nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot)}. Charada disponible 1-100. Responde en español, máximo ~120 palabras.`,
+          maxTokens:500});
+      setMsgs(m=>[...m,{role:"assistant",text:textOf(data)||"…"}]);
+    }catch{
+      setMsgs(m=>[...m,{role:"assistant",text:"Se me fue la señal 📡 — intenta otra vez."}]);
+    }
+    setBusy(false);
+  };
+  const quick=["¿Qué salió hoy?","Adivinanza del día","¿Qué número está más atrasado?","Significado del 17"];
+  return (
+    <div className="fade-in" style={{display:"flex",flexDirection:"column",height:"calc(100vh - 190px)"}}>
+      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:10,paddingBottom:10}}>
+        {msgs.map((m,i)=>(
+          <div key={i} style={{
+            alignSelf:m.role==="user"?"flex-end":"flex-start", maxWidth:"85%",
+            background:m.role==="user"?T.mango:T.surface, color:m.role==="user"?"#1A1206":T.ink,
+            border:m.role==="user"?"none":`1px solid ${T.line}`,
+            borderRadius:16, padding:"10px 14px", fontSize:14, lineHeight:1.5, whiteSpace:"pre-wrap"
+          }}>{m.text}</div>
+        ))}
+        {busy && <div style={{color:T.dim,fontSize:13}}>Hermes está escribiendo…</div>}
+        <div ref={endRef}/>
+      </div>
+      <div className="scroll-x" style={{margin:"6px 0"}}>
+        {quick.map(q=><button key={q} className="chip" onClick={()=>send(q)}>{q}</button>)}
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <input className="input" placeholder="Escríbele a Hermes…" value={input}
+          onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()}/>
+        <button className="btn primary" onClick={()=>send()} disabled={busy}>➤</button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ TAB: ESTUDIO HERMES ============================ */
+function TabStudio({lot}){
+  const dk=dateKey(new Date());
+  const r=resultFor(lot,dk,LOTTERIES.find(l=>l.id===lot).sessions[0]);
+  const n=parseInt(r.fijo2,10); const sym=charadaOf(n);
+  const [prompt,setPrompt]=useState(`Estampa cubana vintage del número ${n===0?100:n}, "${sym}", estilo cartel de lotería habanera, dorado y azul noche`);
+  const [busy,setBusy]=useState(false);
+  const [out,setOut]=useState(null);
+  const [log,setLog]=useState("");
+  const generate=async()=>{
+    if(busy) return;
+    setBusy(true); setOut(null); setLog("Hermes está pintando tu número…");
+    try{
+      const data=await askClaude(
+        [{role:"user",content:`Usa la herramienta de Higgsfield para generar UNA imagen (modelo nano_banana_pro, aspect_ratio 1:1, count 1) con este prompt: "${prompt}". Cuando termine, responde con la URL de la imagen.`}],
+        {mcp:true, maxTokens:1500});
+      const url=firstUrlIn(data);
+      const tr=toolResultsOf(data);
+      setLog(tr.length?"Listo. Arte exclusivo de Hermes ✔":textOf(data).slice(0,200));
+      if(url) setOut(url);
+      else if(!tr.length) setLog("El estudio está descansando ahora mismo. El dueño puede reactivarlo desde su panel.");
+    }catch(e){
+      setLog("Error de conexión con el estudio IA. Intenta de nuevo.");
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="fade-in">
+      <Section title="Estudio Hermes" sub={`Arte del día — la charada de hoy es ${n===0?100:n}: ${sym}`}>
+        <div className="card">
+          <textarea className="input" rows={3} value={prompt} onChange={e=>setPrompt(e.target.value)} style={{resize:"none",marginBottom:10}}/>
+          <button className="btn primary" style={{width:"100%"}} onClick={generate} disabled={busy}>
+            {busy?"Hermes está creando…":"✨ Generar arte de mi número"}
+          </button>
+          {log && <div style={{fontSize:11,color:T.dim,marginTop:10}}>{log}</div>}
+          {out && (
+            <div style={{marginTop:12}}>
+              <img src={out} alt="Arte generado" style={{width:"100%",borderRadius:14,border:`1px solid ${T.line}`}}
+                   onError={e=>{e.target.style.display="none";}}/>
+              <a href={out} target="_blank" rel="noreferrer" style={{display:"block",marginTop:8,fontSize:12,color:T.teal,wordBreak:"break-all"}}>{out}</a>
+            </div>
+          )}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim}}>
+        Arte exclusivo del estudio de Hermes para compartir tu número cada día.
+      </div>
+    </div>
+  );
+}
+
+/* ============================ TAB: FORO (storage compartido) ============================ */
+function TabForo(){
+  const dk=dateKey(new Date());
+  const KEY=`foro:${dk}`;
+  const [items,setItems]=useState(null);
+  const [text,setText]=useState("");
+  const [alias,setAlias]=useState("");
+  const [busy,setBusy]=useState(false);
+  useEffect(()=>{(async()=>{
+    try{const a=await window.storage.get("alias"); setAlias(a?.value||"");}catch{ setAlias(""); }
+    try{const r=await window.storage.get(KEY,true); setItems(JSON.parse(r.value));}
+    catch{ setItems([]); }
+  })();},[]);
+  const post=async()=>{
+    const t=text.trim(); if(!t||busy) return;
+    setBusy(true);
+    let name=alias;
+    if(!name){ name="Anónimo-"+Math.random().toString(16).slice(2,8);
+      try{await window.storage.set("alias",name);}catch{} setAlias(name); }
+    const next=[{u:name,t,ts:Date.now(),up:0},...(items||[])].slice(0,200);
+    try{ await window.storage.set(KEY,JSON.stringify(next),true); setItems(next); setText(""); }
+    catch{ /* keep text so the user can retry */ }
+    setBusy(false);
+  };
+  const vote=async(i)=>{
+    const next=items.map((x,idx)=>idx===i?{...x,up:(x.up||0)+1}:x);
+    setItems(next);
+    try{ await window.storage.set(KEY,JSON.stringify(next),true);}catch{}
+  };
+  return (
+    <div className="fade-in">
+      <Section title="Foro del día" sub="Comparte tu criterio con la comunidad · visible para todos">
+        <div className="card" style={{marginBottom:12}}>
+          <textarea className="input" rows={2} placeholder="Mi criterio para la noche: 17 y 65, por la luna…" value={text} onChange={e=>setText(e.target.value)} style={{resize:"none",marginBottom:10}}/>
+          <button className="btn primary" style={{width:"100%"}} onClick={post} disabled={busy}>Publicar como {alias||"Anónimo"}</button>
+        </div>
+        {items===null && <div style={{color:T.dim,fontSize:13}}>Cargando comentarios…</div>}
+        {items&&items.length===0 && <div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Nadie ha comentado hoy. Sé el primero.</div>}
+        <div style={{display:"grid",gap:8}}>
+          {(items||[]).map((c,i)=>(
+            <div key={i} className="card" style={{padding:"12px 14px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:T.dim,marginBottom:6}}>
+                <span style={{color:T.mango,fontWeight:600}}>{c.u}</span>
+                <span>{new Date(c.ts).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}</span>
+              </div>
+              <div style={{fontSize:14,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{c.t}</div>
+              <button className="chip" style={{marginTop:8}} onClick={()=>vote(i)}>👍 {c.up||0}</button>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,textAlign:"center"}}>
+        Comunidad informativa. Aquí no se hacen ni se aceptan apuestas.
+      </div>
+    </div>
+  );
+}
