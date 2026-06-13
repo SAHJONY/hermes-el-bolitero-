@@ -115,9 +115,46 @@ async function callAnthropic({ key, model, system, messages, maxTokens }) {
   return { ok: true, payload: { content: data.content || [] } };
 }
 
+// Allow a request only if it carries no Origin (server-to-server / curl, which
+// an Origin check can't police anyway) or an Origin we trust. This blocks other
+// websites from driving visitors' browsers to spend our model quota.
+function originAllowed(req) {
+  const origin = req.headers && (req.headers.origin || req.headers.Origin);
+  if (!origin) return true;
+  let host;
+  try { host = new URL(origin).hostname; } catch { return false; }
+  if (host === "localhost" || host === "127.0.0.1") return true;
+  if (host.endsWith(".vercel.app")) return true;          // prod + preview deploys
+  try {
+    if (process.env.APP_URL && host === new URL(process.env.APP_URL).hostname) return true;
+  } catch { /* ignore malformed APP_URL */ }
+  return false;
+}
+
 module.exports = async (req, res) => {
+  // Health/status (no secrets) — handy for debugging the deployment.
+  if (req.method === "GET") {
+    const e = process.env;
+    res.status(200).json({
+      ok: true,
+      service: "hermes",
+      providers: [
+        e.ENGINE_API_KEY && "engine",
+        e.NVIDIA_API_KEY && "nvidia",
+        e.ANTHROPIC_API_KEY && "anthropic",
+      ].filter(Boolean),
+      nvidiaModelRotation: NVIDIA_FALLBACK_MODELS,
+    });
+    return;
+  }
+
   if (req.method !== "POST") {
-    res.status(405).json({ error: "method_not_allowed", detail: "POST only" });
+    res.status(405).json({ error: "method_not_allowed", detail: "POST or GET only" });
+    return;
+  }
+
+  if (!originAllowed(req)) {
+    res.status(403).json({ error: "forbidden_origin" });
     return;
   }
 

@@ -158,10 +158,11 @@ async function askClaude(messages, { system, mcp=false, web=false, maxTokens=100
     const text=d.choices?.[0]?.message?.content ?? "";
     return { content:[{type:"text",text}] };
   };
-  if(nimKey){
-    try{ return await viaDirect(); }catch(e){ return await viaProxy(); }
-  }
-  return await viaProxy();
+  // Always prefer the server proxy (rotates across NVIDIA models, key stays
+  // server-side). Only fall back to a locally-stored admin key if the proxy
+  // itself is unreachable/unconfigured.
+  try{ return await viaProxy(); }
+  catch(e){ if(nimKey) return await viaDirect(); throw e; }
 }
 const textOf = (data) => (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
 const toolResultsOf = (data) => (data.content||[]).filter(b=>b.type==="mcp_tool_result");

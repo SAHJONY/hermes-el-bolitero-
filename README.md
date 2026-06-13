@@ -13,8 +13,18 @@ apuestas.
   llama al modelo de lenguaje. La clave del proveedor vive **solo en el
   servidor**; el navegador habla con `/api/hermes`.
 
-El frontend usa `/api/hermes` por defecto. Si un administrador guarda una clave
-en el panel de Admin (localStorage), se usa como respaldo directo.
+El frontend usa `/api/hermes` por defecto (la clave nunca sale del servidor).
+Solo si el proxy no está disponible cae a una clave guardada en el panel de
+Admin (localStorage).
+
+**Resiliencia del motor:** con NVIDIA, el proxy prueba el modelo configurado y,
+ante cualquier fallo (404 sin acceso, 429, 5xx, timeout), rota automáticamente
+por una lista de modelos NIM gratuitos verificados — sin redeploy. Si hay varios
+proveedores configurados, se intentan en orden `engine → nvidia → anthropic`.
+
+**Status / health:** `GET /api/hermes` devuelve los proveedores configurados y la
+rotación de modelos (sin exponer claves). `POST` solo acepta orígenes propios
+(`*.vercel.app`, `APP_URL`, localhost) o sin Origin, para evitar abuso de cuota.
 
 ## Despliegue en Vercel (producción)
 
