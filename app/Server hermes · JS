@@ -1,0 +1,164 @@
+/* ============================================================
+   LA BOLITA IA — server-hermes.js  (setup mínimo)
+   Cerebro: conmutable — Anthropic (Claude) | OpenAI (GPT) | Hermes (abierto)
+   Voz:     Bland.ai (llamadas con los resultados del día)
+   Email:   Resend (alertas a miembros)
+   ------------------------------------------------------------
+   1) npm init -y && npm i express cors
+   2) Crea .env (cópialo desde tu Admin Dashboard de la app)
+   3) node server-hermes.js   →  despliega en Railway/Render/Vercel
+   ============================================================ */
+import express from "express";
+import cors from "cors";
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const {
+  ENGINE_PROVIDER = "anthropic",          // anthropic | openai | hermes
+  ANTHROPIC_API_KEY, ANTHROPIC_MODEL = "claude-sonnet-4-6",
+  OPENAI_API_KEY,    OPENAI_MODEL    = "gpt-4o",
+  ENGINE_API_KEY,    ENGINE_MODEL    = "nousresearch/hermes-4-70b",
+  ENGINE_BASE_URL = "https://openrouter.ai/api/v1",
+  VOICE_API_KEY, VOICE_FROM_NUMBER,
+  MAIL_API_KEY, MAIL_FROM,
+  WHATSAPP_TOKEN, WHATSAPP_PHONE_ID,
+  PORT = 3000,
+} = process.env;
+
+/* ---------- 1. HERMES: el cerebro del agente ---------- */
+const HERMES_SYSTEM = `Eres "Hermes", el agente-cerebro de La Bolita IA, app cubana
+informativa de resultados de la bolita y charada. Tono cubano cálido y breve.
+Reglas: nunca aceptas ni gestionas apuestas, nunca prometes ganancias,
+y recuerdas que cada tiro es azar independiente.`;
+
+app.post("/api/hermes", async (req, res) => {
+  try {
+    const { messages = [], context = "" } = req.body;
+    const system = `${HERMES_SYSTEM}\nContexto de hoy: ${context}`;
+    let text = "";
+
+    if (ENGINE_PROVIDER === "anthropic") {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 500, system, messages }),
+      });
+      const d = await r.json();
+      text = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+
+    } else if (ENGINE_PROVIDER === "openai") {
+      const r = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: OPENAI_MODEL, max_tokens: 500,
+          messages: [{ role: "system", content: system }, ...messages] }),
+      });
+      const d = await r.json();
+      text = d.choices?.[0]?.message?.content ?? "";
+
+    } else { // hermes — modelos abiertos vía router compatible
+      const r = await fetch(`${ENGINE_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${ENGINE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: ENGINE_MODEL, max_tokens: 500,
+          messages: [{ role: "system", content: system }, ...messages] }),
+      });
+      const d = await r.json();
+      text = d.choices?.[0]?.message?.content ?? "";
+    }
+
+    res.json({ text, engine: ENGINE_PROVIDER });
+  } catch (e) {
+    res.status(500).json({ error: "brain_failed" });
+  }
+});
+
+/* ---------- 2. BLAND.AI: llamada de voz con el resultado ---------- */
+app.post("/api/call-result", async (req, res) => {
+  try {
+    const { phone, resumen } = req.body; // ej: "Bolita noche: fijo 417, corridos 25 y 60"
+    const r = await fetch("https://api.bland.ai/v1/calls", {
+      method: "POST",
+      headers: { Authorization: VOICE_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone_number: phone,
+        from: VOICE_FROM_NUMBER,
+        voice: "june",
+        language: "es",
+        max_duration: 2,
+        task: `Saluda en español cubano, di exactamente este resultado de la bolita y despídete: ${resumen}. No des consejos de apuestas.`,
+      }),
+    });
+    res.json(await r.json());
+  } catch (e) {
+    res.status(500).json({ error: "bland_failed" });
+  }
+});
+
+/* ---------- 3. EMAIL: alerta de resultados a un miembro ---------- */
+app.post("/api/email-result", async (req, res) => {
+  try {
+    const { to, asunto, html } = req.body;
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${MAIL_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: MAIL_FROM, to, subject: asunto, html }),
+    });
+    res.json(await r.json());
+  } catch (e) {
+    res.status(500).json({ error: "email_failed" });
+  }
+});
+
+/* ---------- 4. WHATSAPP: mensaje vía WhatsApp Cloud API ---------- */
+app.post("/api/whatsapp-result", async (req, res) => {
+  try {
+    const { phone, texto } = req.body; // phone en formato internacional sin "+"
+    const r = await fetch(`https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_ID}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: texto } }),
+    });
+    res.json(await r.json());
+  } catch (e) { res.status(500).json({ error: "whatsapp_failed" }); }
+});
+
+/* ---------- 5. GANADORES: aviso autónomo multicanal ----------
+   Llamado por tu Cron (cada 5 min tras cada tiro): compara los tickets
+   de los miembros con el resultado oficial y avisa por los canales
+   que el miembro eligió. Sin dinero: solo la felicitación y el dato. */
+app.post("/api/notify-win", async (req, res) => {
+  try {
+    const { miembro, ticket, resultado } = req.body;
+    // miembro: {nombre, tel, email, whatsapp, voz, mail}  ticket: {id, fijo, corridos, session, date}
+    const texto = `🎉👑 ¡FELICIDADES ${miembro.nombre || ""}! Tu número SALIÓ en HERMES EL BOLITERO: ` +
+      `ticket ${ticket.id} · ${ticket.session} ${ticket.date} · ${resultado}. ` +
+      `Si lo jugaste en la tienda autorizada de la lotería legal, ve a cobrar allá. Aquí celebramos contigo. 🎱`;
+    const sent = [];
+    if (miembro.mail && miembro.email && MAIL_API_KEY) {
+      await fetch("https://api.resend.com/emails", { method: "POST",
+        headers: { Authorization: `Bearer ${MAIL_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: MAIL_FROM, to: miembro.email, subject: "🎉 ¡Tu número salió! · HERMES EL BOLITERO", html: `<p>${texto}</p>` }) });
+      sent.push("email");
+    }
+    if (miembro.voz && miembro.tel && VOICE_API_KEY) {
+      await fetch("https://api.bland.ai/v1/calls", { method: "POST",
+        headers: { Authorization: VOICE_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ phone_number: miembro.tel, from: VOICE_FROM_NUMBER, language: "es", max_duration: 2,
+          task: `Felicita con alegría cubana y di exactamente: ${texto}. No hables de apuestas ni pagos.` }) });
+      sent.push("voz");
+    }
+    if (miembro.whatsapp && miembro.tel && WHATSAPP_TOKEN) {
+      await fetch(`https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_ID}/messages`, { method: "POST",
+        headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ messaging_product: "whatsapp", to: miembro.tel.replace(/\D/g, ""), type: "text", text: { body: texto } }) });
+      sent.push("whatsapp");
+    }
+    res.json({ ok: true, sent });
+  } catch (e) { res.status(500).json({ error: "notify_failed" }); }
+});
+
+app.get("/", (_, res) => res.send("La Bolita IA · Hermes engine OK ⚡"));
+app.listen(PORT, () => console.log(`Hermes engine en puerto ${PORT}`));
