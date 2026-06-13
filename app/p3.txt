@@ -192,6 +192,17 @@ function TabTicket(){
 }
 
 /* ============================ SHELL ============================ */
+const APP_VERSION="2.0";
+const CHANGELOG=[
+  {v:"2.0",fecha:"12 jun 2026",items:[
+    "🎟️ Mi Ticket — elige tus números y llévate tu souvenir",
+    "📣 Canal oficial de Telegram en Alertas",
+    "⚡ Motor NVIDIA NIM añadido al cerebro de Hermes",
+    "💳 Pagos con PayPal y Cash App junto a tarjeta",
+    "🔴 5 tableros con señal en vivo y 4 tiros diarios",
+  ]},
+  {v:"1.0",fecha:"lanzamiento",items:["🎱 Resultados, charada, estadísticas, foro y Hermes el agente"]},
+];
 const TABS=[
   {id:"hoy",icon:"🎱",label:"Hoy"},
   {id:"hist",icon:"🗓️",label:"Historial"},
@@ -206,6 +217,7 @@ const TABS=[
 function MainApp({admin,onLock}){
   const [tab,setTab]=useState("hoy");
   const [lot,setLot]=useState("labolita");
+  const [showNews,setShowNews]=useState(false);
   const tabs=admin?[...TABS,{id:"admin",icon:"👑",label:"Admin"}]:TABS;
   return (
     <div className="bol-app">
@@ -218,6 +230,21 @@ function MainApp({admin,onLock}){
           </div>
           <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?"👑 Admin":"🔒 Salir"}</button>
         </header>
+        <div style={{marginBottom:12}}>
+          <button className="chip" style={{width:"100%",justifyContent:"center",borderColor:"rgba(255,184,56,.4)"}} onClick={()=>setShowNews(!showNews)}>
+            ⚡ Hermes Daily Update · v{APP_VERSION} {showNews?"▲":"▼"}
+          </button>
+          {showNews&&(
+            <div className="card fade-in" style={{marginTop:8}}>
+              {CHANGELOG.map(c=>(
+                <div key={c.v} style={{marginBottom:10}}>
+                  <div className="mono" style={{fontSize:11,color:T.mango,fontWeight:700,marginBottom:4}}>v{c.v} · {c.fecha}</div>
+                  {c.items.map((it,i)=><div key={i} style={{fontSize:12,lineHeight:1.7}}>{it}</div>)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         {tab==="hoy"&&<TabHoy lot={lot} setLot={setLot}/>}
         {tab==="hist"&&<TabHistorial lot={lot}/>}
         {tab==="stats"&&<TabStats lot={lot}/>}
@@ -229,7 +256,7 @@ function MainApp({admin,onLock}){
         {tab==="foro"&&<TabForo/>}
         {tab==="admin"&&admin&&<TabAdmin/>}
         <footer style={{marginTop:26,fontSize:10,color:T.dim,textAlign:"center",lineHeight:1.6}}>
-          La Bolita IA es una app informativa y de entretenimiento. No vende boletos, no acepta apuestas
+          HERMES EL BOLITERO es una app informativa y de entretenimiento. No vende boletos, no acepta apuestas
           ni garantiza resultados. Si el juego deja de ser un juego, busca ayuda: 1-800-GAMBLER.
         </footer>
       </div>
@@ -278,7 +305,7 @@ function Wordmark({size=1, center=false}){
 /* ============================ LOGO (bandera cubana) ============================ */
 function Logo({size=40}){
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="La Bolita IA">
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="HERMES EL BOLITERO">
       <defs>
         <radialGradient id="gloss" cx="32%" cy="26%" r="80%">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95"/>
