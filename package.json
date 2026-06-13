@@ -1,0 +1,9 @@
+{
+  "name": "hermes-el-bolitero",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HERMES EL BOLITERO — serverless functions (AI brain + result broadcasts)",
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  }
+}
