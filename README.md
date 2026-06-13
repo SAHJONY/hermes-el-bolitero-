@@ -51,6 +51,30 @@ Sin ninguna clave configurada, la app carga y funciona (resultados,
 estadísticas, charada), pero `/api/hermes` responde `503 no_engine_configured`
 hasta que añadas la clave.
 
+## Endpoints de difusión de resultados
+
+Funciones serverless para avisar resultados por varios canales. Son para uso
+servidor-a-servidor / Cron (no llevan clave en el navegador), así que están
+**cerradas con un secreto**: define `RESULTS_API_SECRET` en Vercel y mándalo en
+`Authorization: Bearer <secreto>`. Sin ese secreto responden `503`.
+
+| Endpoint | Método | Body | Necesita |
+|----------|--------|------|----------|
+| `/api/telegram-result` | POST | `{ texto, chat_id? }` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
+| `/api/email-result`    | POST | `{ to, asunto, html }` | `MAIL_API_KEY`, `MAIL_FROM` (Resend) |
+| `/api/call-result`     | POST | `{ phone, resumen }` | `VOICE_API_KEY`, `VOICE_FROM_NUMBER` (Bland.ai) |
+| `/api/notify-win`      | POST | `{ miembro, ticket, resultado }` | según canales del miembro |
+
+Cada endpoint responde `503 *_not_configured` si falta la clave de su proveedor,
+así que puedes activarlos de a uno. Hoy Telegram funciona (bot + chat puestos);
+email y voz se activan al poner `MAIL_API_KEY` / confirmar `VOICE_API_KEY`.
+
+### Cron diario (recordatorio en Telegram)
+`vercel.json` agenda `GET /api/cron-reminder` a las 13:00 UTC: publica en Telegram
+el horario de tiros del día e invita a la app (no inventa números — no hay fuente
+de resultados en el servidor). Vercel lo autentica con `CRON_SECRET` si está
+puesto. Para desactivarlo, borra el bloque `crons` de `vercel.json`.
+
 ## Desarrollo local
 
 ```bash
