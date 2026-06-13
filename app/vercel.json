@@ -1,5 +1,8 @@
 {
-  "functions": {
-    "api/*.js": { "runtime": "@vercel/node@3.2.0" }
-  }
+  "version": 2,
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "app/**", "use": "@vercel/static" },
+    { "src": "api/*.js", "use": "@vercel/node" }
+  ]
 }
