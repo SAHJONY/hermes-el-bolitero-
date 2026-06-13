@@ -198,6 +198,7 @@ function EnvPage(){
         <summary style={{fontSize:12,color:T.mango,cursor:"pointer",fontWeight:700}}>Ver .env completo</summary>
         <pre className="mono" style={{fontSize:10,whiteSpace:"pre-wrap",background:T.bg,padding:10,borderRadius:10,marginTop:8}}>{envText}</pre>
       </details>
+      <button className="btn primary" style={{width:"100%",marginBottom:12}} onClick={save}>💾 GUARDAR TODOS LOS SECRETOS</button>
       {msg&&<div style={{color:T.teal,fontSize:12,textAlign:"center",marginBottom:10}}>{msg}</div>}
       <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
         🔐 Los secretos se guardan únicamente en tu dispositivo (nunca en el almacenamiento compartido de los miembros).
