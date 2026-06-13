@@ -5,6 +5,31 @@
    admin:pin      -> pin del dueño (se crea la primera vez, solo tú)            */
 async function sGet(key,shared){ try{const r=await window.storage.get(key,shared); return r?JSON.parse(r.value):null;}catch{return null;} }
 async function sSet(key,val,shared){ try{await window.storage.set(key,JSON.stringify(val),shared); return true;}catch{return false;} }
+async function sDel(key,shared){ try{await window.storage["delete"](key,!!shared); return true;}catch{return false;} }
+
+/* ---------- Cuenta del cliente: Hermes activa con el pago y borra al vencer ---------- */
+const ACCOUNT_DAYS=30;
+async function getAccount(){ return (await sGet("account",false))||{status:"inactivo",expires:0}; }
+function accountActive(a){ return !!(a && a.status==="activo" && a.expires && Date.now() < a.expires); }
+async function activateAccount(ref){
+  const a={ status:"activo", since:Date.now(), expires:Date.now()+ACCOUNT_DAYS*86400000, ref:ref||null };
+  await sSet("account",a,false); return a;
+}
+// Autonomous: deactivate + wipe private data when the membership lapses.
+async function enforceAccount(){
+  const a=await getAccount();
+  if(a.status==="activo" && a.expires && Date.now() >= a.expires){
+    await sSet("account",{status:"vencida",expires:a.expires,ref:a.ref,deletedAt:Date.now()},false);
+    await sDel("chat:hist",false); await sDel("recibos:mine",false); await sDel("tickets:mine",false);
+    return await getAccount();
+  }
+  return a;
+}
+async function deleteAccount(){
+  await sSet("account",{status:"inactivo",expires:0,deletedAt:Date.now()},false);
+  await sDel("chat:hist",false); await sDel("recibos:mine",false); await sDel("tickets:mine",false); await sDel("pagos:mine",false);
+  return await getAccount();
+}
 
 function Gate({onEnter}){
   const [stage,setStage]=useState("loading"); // loading | code | newadmin | adminpin | planes

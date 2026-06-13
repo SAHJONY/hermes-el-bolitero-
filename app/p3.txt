@@ -203,12 +203,15 @@ function TabPago(){
   const [msg,setMsg]=useState("");
   const [pagos,setPagos]=useState(null);
   const [alias,setAlias]=useState("");
+  const [acct,setAcct]=useState(null);
   useEffect(()=>{(async()=>{
     setPagos(await sGet("pagos:mine",false)||[]);
+    setAcct(await enforceAccount());
     let a=await sGet("chat:alias",false);
     if(!a){ a="Cliente-"+Math.random().toString(36).slice(2,7).toUpperCase(); await sSet("chat:alias",a,false); }
     setAlias(a);
   })();},[]);
+  const borrar=async()=>{ if(!window.confirm("¿Eliminar tu cuenta y tus datos en este dispositivo? No se puede deshacer.")) return; setAcct(await deleteAccount()); setPagos([]); setMsg("Cuenta eliminada. Confirma un pago para reactivarla."); };
   const enviar=async()=>{
     if(busy) return;
     if(!recibo.trim() && !tx.trim()){ setMsg("Pega el recibo o escribe el número de transacción."); return; }
@@ -224,7 +227,8 @@ function TabPago(){
     const rec={ref,metodo,monto:monto.trim(),tx:tx.trim(),recibo:recibo.trim(),contacto:contacto.trim(),ts:Date.now(),delivered,status:"en revisión"};
     const next=[rec,...(pagos||[])].slice(0,50);
     setPagos(next); await sSet("pagos:mine",next,false);
-    setMsg(`✅ Pago enviado para confirmación · ${ref}.`+(delivered?" El dueño ya lo recibió.":" Lo guardamos; el dueño lo verá pronto."));
+    const a=await activateAccount(ref); setAcct(a);
+    setMsg(`✅ Pago enviado · ${ref}. Hermes ACTIVÓ tu cuenta hasta ${new Date(a.expires).toLocaleDateString("es-ES")}.`+(delivered?" El dueño ya lo recibió.":" El dueño lo confirmará pronto."));
     setMonto(""); setTx(""); setRecibo("");
     setBusy(false);
   };
@@ -232,8 +236,15 @@ function TabPago(){
     const txt=`HERMES EL BOLITERO · Confirmación de pago ${p.ref}\n${p.metodo} · ${p.monto||"—"} · Tx ${p.tx||"—"}\nEstado: ${p.status}`;
     try{ if(navigator.share) await navigator.share({text:txt}); else { await navigator.clipboard.writeText(txt); setMsg("Confirmación copiada ✔"); } }catch{}
   };
+  const active=accountActive(acct);
   return (
     <div className="fade-in">
+      {acct&&(
+        <div className="card" style={{marginBottom:12,textAlign:"center",border:active?"1.5px solid #38D6BA":`1px solid ${T.line}`,background:active?"linear-gradient(135deg,rgba(56,214,186,.14),rgba(19,34,43,.9))":T.surface}}>
+          <div className="disp" style={{fontWeight:800,color:active?T.teal:T.dim}}>{active?"✅ Cuenta ACTIVA":"🔒 Cuenta inactiva"}</div>
+          <div style={{fontSize:12,color:T.dim,marginTop:4}}>{active?`Hermes activó tu cuenta · válida hasta ${new Date(acct.expires).toLocaleDateString("es-ES")}`:"Confirma un pago y Hermes activa tu cuenta al instante."}</div>
+        </div>
+      )}
       <Section title="Confirmar pago 💳" sub="Paga por tu canal y pega aquí el recibo — el dueño lo confirma">
         <div className="card" style={{display:"grid",gap:10}}>
           <div className="scroll-x">{METODOS.map(m=><button key={m} className={"chip"+(metodo===m?" on":"")} onClick={()=>setMetodo(m)}>{m}</button>)}</div>
@@ -269,9 +280,10 @@ function TabPago(){
           ))}
         </div>
       </Section>
-      <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.6,marginBottom:10}}>
         El recibo se guarda en tu cuenta y se le envía al dueño para verificación. Solo información y entretenimiento.
       </div>
+      {acct&&acct.status!=="inactivo"&&<button className="btn ghost" style={{width:"100%",color:T.coral}} onClick={borrar}>🗑️ Eliminar mi cuenta y mis datos</button>}
     </div>
   );
 }
@@ -304,6 +316,9 @@ function MainApp({admin,onLock}){
   const [tab,setTab]=useState("hoy");
   const [lot,setLot]=useState("labolita");
   const [showNews,setShowNews]=useState(false);
+  const [acct,setAcct]=useState(null);
+  useEffect(()=>{(async()=>{ setAcct(await enforceAccount()); })();},[tab]);
+  const memberActive=admin||accountActive(acct);
   const tabs=admin?[...TABS,{id:"admin",icon:"👑",label:"Admin"}]:TABS;
   return (
     <div className="bol-app">
@@ -335,7 +350,14 @@ function MainApp({admin,onLock}){
         {tab==="hist"&&<TabHistorial lot={lot}/>}
         {tab==="stats"&&<TabStats lot={lot}/>}
         {tab==="charada"&&<TabCharada/>}
-        {tab==="ia"&&<TabIA lot={lot}/>}
+        {tab==="ia"&&(memberActive
+          ? <TabIA lot={lot}/>
+          : <div className="fade-in card" style={{textAlign:"center",padding:"28px 18px"}}>
+              <div style={{fontSize:30}}>🔒⚡</div>
+              <div className="disp" style={{fontWeight:800,fontSize:18,margin:"8px 0"}}>Chat privado con Hermes</div>
+              <div style={{fontSize:13,color:T.dim,marginBottom:16}}>Confirma un pago y Hermes activa tu cuenta al instante para chatear en privado, recibir tus tickets y confirmar tus recibos.</div>
+              <button className="btn primary" style={{width:"100%"}} onClick={()=>setTab("pago")}>💳 Activar mi cuenta</button>
+            </div>)}
         {tab==="studio"&&<TabStudio lot={lot}/>}
         {tab==="ticket"&&<TabTicket/>}
         {tab==="pago"&&<TabPago/>}
