@@ -25,7 +25,7 @@ const {
   ENGINE_BASE_URL = "https://openrouter.ai/api/v1",
   VOICE_API_KEY, VOICE_FROM_NUMBER,
   MAIL_API_KEY, MAIL_FROM,
-  WHATSAPP_TOKEN, WHATSAPP_PHONE_ID,
+  TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
   PORT = 3000,
 } = process.env;
 
@@ -124,17 +124,17 @@ app.post("/api/email-result", async (req, res) => {
   }
 });
 
-/* ---------- 4. WHATSAPP: mensaje vía WhatsApp Cloud API ---------- */
-app.post("/api/whatsapp-result", async (req, res) => {
+/* ---------- 4. TELEGRAM: canta el numero en el grupo HERMES EL BOLITERO ---------- */
+app.post("/api/telegram-result", async (req, res) => {
   try {
-    const { phone, texto } = req.body; // phone en formato internacional sin "+"
-    const r = await fetch(`https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_ID}/messages`, {
+    const { texto, chat_id } = req.body; // chat_id opcional: por defecto el grupo oficial
+    const r = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: texto } }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chat_id || TELEGRAM_CHAT_ID, text: texto, parse_mode: "HTML" }),
     });
     res.json(await r.json());
-  } catch (e) { res.status(500).json({ error: "whatsapp_failed" }); }
+  } catch (e) { res.status(500).json({ error: "telegram_failed" }); }
 });
 
 /* ---------- 5. GANADORES: aviso autónomo multicanal ----------
@@ -162,11 +162,11 @@ app.post("/api/notify-win", async (req, res) => {
           task: `Felicita con alegría cubana y di exactamente: ${texto}. No hables de apuestas ni pagos.` }) });
       sent.push("voz");
     }
-    if (miembro.whatsapp && miembro.tel && WHATSAPP_TOKEN) {
-      await fetch(`https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_ID}/messages`, { method: "POST",
-        headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ messaging_product: "whatsapp", to: miembro.tel.replace(/\D/g, ""), type: "text", text: { body: texto } }) });
-      sent.push("whatsapp");
+    if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: miembro.tg_chat_id || TELEGRAM_CHAT_ID, text: texto }) });
+      sent.push("telegram");
     }
     res.json({ ok: true, sent });
   } catch (e) { res.status(500).json({ error: "notify_failed" }); }
