@@ -107,7 +107,11 @@ const ENV_SCHEMA=[
   ]},
   {g:"Correo (alertas)",vars:[
     {k:"MAIL_API_KEY",d:"",sec:1,h:"Clave del servicio de correo"},
-    {k:"MAIL_FROM",d:"alertas@tudominio.com",h:"Remitente verificado"},
+    {k:"MAIL_FROM",d:"hermeselbolitero@protonmail.com",h:"Remitente (verifica el envio en tu servicio de correo)"},
+  ]},
+  {g:"Telegram (grupo HERMES EL BOLITERO)",vars:[
+    {k:"TELEGRAM_BOT_TOKEN",d:"",sec:1,h:"Token del bot (@BotFather)"},
+    {k:"TELEGRAM_CHAT_ID",d:"",h:"Chat ID del grupo (negativo, ej -100...)"},
   ]},
   {g:"Señal en vivo",vars:[
     {k:"LIVE_REFRESH_MIN",d:"8",h:"Minutos entre actualizaciones"},
@@ -206,6 +210,9 @@ function EnvPage(){
 function AlertasAdmin(){
   const [subs,setSubs]=useState(null);
   const [msg,setMsg]=useState("");
+  const [tg,setTg]=useState("");
+  useEffect(()=>{(async()=>{ const t=await sGet("canal:telegram",true); if(t) setTg(t); })();},[]);
+  const saveTg=async()=>{ setMsg((await sSet("canal:telegram",tg.trim(),true))?"Link de Telegram publicado en Alertas de los miembros. OK":"No se pudo guardar."); };
   const load=async()=>setSubs(await sGet("alertas:subs",true)||{});
   useEffect(()=>{load();},[]);
   const borrar=async(id)=>{ const next={...subs}; delete next[id]; await sSet("alertas:subs",next,true); setSubs(next); };
@@ -216,6 +223,12 @@ function AlertasAdmin(){
   const n=subs?Object.keys(subs).length:0;
   return (
     <div>
+      <Section title="Canal oficial · Telegram" sub="El grupo HERMES EL BOLITERO donde se cantan los números">
+        <div className="card" style={{display:"flex",gap:8}}>
+          <input className="input mono" style={{fontSize:12}} placeholder="https://t.me/+TuGrupoInvite" value={tg} onChange={e=>setTg(e.target.value)}/>
+          <button className="btn primary" onClick={saveTg}>Publicar</button>
+        </div>
+      </Section>
       <Section title={`Suscriptores de alertas (${n})`} sub="A quién llama y escribe Hermes cuando cae el número"
         right={<button className="chip" onClick={copiar}>📋 Copiar lista</button>}>
         {subs&&n===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Nadie se ha inscrito todavía. Diles que abran la pestaña 🔔 Alertas.</div>}
@@ -232,6 +245,7 @@ function AlertasAdmin(){
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
                 {s.voz&&<span className="chip" style={{cursor:"default"}}>📞 voz</span>}
                 {s.mail&&<span className="chip" style={{cursor:"default"}}>✉️ email</span>}
+                {s.tg&&<span className="chip" style={{cursor:"default"}}>📣 tg</span>}
                 {Object.entries(s.tiros||{}).filter(([,v])=>v).map(([k])=><span key={k} className="chip" style={{cursor:"default"}}>{k}</span>)}
               </div>
             </div>
@@ -240,8 +254,9 @@ function AlertasAdmin(){
       </Section>
       {msg&&<div style={{color:T.teal,fontSize:12,marginBottom:10}}>{msg}</div>}
       <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
-        Tu backend lee esta lista y dispara <b>/api/call-result</b> (voz de Hermes) y <b>/api/email-result</b>
-        de server-hermes.js cuando se publica cada tiro. En Vercel: un Cron Job cada 5 min que compara el último
+        Tu backend lee esta lista y dispara <b>/api/call-result</b> (voz), <b>/api/email-result</b>
+        (desde hermeselbolitero@protonmail.com) y <b>/api/telegram-result</b> (canta el número en el grupo)
+        cuando se publica cada tiro. En Vercel: un Cron Job cada 5 min que compara el último
         resultado con el último avisado y llama a los inscritos del tiro correspondiente.
       </div>
     </div>
