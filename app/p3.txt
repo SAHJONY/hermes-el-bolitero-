@@ -74,6 +74,45 @@ function TabAlertas(){
 
 
 /* ============================ TAB: MI TICKET (souvenir) ============================ */
+// 🎉🎆 Confeti + fuegos artificiales en pantalla cuando un cliente gana (entretenimiento)
+function fireConfetti(){
+  try{
+    if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const c=document.createElement("canvas");
+    c.style.cssText="position:fixed;inset:0;pointer-events:none;z-index:99998";
+    c.width=window.innerWidth; c.height=window.innerHeight;
+    document.body.appendChild(c);
+    const ctx=c.getContext("2d");
+    const colors=["#FFB838","#38D6BA","#F2545B","#9D8CFF","#FFE9A8","#FFFFFF","#E08C00"];
+    const pick=()=>colors[(Math.random()*colors.length)|0];
+    const parts=[];
+    // lluvia de confeti
+    for(let i=0;i<140;i++){ parts.push({fw:false,x:Math.random()*c.width,y:-20-Math.random()*c.height*0.4,r:4+Math.random()*7,col:pick(),vx:-2.5+Math.random()*5,vy:2+Math.random()*4.5,rot:Math.random()*6.28,vr:-0.25+Math.random()*0.5}); }
+    // fuegos artificiales (estallidos radiales escalonados)
+    for(let b=0;b<6;b++){
+      const cx=c.width*(0.18+Math.random()*0.64), cy=c.height*(0.16+Math.random()*0.34), col=pick(), delay=b*360;
+      for(let i=0;i<38;i++){ const a=(Math.PI*2*i)/38, sp=2+Math.random()*4.2;
+        parts.push({fw:true,x:cx,y:cy,r:2+Math.random()*2.6,col,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,rot:0,vr:0,delay,life:1}); }
+    }
+    const start=performance.now();
+    (function frame(now){
+      const el=now-start; ctx.clearRect(0,0,c.width,c.height);
+      for(const p of parts){
+        if(p.fw){
+          if(el<p.delay) continue;
+          p.x+=p.vx; p.y+=p.vy; p.vy+=0.03; p.vx*=0.99; p.vy*=0.99; p.life-=0.012;
+          if(p.life<=0) continue;
+          ctx.save(); ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.283); ctx.fill(); ctx.restore();
+        } else {
+          p.x+=p.vx; p.y+=p.vy; p.vy+=0.06; p.rot+=p.vr;
+          ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.col; ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*0.62); ctx.restore();
+        }
+      }
+      if(el<3600) requestAnimationFrame(frame); else c.remove();
+    })(start);
+  }catch(e){}
+}
+
 function TabTicket(){
   const [board,setBoard]=useState("labolita");
   const lottery=LOTTERIES.find(l=>l.id===board);
@@ -123,6 +162,7 @@ function TabTicket(){
       });
       wins=next.filter(t=>t.status==="ganador").length-(tickets||[]).filter(t=>t.status==="ganador").length;
       await save(next);
+      if(wins>0) fireConfetti();
       setMsg(wins>0?("🎉 ¡¡TU NÚMERO SALIÓ!! "+wins+" ticket(s) ganador(es) — Hermes también te avisará por tus canales de Alertas."):"Comprobado contra los tiros oficiales publicados.");
     }catch{ setMsg("La señal no respondió — intenta en un momento."); }
     setChecking(false);
