@@ -1,13 +1,15 @@
 function TabAlertas(){
   const TIROS=["Mañana","Mediodía","Tarde","Noche"];
-  const [f,setF]=useState({nombre:"",tel:"",email:"",voz:true,mail:true,tiros:{Mañana:false,"Mediodía":true,Tarde:false,Noche:true},activo:true});
+  const [f,setF]=useState({nombre:"",tel:"",email:"",voz:true,mail:true,tg:true,tiros:{Mañana:false,"Mediodía":true,Tarde:false,Noche:true},activo:true});
   const [estado,setEstado]=useState("");
   const [yaInscrito,setYa]=useState(false);
+  const [tgLink,setTgLink]=useState("");
   useEffect(()=>{(async()=>{
     const mine=await sGet("alerta:mine",false);
     if(mine){ setF(x=>({...x,...mine.data})); setYa(true); }
+    const tg=await sGet("canal:telegram",true); if(tg) setTgLink(tg);
   })();},[]);
-const guardar=async()=>{
+  const guardar=async()=>{
     if(!f.tel.trim()&&!f.email.trim()){ setEstado("Pon al menos un teléfono o un email."); return; }
     if(f.voz&&!f.tel.trim()){ setEstado("Para la llamada de Hermes hace falta tu teléfono."); return; }
     let mine=await sGet("alerta:mine",false);
@@ -28,7 +30,7 @@ const guardar=async()=>{
   };
   return (
     <div className="fade-in">
-      <Section title="Alertas de Hermes 🔔" sub="Cuando caiga el número, Hermes te llama con su voz o te escribe al correo">
+      <Section title="Alertas de Hermes 🔔" sub="Cuando caiga el número, Hermes te llama, te escribe al correo o lo canta en el grupo de Telegram">
         <div className="card" style={{display:"grid",gap:10}}>
           <input className="input" placeholder="Tu nombre" value={f.nombre} onChange={e=>setF({...f,nombre:e.target.value})}/>
           <input className="input mono" placeholder="Teléfono (+1 786 …)" inputMode="tel" value={f.tel} onChange={e=>setF({...f,tel:e.target.value})}/>
@@ -36,8 +38,9 @@ const guardar=async()=>{
           <div>
             <Label>¿Cómo te aviso?</Label>
             <div style={{display:"flex",gap:8}}>
-              <button className={"chip"+(f.voz?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,voz:!f.voz})}>📞 Llamada con la voz de Hermes</button>
+              <button className={"chip"+(f.voz?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,voz:!f.voz})}>📞 Llamada</button>
               <button className={"chip"+(f.mail?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,mail:!f.mail})}>✉️ Email</button>
+              <button className={"chip"+(f.tg?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,tg:!f.tg})}>📣 Telegram</button>
             </div>
           </div>
           <div>
@@ -53,6 +56,13 @@ const guardar=async()=>{
           {estado&&<div style={{fontSize:12,color:estado.startsWith("✔")?T.teal:T.coral}}>{estado}</div>}
         </div>
       </Section>
+      {tgLink&&(
+        <div className="card" style={{marginBottom:12,textAlign:"center"}}>
+          <div className="disp" style={{fontWeight:800,fontSize:15,marginBottom:6}}>📣 Grupo oficial · HERMES EL BOLITERO</div>
+          <div style={{fontSize:12,color:T.dim,marginBottom:10}}>Los números se cantan en vivo en el grupo de Telegram.</div>
+          <a href={tgLink} target="_blank" rel="noreferrer" className="btn primary" style={{display:"block",textAlign:"center",textDecoration:"none"}}>Unirme al grupo de Telegram</a>
+        </div>
+      )}
       <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
         Tu contacto se guarda en el registro de alertas de la comunidad para que el dueño y su sistema
         puedan avisarte; no se usa para otra cosa y puedes borrarte cuando quieras. Las alertas son
@@ -175,7 +185,7 @@ function TabTicket(){
       </Section>
       <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
         Cuando tu número salga, lo verás aquí en tu cuenta al instante — y si activaste 🔔 Alertas,
-        Hermes te avisa también por llamada, email o WhatsApp (canales del dueño).
+        Hermes te avisa también por llamada, email o el grupo de Telegram del dueño.
       </div>
     </div>
   );
