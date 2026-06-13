@@ -62,6 +62,125 @@ function TabAlertas(){
   );
 }
 
+
+/* ============================ TAB: MI TICKET (souvenir) ============================ */
+function TabTicket(){
+  const [board,setBoard]=useState("labolita");
+  const lottery=LOTTERIES.find(l=>l.id===board);
+  const [sess,setSess]=useState("Noche");
+  const [fijo,setFijo]=useState("");
+  const [c1,setC1]=useState(""); const [c2,setC2]=useState("");
+  const [tickets,setTickets]=useState(null);
+  const [msg,setMsg]=useState("");
+  const [checking,setChecking]=useState(false);
+  const d2ok=v=>/^\d{2}$/.test(v);
+  useEffect(()=>{(async()=>{ setTickets(await sGet("tickets:mine",false)||[]); })();},[]);
+  useEffect(()=>{ if(!lottery.sessions.includes(sess)) setSess(lottery.sessions[lottery.sessions.length-1]); },[board]);
+  const save=async(list)=>{ setTickets(list); await sSet("tickets:mine",list,false);
+    const all=await sGet("tickets:all",true)||{}; let mine=await sGet("alerta:mine",false);
+    all[(mine?.id)||"anon-"+(list[0]?.id||"x")]=list.slice(0,20); await sSet("tickets:all",all,true); };
+  const crear=async()=>{
+    setMsg("");
+    if(!d2ok(fijo)){ setMsg("El fijo son 2 dígitos (00–99)."); return; }
+    if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
+    const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
+      board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
+      fijo, corridos:[c1,c2].filter(Boolean), ts:Date.now(), status:"pendiente", premio:null };
+    await save([t,...(tickets||[])].slice(0,30));
+    setFijo("");setC1("");setC2("");
+    setMsg("🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.");
+  };
+  const comprobar=async()=>{
+    if(checking) return; setChecking(true); setMsg("");
+    try{
+      const live=await fetchLiveDraws();
+      let wins=0;
+      const next=(tickets||[]).map(t=>{
+        if(t.status!=="pendiente") return t;
+        const d=pickDraw(live.draws,t.board,t.date,t.session);
+        if(!d) return t;
+        const f2=String(d.pick3).padStart(3,"0").slice(1);
+        const ca=String(d.pick4).padStart(4,"0").slice(0,2), cb=String(d.pick4).padStart(4,"0").slice(2,4);
+        const hits=[];
+        if(t.fijo===f2) hits.push("FIJO "+f2);
+        t.corridos.forEach(c=>{ if(c===ca||c===cb) hits.push("corrido "+c); });
+        return {...t, status:hits.length?"ganador":"no salió", premio:hits.join(" + ")||null, resultado:f2+" · "+ca+" "+cb};
+      });
+      wins=next.filter(t=>t.status==="ganador").length-(tickets||[]).filter(t=>t.status==="ganador").length;
+      await save(next);
+      setMsg(wins>0?("🎉 ¡¡TU NÚMERO SALIÓ!! "+wins+" ticket(s) ganador(es) — Hermes también te avisará por tus canales de Alertas."):"Comprobado contra los tiros oficiales publicados.");
+    }catch{ setMsg("La señal no respondió — intenta en un momento."); }
+    setChecking(false);
+  };
+  const compartir=async(t)=>{
+    const txt=`🎟️ HERMES EL BOLITERO · Ticket ${t.id}\n${t.boardName} · ${t.session} · ${t.date}\nFIJO ${t.fijo}${t.corridos.length?" · corridos "+t.corridos.join(" "):""}\nRecuerdo sin valor — juego estos números en la lotería legal.`;
+    try{ if(navigator.share) await navigator.share({text:txt}); else { await navigator.clipboard.writeText(txt); setMsg("Ticket copiado ✔"); } }catch{}
+  };
+  const ganados=(tickets||[]).filter(t=>t.status==="ganador").length;
+  return (
+    <div className="fade-in">
+      {ganados>0&&(
+        <div className="card" style={{marginBottom:12,border:"1.5px solid #FFD978",background:"linear-gradient(135deg, rgba(255,184,56,.18), rgba(19,34,43,.9))",textAlign:"center"}}>
+          <div style={{fontSize:22}}>🎉👑🎉</div>
+          <div className="disp" style={{fontWeight:800,color:"#FFD978"}}>¡Tienes {ganados} ticket(s) con número ganador!</div>
+          <div style={{fontSize:11,color:T.dim,marginTop:4}}>Si lo jugaste en la tienda legal, ve a cobrar allá. Aquí celebramos contigo 🥳</div>
+        </div>
+      )}
+      <Section title="Elige tus números 🎟️" sub="Crea tu ticket souvenir — sin dinero: lo juegas tú en la lotería legal">
+        <div className="card" style={{display:"grid",gap:10}}>
+          <div className="scroll-x">{LOTTERIES.map(l=><button key={l.id} className={"chip"+(board===l.id?" on":"")} onClick={()=>setBoard(l.id)}>{l.short}</button>)}</div>
+          <div className="scroll-x">{lottery.sessions.map(s=><button key={s} className={"chip"+(sess===s?" on":"")} onClick={()=>setSess(s)}>{s}</button>)}</div>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}><Label>Fijo</Label>
+              <input className="input mono" inputMode="numeric" maxLength={2} placeholder="17" value={fijo} onChange={e=>setFijo(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:22,fontWeight:700}}/></div>
+            <div style={{flex:1}}><Label>Corrido 1</Label>
+              <input className="input mono" inputMode="numeric" maxLength={2} placeholder="—" value={c1} onChange={e=>setC1(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:22}}/></div>
+            <div style={{flex:1}}><Label>Corrido 2</Label>
+              <input className="input mono" inputMode="numeric" maxLength={2} placeholder="—" value={c2} onChange={e=>setC2(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:22}}/></div>
+          </div>
+          {fijo.length===2&&<div style={{fontSize:12,color:T.mango,textAlign:"center"}}>{parseInt(fijo,10)===0?100:parseInt(fijo,10)} · {charadaOf(parseInt(fijo,10))}</div>}
+          <button className="btn primary" onClick={crear}>🎟️ Generar mi ticket souvenir</button>
+          <button className="btn ghost" onClick={comprobar} disabled={checking}>{checking?"Comprobando con los tiros oficiales…":"🔎 Comprobar mis tickets"}</button>
+          {msg&&<div style={{fontSize:12,color:msg.includes("🎉")||msg.includes("✔")||msg.includes("🎟️")?T.teal:T.coral}}>{msg}</div>}
+        </div>
+      </Section>
+      <Section title="Mis tickets" right={<span style={{fontSize:11,color:T.dim}}>{(tickets||[]).length}</span>}>
+        <div style={{display:"grid",gap:10}}>
+          {tickets&&tickets.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no tienes tickets. Elige tus números arriba.</div>}
+          {(tickets||[]).map(t=>(
+            <div key={t.id} className="card" style={{padding:0,overflow:"hidden",border:t.status==="ganador"?"1.5px solid #FFD978":`1px solid ${T.line}`}}>
+              <div style={{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span className="disp" style={{fontWeight:800,fontSize:13}}>HERMES EL BOLITERO</span>
+                <span className="mono" style={{fontSize:11,fontWeight:700}}>{t.id}</span>
+              </div>
+              <div style={{padding:"12px 14px"}}>
+                <div style={{fontSize:11,color:T.dim,marginBottom:8}}>{t.boardName} · {t.session} · {t.date}</div>
+                <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                  <div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.fijo}</div>
+                  {t.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}
+                  <div style={{marginLeft:"auto",textAlign:"right"}}>
+                    {t.status==="pendiente"&&<span className="chip" style={{cursor:"default"}}>⏳ pendiente</span>}
+                    {t.status==="ganador"&&<span className="chip" style={{cursor:"default",background:"#FFD978",color:"#3A2604",fontWeight:800}}>🏆 {t.premio}</span>}
+                    {t.status==="no salió"&&<span className="chip" style={{cursor:"default"}}>{t.resultado||"no salió"}</span>}
+                  </div>
+                </div>
+                <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:9,color:T.dim,maxWidth:"70%"}}>RECUERDO SIN VALOR MONETARIO · Juega estos números en una tienda autorizada de la lotería legal de tu estado. Aquí no se apuesta ni se paga premio.</span>
+                  <button className="chip" onClick={()=>compartir(t)}>📤</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
+        Cuando tu número salga, lo verás aquí en tu cuenta al instante — y si activaste 🔔 Alertas,
+        Hermes te avisa también por llamada, email o WhatsApp (canales del dueño).
+      </div>
+    </div>
+  );
+}
+
 /* ============================ SHELL ============================ */
 const TABS=[
   {id:"hoy",icon:"🎱",label:"Hoy"},
@@ -70,6 +189,7 @@ const TABS=[
   {id:"charada",icon:"🌙",label:"Charada"},
   {id:"ia",icon:"⚡",label:"Hermes"},
   {id:"studio",icon:"🎨",label:"Studio"},
+  {id:"ticket",icon:"🎟️",label:"Ticket"},
   {id:"alertas",icon:"🔔",label:"Alertas"},
   {id:"foro",icon:"💬",label:"Foro"},
 ];
@@ -94,6 +214,7 @@ function MainApp({admin,onLock}){
         {tab==="charada"&&<TabCharada/>}
         {tab==="ia"&&<TabIA lot={lot}/>}
         {tab==="studio"&&<TabStudio lot={lot}/>}
+        {tab==="ticket"&&<TabTicket/>}
         {tab==="alertas"&&<TabAlertas/>}
         {tab==="foro"&&<TabForo/>}
         {tab==="admin"&&admin&&<TabAdmin/>}
