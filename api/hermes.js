@@ -35,34 +35,69 @@ async function readUpstream(r) {
   return { data, raw };
 }
 
-// Known-good NVIDIA NIM models to fall back to when the configured model name
-// is not provisioned for the account (NVIDIA answers 404 in that case).
-const NVIDIA_FALLBACK_MODELS = ["meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct"];
+// NVIDIA NIM free models, ordered best→fastest. All verified callable on the
+// project's NVIDIA account (2026-06-13). The proxy rotates through them so that
+// if any model is unprovisioned, rate-limited, erroring, or slow, the next one
+// answers — no env change or redeploy needed.
+const NVIDIA_FALLBACK_MODELS = [
+  "meta/llama-3.3-70b-instruct",
+  "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+  "qwen/qwen3-next-80b-a3b-instruct",
+  "meta/llama-4-maverick-17b-128e-instruct",
+  "openai/gpt-oss-120b",
+  "nvidia/nemotron-3-super-120b-a12b",
+  "z-ai/glm-5.1",
+  "meta/llama-3.1-70b-instruct",
+  "mistralai/mixtral-8x7b-instruct-v0.1",
+  "openai/gpt-oss-20b",
+  "nvidia/nvidia-nemotron-nano-9b-v2",
+  "meta/llama-3.1-8b-instruct",
+  "meta/llama-3.2-3b-instruct",
+];
+
+const ATTEMPT_TIMEOUT_MS = 12000; // abort a single model attempt after this
+const ROTATE_DEADLINE_MS = 24000; // stop starting NEW attempts after this (fn cap ~30s)
 
 async function callOpenAICompatible({ key, base, models, system, messages, maxTokens }) {
   const url = chatCompletionsUrl(base);
-  // Try each candidate model; a 404 means "model not found", so move on to the
-  // next candidate. Any other outcome (success or a real error) is returned.
+  // Try each candidate model in order. Rotate to the next on ANY failure
+  // (404 unprovisioned, 429 rate limit, 5xx, timeout, network error). Stop only
+  // on auth/permission errors (401/403) — switching models can't fix a bad key.
   const list = (Array.isArray(models) ? models : [models]).filter(Boolean);
+  const startedAt = Date.now();
   let lastDetail = "no model candidates";
   for (const model of list) {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        temperature: 0.6,
-        messages: system ? [{ role: "system", content: system }].concat(messages) : messages,
-      }),
-    });
-    const { data, raw } = await readUpstream(r);
-    if (r.ok && data) {
-      return { ok: true, payload: { content: [{ type: "text", text: data.choices?.[0]?.message?.content || "" }] } };
+    if (Date.now() - startedAt > ROTATE_DEADLINE_MS) {
+      lastDetail = `deadline reached; last error → ${lastDetail}`;
+      break;
     }
-    lastDetail = `${r.status} (${model}) ${data?.error?.message || raw.slice(0, 160) || r.statusText}`.trim();
-    if (r.status !== 404) return { ok: false, detail: lastDetail };
-    // 404 → model not available for this account/host; try the next candidate.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ATTEMPT_TIMEOUT_MS);
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          temperature: 0.6,
+          messages: system ? [{ role: "system", content: system }].concat(messages) : messages,
+        }),
+        signal: ctrl.signal,
+      });
+      const { data, raw } = await readUpstream(r);
+      if (r.ok && data) {
+        return { ok: true, payload: { content: [{ type: "text", text: data.choices?.[0]?.message?.content || "" }] }, model };
+      }
+      lastDetail = `${r.status} (${model}) ${data?.error?.message || raw.slice(0, 160) || r.statusText}`.trim();
+      if (r.status === 401 || r.status === 403) return { ok: false, detail: lastDetail };
+      // otherwise rotate to the next candidate model
+    } catch (e) {
+      lastDetail = `error (${model}) ${e && e.name === "AbortError" ? "timeout" : String((e && e.message) || e)}`;
+      // rotate to the next candidate model
+    } finally {
+      clearTimeout(timer);
+    }
   }
   return { ok: false, detail: lastDetail };
 }
