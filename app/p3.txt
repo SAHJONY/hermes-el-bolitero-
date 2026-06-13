@@ -137,6 +137,8 @@ function TabTicket(){
     setMsg("");
     if(!d2ok(fijo)){ setMsg("El fijo son 2 dígitos (00–99)."); return; }
     if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
+    const bet=num(monto);
+    if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } }
     const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
       board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
       fijo, corridos:[c1,c2].filter(Boolean), monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
@@ -149,21 +151,25 @@ function TabTicket(){
     try{
       const live=await fetchLiveDraws();
       let wins=0;
+      let coinWin=0;
       const next=(tickets||[]).map(t=>{
         if(t.status!=="pendiente") return t;
         const d=pickDraw(live.draws,t.board,t.date,t.session);
         if(!d) return t;
         const f2=String(d.pick3).padStart(3,"0").slice(1);
         const ca=String(d.pick4).padStart(4,"0").slice(0,2), cb=String(d.pick4).padStart(4,"0").slice(2,4);
-        const hits=[];
-        if(t.fijo===f2) hits.push("FIJO "+f2);
-        t.corridos.forEach(c=>{ if(c===ca||c===cb) hits.push("corrido "+c); });
-        return {...t, status:hits.length?"ganador":"no salió", premio:hits.join(" + ")||null, resultado:f2+" · "+ca+" "+cb};
+        const hits=[]; const fijoHit=t.fijo===f2; if(fijoHit) hits.push("FIJO "+f2);
+        let corr=0; t.corridos.forEach(c=>{ if(c===ca||c===cb){ hits.push("corrido "+c); corr++; } });
+        const won=hits.length>0;
+        const pay= won ? num(t.monto)*((fijoHit?PAYOUTS.fijo:0)+corr*PAYOUTS.corrido) : 0;
+        if(won && !t.coinPaid && pay>0) coinWin+=pay;
+        return {...t, status:won?"ganador":"no salió", premio:hits.join(" + ")||null, resultado:f2+" · "+ca+" "+cb, ganancia:won?pay:0, coinPaid:won?true:t.coinPaid};
       });
       wins=next.filter(t=>t.status==="ganador").length-(tickets||[]).filter(t=>t.status==="ganador").length;
       await save(next);
+      if(coinWin>0) await addCoins(coinWin);
       if(wins>0) fireConfetti();
-      setMsg(wins>0?("🎉 ¡¡TU NÚMERO SALIÓ!! "+wins+" ticket(s) ganador(es) — Hermes también te avisará por tus canales de Alertas."):"Comprobado contra los tiros oficiales publicados.");
+      setMsg(wins>0?("🎉 ¡¡GANASTE!! "+wins+" ticket(s) · +"+coinWin.toLocaleString()+" 🪙 acreditados a tu saldo."):"Comprobado contra los tiros oficiales publicados.");
     }catch{ setMsg("La señal no respondió — intenta en un momento."); }
     setChecking(false);
   };
@@ -229,7 +235,7 @@ function TabTicket(){
                   {t.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}
                   <div style={{marginLeft:"auto",textAlign:"right"}}>
                     {t.status==="pendiente"&&<span className="chip" style={{cursor:"default"}}>⏳ pendiente</span>}
-                    {t.status==="ganador"&&<span className="chip" style={{cursor:"default",background:"#FFD978",color:"#3A2604",fontWeight:800}}>🏆 {t.premio}</span>}
+                    {t.status==="ganador"&&<span className="chip" style={{cursor:"default",background:"#FFD978",color:"#3A2604",fontWeight:800}}>🏆 {t.premio}{num(t.ganancia)>0?` · +${num(t.ganancia).toLocaleString()}🪙`:""}</span>}
                     {t.status==="no salió"&&<span className="chip" style={{cursor:"default"}}>{t.resultado||"no salió"}</span>}
                   </div>
                 </div>
@@ -375,6 +381,28 @@ const TABS=[
   {id:"alertas",icon:"🔔",label:"Alertas"},
   {id:"foro",icon:"💬",label:"Foro"},
 ];
+function CoinBalance({admin}){
+  const [bal,setBal]=useState(null);
+  const [app,setApp]=useState(null);
+  const [flash,setFlash]=useState("");
+  useEffect(()=>{
+    let alive=true;
+    const tick=async()=>{ const c=await getCoins(); if(alive) setBal(c.bal);
+      if(admin){ try{ const r=await fetch("/api/balance"); const d=await r.json(); if(alive&&d&&d.configured) setApp(d); }catch(e){} } };
+    (async()=>{ const b=await claimDailyBonus(); if(b.claimed){ setFlash("+"+DAILY_BONUS); setTimeout(()=>alive&&setFlash(""),2600); } await tick(); })();
+    const i=setInterval(tick,5000);
+    return ()=>{ alive=false; clearInterval(i); };
+  },[admin]);
+  if(bal===null) return null;
+  return (
+    <div className="chip" style={{cursor:"default",background:T.raise,borderColor:"rgba(255,184,56,.4)"}} title="Monedas de juego (virtuales)">
+      <span style={{color:T.mango,fontWeight:800}}>🪙 {bal.toLocaleString()}</span>
+      {flash&&<span style={{color:T.teal,marginLeft:4,fontWeight:700}}>{flash}</span>}
+      {admin&&app&&<span style={{color:T.dim,marginLeft:6,fontSize:10}}>· app {Number(app.totalCoins||0).toLocaleString()}🪙 / {app.accounts} ctas</span>}
+    </div>
+  );
+}
+
 function MainApp({admin,onLock}){
   const [tab,setTab]=useState("hoy");
   const [lot,setLot]=useState("labolita");
@@ -392,7 +420,10 @@ function MainApp({admin,onLock}){
             <Logo size={40}/>
             <Wordmark size={0.74}/>
           </div>
-          <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?"👑 Admin":"🔒 Salir"}</button>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <CoinBalance admin={admin}/>
+            <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?"👑 Admin":"🔒 Salir"}</button>
+          </div>
         </header>
         <div style={{marginBottom:12}}>
           <button className="chip" style={{width:"100%",justifyContent:"center",borderColor:"rgba(255,184,56,.4)"}} onClick={()=>setShowNews(!showNews)}>

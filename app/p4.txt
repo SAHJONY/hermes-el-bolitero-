@@ -31,6 +31,18 @@ async function deleteAccount(){
   return await getAccount();
 }
 
+/* ---------- Monedas virtuales (entretenimiento) + saldo en tiempo real ----------
+   Saldo de juego en MONEDAS virtuales (no dinero real). Se guarda por cuenta y
+   se refleja al instante; se replica al store compartido (bal:<alias>) para el
+   seguimiento global del saldo de la app vía /api/balance.                      */
+const START_COINS=1000, DAILY_BONUS=100;
+async function coinsAlias(){ let a=await sGet("chat:alias",false); if(!a){ a="Cliente-"+Math.random().toString(36).slice(2,7).toUpperCase(); await sSet("chat:alias",a,false);} return a; }
+async function getCoins(){ const c=await sGet("coins",false); return (c&&typeof c.bal==="number")?c:{bal:START_COINS,lastBonus:""}; }
+async function setCoins(c){ await sSet("coins",c,false); try{ const a=await coinsAlias(); await sSet("bal:"+a,{bal:c.bal,ts:Date.now()},true); }catch(e){} return c; }
+async function claimDailyBonus(){ const c=await getCoins(); const today=new Date().toISOString().slice(0,10); if(c.lastBonus!==today){ c.bal+=DAILY_BONUS; c.lastBonus=today; await setCoins(c); return {claimed:true,bal:c.bal}; } return {claimed:false,bal:c.bal}; }
+async function spendCoins(n){ const c=await getCoins(); if(c.bal<n) return {ok:false,bal:c.bal}; c.bal-=n; await setCoins(c); return {ok:true,bal:c.bal}; }
+async function addCoins(n){ const c=await getCoins(); c.bal=Math.max(0,c.bal+Math.round(n)); await setCoins(c); return c.bal; }
+
 /* ---------- Pagos: catálogo mundial (servicios + tarjetas prepago) ----------
    Solo aparecen en la app los que el dueño ACTIVA (pay:methods compartido).   */
 const PAY_CATALOG=[
