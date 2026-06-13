@@ -204,7 +204,7 @@ function aiContext(lot){
   return `Lotería ${lottery.name}, hoy ${dk}. ${lines}. Calientes: ${st.hot.slice(0,5).map(x=>x.n).join(",")}. Atrasados: ${st.late.slice(0,5).map(x=>`${x.n}(${x.days}d)`).join(",")}.`;
 }
 function TabIA({lot}){
-  const [msgs,setMsgs]=useState([{role:"assistant",text:"¡Asere, qué bolá! ⚡ Soy Hermes, el cerebro de La Bolita IA. Pregúntame por los números de hoy, la charada, estadísticas o pídeme la adivinanza del día."}]);
+  const [msgs,setMsgs]=useState([{role:"assistant",text:"¡Asere, qué bolá! ⚡ Soy Hermes, el cerebro de HERMES EL BOLITERO. Pregúntame por los números de hoy, la charada, estadísticas o pídeme la adivinanza del día."}]);
   const [input,setInput]=useState("");
   const [busy,setBusy]=useState(false);
   const endRef=useRef(null);
@@ -217,7 +217,7 @@ function TabIA({lot}){
       const data=await askClaude(
         hist.slice(-10).map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.text})),
         {system:
-          `Eres "Hermes", el agente-cerebro IA de una app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca aceptas ni gestionas apuestas, nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot)}. Charada disponible 1-100. Responde en español, máximo ~120 palabras.`,
+          `Eres "Hermes", el agente-cerebro IA de HERMES EL BOLITERO, app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca aceptas ni gestionas apuestas, nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot)}. Charada disponible 1-100. Responde en español, máximo ~120 palabras.`,
           maxTokens:500});
       setMsgs(m=>[...m,{role:"assistant",text:textOf(data)||"…"}]);
     }catch{
