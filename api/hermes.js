@@ -21,10 +21,22 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const body = req.body || {};
+  let body = req.body || {};
+  if (typeof body === "string") {
+    try { body = JSON.parse(body || "{}"); } catch { body = {}; }
+  }
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const system = body.system || HERMES_SYSTEM;
   const maxTokens = Math.min(Number(body.max_tokens) || 600, 1024);
+
+  // Read an upstream response as text first, then parse — providers sometimes
+  // return streamed/event bodies or HTML error pages that break res.json().
+  const readUpstream = async (r) => {
+    const raw = await r.text();
+    let data = null;
+    try { data = JSON.parse(raw); } catch { /* leave null; expose snippet below */ }
+    return { data, raw };
+  };
 
   try {
     const antKey = process.env.ANTHROPIC_API_KEY;
@@ -53,9 +65,13 @@ module.exports = async (req, res) => {
           messages: system ? [{ role: "system", content: system }].concat(messages) : messages,
         }),
       });
-      const d = await r.json();
-      if (!r.ok) {
-        res.status(502).json({ error: "engine_failed", detail: d.error?.message || r.statusText });
+      const { data: d, raw } = await readUpstream(r);
+      if (!r.ok || !d) {
+        res.status(502).json({
+          error: "engine_failed",
+          status: r.status,
+          detail: d?.error?.message || raw.slice(0, 300) || r.statusText,
+        });
         return;
       }
       const text = d.choices?.[0]?.message?.content || "";
@@ -75,9 +91,13 @@ module.exports = async (req, res) => {
         },
         body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
       });
-      const d = await r.json();
-      if (!r.ok) {
-        res.status(502).json({ error: "anthropic_failed", detail: d.error?.message || r.statusText });
+      const { data: d, raw } = await readUpstream(r);
+      if (!r.ok || !d) {
+        res.status(502).json({
+          error: "anthropic_failed",
+          status: r.status,
+          detail: d?.error?.message || raw.slice(0, 300) || r.statusText,
+        });
         return;
       }
       res.status(200).json({ content: d.content || [] });
