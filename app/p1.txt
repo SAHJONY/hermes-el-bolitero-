@@ -8,12 +8,32 @@ const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } = Rech
    Solo entretenimiento e información. No es una casa de apuestas.
    ============================================================ */
 
+const _MDN = ["Mediodía", "Noche"];
+const US_BOARDS = [
+  ["newyork","New York","🗽",_MDN],["florida","Florida","🌴",_MDN],["georgia","Georgia","🍑",["Mediodía","Tarde","Noche"]],
+  ["chicago","Illinois","🌆",_MDN],["california","California","🌟",_MDN],["texas","Texas","⭐",["Mañana","Mediodía","Tarde","Noche"]],
+  ["newjersey","New Jersey","🎰",_MDN],["pennsylvania","Pennsylvania","🔔",_MDN],["ohio","Ohio","🌰",_MDN],
+  ["michigan","Michigan","🏞️",_MDN],["virginia","Virginia","🦅",_MDN],["northcarolina","North Carolina","🌅",_MDN],
+  ["southcarolina","South Carolina","🌴",_MDN],["tennessee","Tennessee","🎸",["Mañana","Mediodía","Noche"]],["maryland","Maryland","🦀",_MDN],
+  ["massachusetts","Massachusetts","⚓",_MDN],["connecticut","Connecticut","🌳",_MDN],["dc","Washington DC","🏛️",_MDN],
+  ["indiana","Indiana","🏁",_MDN],["missouri","Missouri","🎷",_MDN],["wisconsin","Wisconsin","🧀",["Noche"]],
+  ["minnesota","Minnesota","❄️",["Noche"]],["louisiana","Louisiana","🎺",["Noche"]],["arizona","Arizona","🌵",["Noche"]],
+  ["colorado","Colorado","🏔️",["Noche"]],["kentucky","Kentucky","🐎",_MDN],["arkansas","Arkansas","💎",_MDN],
+  ["kansas","Kansas","🌻",["Noche"]],["iowa","Iowa","🌽",_MDN],["oklahoma","Oklahoma","🛢️",["Noche"]],
+  ["oregon","Oregon","🌲",["Mañana","Mediodía","Tarde","Noche"]],["newmexico","New Mexico","🏜️",["Noche"]],["delaware","Delaware","🏖️",_MDN],
+  ["rhodeisland","Rhode Island","⛵",["Noche"]],["maine","Maine","🦞",_MDN],["newhampshire","New Hampshire","🍁",_MDN],
+  ["vermont","Vermont","🍁",_MDN],["westvirginia","West Virginia","⛰️",["Noche"]],["idaho","Idaho","🥔",["Noche"]],
+  ["montana","Montana","🦬",["Noche"]],["northdakota","North Dakota","🌾",["Noche"]],["southdakota","South Dakota","🦅",["Noche"]],
+  ["nebraska","Nebraska","🌽",["Noche"]],["mississippi","Mississippi","🎶",_MDN],["washington","Washington","🌧️",["Noche"]],
+];
+const INTL_BOARDS = [
+  ["pr","Puerto Rico","🇵🇷",_MDN],["rd","Rep. Dominicana","🇩🇴",_MDN],
+  ["venezuela","Venezuela","🇻🇪",_MDN],["espana","España","🇪🇸",_MDN],
+];
 const LOTTERIES = [
-  { id: "labolita", name: "La Bolita · 4 tiros diarios", short: "La Bolita 🔴", sessions: ["Mañana", "Mediodía", "Tarde", "Noche"], live: true },
-  { id: "florida", name: "Florida", short: "Florida 🔴", sessions: ["Mediodía", "Noche"], live: true },
-  { id: "chicago", name: "Chicago", short: "Chicago 🔴", sessions: ["Mediodía", "Noche"], live: true },
-  { id: "georgia", name: "Georgia", short: "Georgia 🔴", sessions: ["Mediodía", "Tarde", "Noche"], live: true },
-  { id: "newyork", name: "New York", short: "New York 🔴", sessions: ["Mediodía", "Noche"], live: true },
+  { id: "labolita", name: "La Bolita · 4 tiros diarios", short: "La Bolita 🔴", sessions: ["Mañana", "Mediodía", "Tarde", "Noche"], live: true, region: "Bolita" },
+  ...US_BOARDS.map(([id,name,fl,sessions]) => ({ id, name, short: `${name} ${fl}`, sessions, live: true, region: "USA" })),
+  ...INTL_BOARDS.map(([id,name,fl,sessions]) => ({ id, name, short: `${name} ${fl}`, sessions, live: true, region: "Internacional" })),
 ];
 
 const SESSION_TIMES = { "Mañana": 10.5, "Mediodía": 13.5, "Tarde": 19.0, "Noche": 21.8 };
@@ -368,7 +388,7 @@ function TabHoy({lot,setLot}){
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.dim}}>
-          <span className="live-dot"/> {isLive?"EN VIVO · 4 tiros diarios":"DEMO"} · {fmtDate(today)}
+          <span className="live-dot"/> {(isLive && (live?.realBoards||[]).includes(lot)) ? "EN VIVO · datos oficiales" : "DEMO · referencia"} · {fmtDate(today)}
         </div>
         {isLive&&(
           <button className="chip" onClick={load} disabled={lstate==="loading"}>
