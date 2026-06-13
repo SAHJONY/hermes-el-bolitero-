@@ -1,22 +1,366 @@
-cd /home/claude && python3 - << 'PY'
-# Split p1.txt into 2 halves at a safe line boundary for easy mobile copy-paste
-s=open('/mnt/user-data/outputs/pegar/p1.txt').read()
-lines=s.split('\n')
-mid=len(lines)//2
-# find a clean break near middle (blank line or comment)
-for off in range(0,40):
-    if mid+off<len(lines) and lines[mid+off].strip()=='':
-        mid=mid+off; break
-a='\n'.join(lines[:mid])
-b='\n'.join(lines[mid:])
-open('/mnt/user-data/outputs/pegar/p1_parte_A.txt','w').write(a)
-open('/mnt/user-data/outputs/pegar/p1_parte_B.txt','w').write(b)
-print("A bytes",len(a),"| B bytes",len(b))
-print("A ends:",repr(a[-50:]))
-print("B starts:",repr(b[:50]))
-PY
+const { useState, useEffect, useMemo, useRef } = React;
+const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } = Recharts;
 
-  "returncode" : 0,
-  "stdout" : "A bytes 12974 | B bytes 7002\nA ends: ' && d.date===dk && d.session===session) || null;\\n}'\nB starts: '\\n\\nconst Section = ({title, sub, right, children}) '\n",
-  "stderr" : ""
+/* ============================================================
+   HERMES EL BOLITERO — resultados, estadísticas, charada y agentes IA
+   Demo data engine (deterministic). Conecta tu fuente oficial
+   de resultados en RESULT_SOURCE cuando pases a producción.
+   Solo entretenimiento e información. No es una casa de apuestas.
+   ============================================================ */
+
+const LOTTERIES = [
+  { id: "labolita", name: "La Bolita · 4 tiros diarios", short: "La Bolita 🔴", sessions: ["Mañana", "Mediodía", "Tarde", "Noche"], live: true },
+  { id: "florida", name: "Florida", short: "Florida 🔴", sessions: ["Mediodía", "Noche"], live: true },
+  { id: "chicago", name: "Chicago", short: "Chicago 🔴", sessions: ["Mediodía", "Noche"], live: true },
+  { id: "georgia", name: "Georgia", short: "Georgia 🔴", sessions: ["Mediodía", "Tarde", "Noche"], live: true },
+  { id: "newyork", name: "New York", short: "New York 🔴", sessions: ["Mediodía", "Noche"], live: true },
+];
+
+const SESSION_TIMES = { "Mañana": 10.5, "Mediodía": 13.5, "Tarde": 19.0, "Noche": 21.8 };
+
+const CHARADA = {1:"Caballo",2:"Mariposa",3:"Marinero",4:"Gato",5:"Monja",6:"Jicotea",7:"Caracol",8:"Muerto",9:"Elefante",10:"Pescado grande",11:"Gallo",12:"Mujer santa",13:"Pavo real",14:"Gato tigre",15:"Perro",16:"Toro",17:"Luna",18:"Pescado chico",19:"Lombriz",20:"Gato fino",21:"Majá",22:"Sapo",23:"Vapor",24:"Paloma",25:"Piedra fina",26:"Anguila",27:"Avispa",28:"Chivo",29:"Ratón",30:"Camarón",31:"Venado",32:"Cochino",33:"Tiñosa",34:"Mono",35:"Araña",36:"Cachimba",37:"Gallina",38:"Dinero",39:"Conejo",40:"Cura",41:"Lagartija",42:"Pato",43:"Alacrán",44:"Año del cuero",45:"Tiburón",46:"Humo",47:"Pájaro",48:"Cucaracha",49:"Borracho",50:"Policía",51:"Soldado",52:"Bicicleta",53:"Luz eléctrica",54:"Flores",55:"Cangrejo",56:"Reina",57:"Cama",58:"Retrato",59:"Loco",60:"Payaso",61:"Caballo grande",62:"Matrimonio",63:"Asesino",64:"Muerto grande",65:"Comida",66:"Divorcio",67:"Puñalada",68:"Cementerio",69:"Pozo",70:"Coco",71:"Río",72:"Collar",73:"Maleta",74:"Papalote",75:"Perro grande",76:"Bailarina",77:"Banderas",78:"Obispo",79:"Tren",80:"Médico",81:"Teatro",82:"Leona",83:"Tragedia",84:"Sangre",85:"Espejo",86:"Convento",87:"Plátano",88:"Espejuelos",89:"Lotería",90:"Espejo grande",91:"Zapato",92:"Globo",93:"Revolución",94:"Machete",95:"Guerra",96:"Desafío",97:"Mosquito",98:"Piano",99:"Serrucho",100:"Inodoro"};
+
+const charadaOf = (nn) => { const n = nn === 0 ? 100 : nn; return CHARADA[n] || "—"; };
+
+/* ---------- deterministic demo result engine ---------- */
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mulberry32(a){return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function resultFor(lotId, dateKey, session){
+  const rng = mulberry32(hashStr(`${lotId}|${dateKey}|${session}`));
+  const d3 = () => String(Math.floor(rng()*1000)).padStart(3,"0");
+  const d2 = () => String(Math.floor(rng()*100)).padStart(2,"0");
+  const fijo3 = d3();
+  const fijo2 = fijo3.slice(1);
+  const c1 = d2(), c2 = d2();
+  return {
+    fijo3, fijo2, corridos:[c1,c2],
+    parles:[[fijo2,c1],[fijo2,c2],[c1,c2]],
+    candado:[fijo2,c1,c2],
+  };
+}
+const dateKey = (d) => d.toISOString().slice(0,10);
+const fmtDate = (d) => d.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+function pastDays(n){const out=[];const t=new Date();for(let i=0;i<n;i++){const d=new Date(t);d.setDate(t.getDate()-i);out.push(d);}return out;}
+function nextDraw(lot){
+  const now=new Date();
+  for(let add=0;add<2;add++){
+    for(const s of lot.sessions){
+      const t=new Date(now); t.setDate(now.getDate()+add);
+      const h=SESSION_TIMES[s]; t.setHours(Math.floor(h),Math.round((h%1)*60),0,0);
+      if(t>now) return {session:s,at:t};
+    }
+  }
+  return {session:lot.sessions[0],at:now};
+}
+
+/* ---------- design tokens: "Habana nocturna" ---------- */
+const T = {
+  bg:"#0B141A", surface:"#13222B", raise:"#1A2E39", line:"rgba(244,239,228,.09)",
+  ink:"#F4EFE4", dim:"#8AA0AB", mango:"#FFB838", mangoDeep:"#E08C00",
+  coral:"#F2545B", teal:"#38D6BA", violet:"#9D8CFF",
+};
+const FLAG_TILE = "data:image/svg+xml;utf8," + encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' width='60' height='32' viewBox='0 0 60 32'>"+
+  "<rect width='60' height='32' fill='#F7F2E6'/>"+
+  "<rect y='0' width='60' height='6.4' fill='#0A3D91'/>"+
+  "<rect y='12.8' width='60' height='6.4' fill='#0A3D91'/>"+
+  "<rect y='25.6' width='60' height='6.4' fill='#0A3D91'/>"+
+  "<path d='M0 0 L26 16 L0 32 Z' fill='#CE2026'/>"+
+  "<polygon points='10,9.8 11.5,14 15.9,14.1 12.4,16.8 13.6,21 10,18.5 6.4,21 7.6,16.8 4.1,14.1 8.5,14' fill='#F7F2E6'/>"+
+  "</svg>");
+
+const FONT_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0}
+.bol-app{font-family:'IBM Plex Sans',system-ui,sans-serif;background:${T.bg};color:${T.ink};min-height:100vh}
+.disp{font-family:'Bricolage Grotesque',sans-serif}
+.flag-text{color:#FFD978}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .flag-text{
+    background-image:linear-gradient(115deg,#7A4A06 0%,#E8A317 18%,#FFE9A8 38%,#FFF6D8 50%,#FFD978 62%,#C97F0C 82%,#8A5407 100%);
+    background-size:220% 100%;background-position:0% 0;
+    -webkit-background-clip:text;background-clip:text;
+    color:transparent;-webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 2px 0 rgba(0,0,0,.5)) drop-shadow(0 0 18px rgba(255,200,80,.35));
+    animation:goldshine 5s ease-in-out infinite;
+  }
+}
+@keyframes goldshine{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
+@media (prefers-reduced-motion: reduce){.flag-text{animation:none}}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.card{background:${T.surface};border:1px solid ${T.line};border-radius:18px;padding:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid ${T.line};background:${T.raise};color:${T.dim};cursor:pointer;white-space:nowrap}
+.chip.on{background:${T.mango};color:#1A1206;border-color:${T.mango}}
+.ball{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;background:radial-gradient(circle at 32% 28%, #ffffff, #cfd9dd 70%);color:#14242E;box-shadow:inset -3px -5px 8px rgba(0,0,0,.22), 0 4px 10px rgba(0,0,0,.35)}
+.ball.hot{background:radial-gradient(circle at 32% 28%, #FFD98A, ${T.mango} 72%);}
+.btn{border:none;border-radius:14px;padding:12px 16px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit}
+.btn.primary{background:${T.mango};color:#1A1206}
+.btn.ghost{background:${T.raise};color:${T.ink};border:1px solid ${T.line}}
+.input{width:100%;background:${T.raise};border:1px solid ${T.line};border-radius:14px;color:${T.ink};padding:12px 14px;font-family:inherit;font-size:14px;outline:none}
+.input:focus{border-color:${T.mango}}
+.fade-in{animation:fi .35s ease}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes numpop{0%{transform:scale(.9);opacity:0;filter:blur(4px)}100%{transform:scale(1);opacity:1;filter:none}}
+.num-pop{animation:numpop .5s cubic-bezier(.2,.9,.3,1.2)}
+@media (prefers-reduced-motion: reduce){.num-pop{animation:none}}
+.live-dot{width:8px;height:8px;border-radius:50%;background:${T.teal};animation:pulse 1.6s infinite}
+.scroll-x{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.scroll-x::-webkit-scrollbar{display:none}
+@media (prefers-reduced-motion: reduce){.fade-in,.live-dot{animation:none}}
+html{-webkit-text-size-adjust:100%}
+@media (min-width:760px){.bol-app .wrap{max-width:640px}}
+`;
+
+/* ---------- Claude + Higgsfield MCP bridge ---------- */
+const HIGGSFIELD_MCP = { type:"url", url:"https://mcp.higgsfield.ai/mcp", name:"higgsfield" };
+async function askClaude(messages, { system, mcp=false, web=false, maxTokens=1000 } = {}){
+  let env={};
+  try{ const r=await window.storage.get("env",false); env=JSON.parse(r.value); }catch{}
+  const nimKey=env.NVIDIA_API_KEY, nimModel=env.NVIDIA_MODEL||"nvidia/llama-3.1-nemotron-70b-instruct";
+  const nimBase=env.NVIDIA_BASE_URL||"https://integrate.api.nvidia.com/v1";
+  const antKey=env.ANTHROPIC_API_KEY;
+  const needAnthropic = web || mcp;
+
+  if(needAnthropic){
+    if(!antKey) throw new Error("sin-anthropic");
+    const body={ model:"claude-sonnet-4-6", max_tokens:maxTokens, messages };
+    if(system) body.system=system;
+    if(web) body.tools=[{type:"web_search_20250305",name:"web_search"}];
+    if(mcp) body.mcp_servers=[HIGGSFIELD_MCP];
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":antKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify(body)});
+    return r.json();
+  }
+
+  if(!nimKey) throw new Error("sin-nim");
+  const r=await fetch(`${nimBase}/chat/completions`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${nimKey}`},
+    body:JSON.stringify({ model:nimModel, max_tokens:Math.min(maxTokens,600), temperature:0.6,
+      messages: system?[{role:"system",content:system},...messages]:messages })});
+  const d=await r.json();
+  const text=d.choices?.[0]?.message?.content ?? "";
+  return { content:[{type:"text",text}] };
+}
+const textOf = (data) => (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
+const toolResultsOf = (data) => (data.content||[]).filter(b=>b.type==="mcp_tool_result");
+function firstUrlIn(data){
+  const m = JSON.stringify(data.content||[]).match(/https:\/\/[^"\\\s]+\.(?:png|jpg|jpeg|webp|mp4)/i);
+  return m ? m[0] : null;
+}
+function parseJsonLoose(t){
+  try{ return JSON.parse(t.replace(/```json|```/g,"").trim()); }
+  catch{ const m=t.match(/\{[\s\S]*\}/); if(m){ try{return JSON.parse(m[0]);}catch{} } return null; }
+}
+
+/* ============================ MOTOR EN VIVO (interno) ============================
+   La fuente real queda enmascarada: el agente busca los sorteos oficiales,
+   los normaliza al formato bolitero y los cachea para toda la comunidad.   */
+const LIVE_TTL_MIN = 8;
+function toRes(fijo3, c1, c2){
+  const f3=String(fijo3).padStart(3,"0"), f2=f3.slice(1);
+  const a=String(c1).padStart(2,"0"), b=String(c2).padStart(2,"0");
+  return { fijo3:f3, fijo2:f2, corridos:[a,b], parles:[[f2,a],[f2,b],[a,b]], candado:[f2,a,b] };
+}
+async function fetchLiveDraws(){
+  const cacheKey=`live:v2`;
+  try{
+    const c=await window.storage.get(cacheKey,true);
+    const cached=JSON.parse(c.value);
+    if(Date.now()-cached.ts < LIVE_TTL_MIN*60*1000) return cached;
+  }catch{}
+  const data=await askClaude([{role:"user",content:
+    `Busca en la web los resultados oficiales más recientes, de hoy y de ayer, de: `+
+    `(a) Tennessee Lottery CASH 3 y CASH 4 sorteo MORNING, (b) Florida Lottery PICK 3 y PICK 4 (midday y evening), `+
+    `(c) Georgia Lottery CASH 3 y CASH 4 (midday, evening y night), (d) Illinois Lottery PICK 3 y PICK 4 (midday y evening) `+
+    `y (e) New York Lottery NUMBERS y WIN 4 (midday y evening). `+
+    `Responde SOLO JSON, sin texto extra:\n`+
+    `{"draws":[{"board":"labolita"|"florida"|"chicago"|"georgia"|"newyork","date":"YYYY-MM-DD","session":"Mañana"|"Mediodía"|"Tarde"|"Noche","pick3":"###","pick4":"####"}]}\n`+
+    `Mapa exacto:\n`+
+    `board "labolita": Tennessee morning=Mañana, Florida midday=Mediodía, Georgia evening=Tarde, Florida evening=Noche.\n`+
+    `board "florida": Florida midday=Mediodía, Florida evening=Noche.\n`+
+    `board "chicago": Illinois midday=Mediodía, Illinois evening=Noche.\n`+
+    `board "georgia": Georgia midday=Mediodía, Georgia evening=Tarde, Georgia night=Noche.\n`+
+    `board "newyork": New York midday=Mediodía, New York evening=Noche.\n`+
+    `pick3 = Cash 3 / Pick 3 / Numbers (3 dígitos), pick4 = Cash 4 / Pick 4 / Win 4 (4 dígitos) del mismo sorteo y misma sesión. Incluye solo sorteos ya publicados.`}],
+    { web:true, maxTokens:2200 });
+  const j=parseJsonLoose(textOf(data));
+  if(!j?.draws?.length) throw new Error("no-draws");
+  const out={ ts:Date.now(), draws:j.draws };
+  try{ await window.storage.set(cacheKey, JSON.stringify(out), true); }catch{}
+  return out;
+}
+function pickDraw(draws, board, dk, session){
+  return draws.find(d=>(d.board||"labolita")===board && d.date===dk && d.session===session) || null;
+}
+
+
+const Section = ({title, sub, right, children}) => (
+  <div style={{marginBottom:18}}>
+    {(title||right) && (
+      <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",margin:"0 0 10px 2px"}}>
+        <div>
+          <div className="disp" style={{fontWeight:800,fontSize:17}}>{title}</div>
+          {sub && <div style={{fontSize:12,color:T.dim,marginTop:2}}>{sub}</div>}
+        </div>
+        {right}
+      </div>
+    )}
+    {children}
+  </div>
+);
+
+const Label = ({children}) => (
+  <div className="mono" style={{fontSize:10,letterSpacing:"0.14em",color:T.dim,textTransform:"uppercase",marginBottom:8}}>{children}</div>
+);
+
+function Countdown({to}){
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{const i=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(i);},[]);
+  let s=Math.max(0,Math.floor((to-now)/1000));
+  const h=Math.floor(s/3600); s%=3600; const m=Math.floor(s/60); s%=60;
+  return <span className="mono" style={{color:T.mango,fontWeight:700}}>{h}h {String(m).padStart(2,"0")}m {String(s).padStart(2,"0")}s</span>;
+}
+
+function FijoHero({res, session}){
+  const cents=res.fijo3[0], last2=res.fijo2;
+  const n=parseInt(last2,10);
+  return (
+    <div className="card fade-in" style={{textAlign:"center",padding:"22px 16px",background:`linear-gradient(180deg, ${T.surface}, #0F1B22)`}}>
+      <Label>Fijo · {session}</Label>
+      <div className="disp num-pop" style={{fontSize:108,fontWeight:800,lineHeight:1,letterSpacing:"-0.03em"}}>
+        <span style={{color:"rgba(244,239,228,.16)"}}>{cents}</span>
+        <span style={{color:T.mango,textShadow:`0 0 38px rgba(255,184,56,.5), 0 0 90px rgba(255,184,56,.22)`}}>{last2}</span>
+      </div>
+      <div style={{marginTop:8,fontSize:13,color:T.mango,fontWeight:600}}>
+        {n===0?100:n} · {charadaOf(n)}
+      </div>
+    </div>
+  );
+}
+
+function ResultDetail({res}){
+  return (
+    <div style={{display:"grid",gap:10,marginTop:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div className="card" style={{padding:14}}>
+          <Label>Corridos</Label>
+          <div style={{display:"flex",gap:10}}>{res.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}</div>
+        </div>
+        <div className="card" style={{padding:14}}>
+          <Label>Candado</Label>
+          <div className="mono" style={{fontSize:20,fontWeight:700,letterSpacing:"0.06em",paddingTop:8}}>
+            {res.candado.join(" · ")}
+          </div>
+        </div>
+      </div>
+      <div className="card" style={{padding:14}}>
+        <Label>Parlés</Label>
+        <div style={{display:"flex",gap:18}}>
+          {res.parles.map((p,i)=>(
+            <div key={i} className="mono" style={{textAlign:"center",fontWeight:700,fontSize:16,lineHeight:1.5}}>
+              <div>{p[0]}</div><div style={{color:T.dim}}>{p[1]}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ TAB: HOY ============================ */
+function PendingHero({session}){
+  return (
+    <div className="card fade-in" style={{textAlign:"center",padding:"26px 16px"}}>
+      <Label>Fijo · {session}</Label>
+      <div style={{display:"flex",gap:12,justifyContent:"center",margin:"8px 0 4px"}}>
+        {[0,1,2].map(i=>(
+          <div key={i} className="ball" style={{width:58,height:58,fontSize:24,animation:`pulse 1.6s ${i*0.25}s infinite`}}>?</div>
+        ))}
+      </div>
+      <div style={{fontSize:12,color:T.dim,marginTop:10}}>Hermes está atento al tiro… el número cae aquí al instante.</div>
+    </div>
+  );
+}
+function TabHoy({lot,setLot}){
+  const lottery = LOTTERIES.find(l=>l.id===lot);
+  const isLive = !!lottery.live;
+  const [sess,setSess]=useState(lottery.sessions[0]);
+  const [live,setLive]=useState(null);     // {ts,draws}
+  const [lstate,setLstate]=useState("idle"); // idle|loading|ok|err
+  useEffect(()=>{setSess(lottery.sessions[0]);},[lot]);
+  const load=async()=>{
+    setLstate("loading");
+    try{ setLive(await fetchLiveDraws()); setLstate("ok"); }
+    catch{ setLstate("err"); }
+  };
+  useEffect(()=>{ if(isLive){ load(); const i=setInterval(load, LIVE_TTL_MIN*60*1000); return ()=>clearInterval(i);} },[lot]);
+  const today=new Date(); const dk=dateKey(today);
+  const nd=nextDraw(lottery);
+
+  let res=null, pending=false, shownDate=null;
+  if(isLive){
+    const draws=live?.draws||[];
+    const d=pickDraw(draws,lot,dk,sess);
+    if(d){ res=toRes(d.pick3, String(d.pick4).slice(0,2), String(d.pick4).slice(2,4)); shownDate=d.date; }
+    else{
+      const y=new Date(today); y.setDate(today.getDate()-1);
+      const dy=pickDraw(draws,lot,dateKey(y),sess);
+      if(dy && lstate==="ok"){ pending=true; res=toRes(dy.pick3, String(dy.pick4).slice(0,2), String(dy.pick4).slice(2,4)); shownDate=dy.date; }
+      else pending=true;
+    }
+  } else {
+    res=resultFor(lot,dk,sess);
+  }
+
+  return (
+    <div className="fade-in">
+      <div className="scroll-x" style={{marginBottom:14}}>
+        {LOTTERIES.map(l=>(
+          <button key={l.id} className={"chip"+(lot===l.id?" on":"")} onClick={()=>setLot(l.id)}>{l.short}</button>
+        ))}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.dim}}>
+          <span className="live-dot"/> {isLive?"EN VIVO · 4 tiros diarios":"DEMO"} · {fmtDate(today)}
+        </div>
+        {isLive&&(
+          <button className="chip" onClick={load} disabled={lstate==="loading"}>
+            {lstate==="loading"?"Actualizando…":"⟳ Refrescar"}
+          </button>
+        )}
+      </div>
+      <div className="card" style={{padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <span style={{fontSize:12,color:T.dim}}>Próximo tiro · {nd.session}</span>
+        <Countdown to={nd.at.getTime()}/>
+      </div>
+      <div className="scroll-x" style={{marginBottom:12}}>
+        {lottery.sessions.map(s=>(
+          <button key={s} className={"chip"+(sess===s?" on":"")} onClick={()=>setSess(s)}>{s}</button>
+        ))}
+      </div>
+      {isLive&&lstate==="loading"&&!res&&<PendingHero session={sess}/>}
+      {isLive&&lstate==="err"&&!res&&(
+        <div className="card" style={{textAlign:"center",color:T.dim,fontSize:13,padding:24}}>
+          La señal en vivo se interrumpió un momento. Toca <b>⟳ Refrescar</b> para reintentar.
+        </div>
+      )}
+      {isLive&&pending&&res&&(
+        <div style={{fontSize:11,color:T.mango,textAlign:"center",marginBottom:8}}>
+          El tiro de hoy aún no cae — mostrando el último resultado oficial ({shownDate}).
+        </div>
+      )}
+      {res&&<FijoHero res={res} session={sess}/>}
+      {res&&<ResultDetail res={res}/>}
+      {!isLive&&(
+        <div style={{marginTop:12,fontSize:11,color:T.dim,textAlign:"center"}}>
+          Tablero de demostración.
+        </div>
+      )}
+    </div>
+  );
 }
