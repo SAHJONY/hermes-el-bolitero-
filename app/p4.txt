@@ -1,3 +1,5 @@
+
+/* ============================ MEMBERS GATE + ADMIN ============================ */
 /* Claves compartidas:
    members:codes  -> {"CODE":{label,active,created,uses}}
    admin:pin      -> pin del dueño (se crea la primera vez, solo tú)            */
@@ -89,7 +91,7 @@ const ENV_SCHEMA=[
     {k:"PORT",d:"3000",h:"Puerto del backend"},
   ]},
   {g:"Cerebro · selecciona el motor",vars:[
-    {k:"ENGINE_PROVIDER",d:"anthropic",sel:["anthropic","openai","nvidia","hermes"],h:"Quién piensa por Hermes en tu backend"},
+    {k:"ENGINE_PROVIDER",d:"anthropic",sel:["anthropic","openai","nvidia","groq","hermes"],h:"Quién piensa por Hermes en tu backend"},
     {k:"ANTHROPIC_API_KEY",d:"",sec:1,h:"Clave Anthropic (Claude)"},
     {k:"ANTHROPIC_MODEL",d:"claude-sonnet-4-6",h:"Modelo Anthropic"},
     {k:"OPENAI_API_KEY",d:"",sec:1,h:"Clave OpenAI (GPT)"},
@@ -97,6 +99,8 @@ const ENV_SCHEMA=[
     {k:"NVIDIA_API_KEY",d:"",sec:1,h:"Clave NVIDIA NIM (nvapi-…)"},
     {k:"NVIDIA_MODEL",d:"nvidia/llama-3.1-nemotron-70b-instruct",h:"Modelo NIM"},
     {k:"NVIDIA_BASE_URL",d:"https://integrate.api.nvidia.com/v1",h:"Endpoint NVIDIA NIM"},
+    {k:"GROQ_API_KEY",d:"",sec:1,h:"Clave Groq (gsk_…) — GRATIS, funciona en el navegador"},
+    {k:"GROQ_MODEL",d:"llama-3.3-70b-versatile",h:"Modelo Groq"},
     {k:"ENGINE_API_KEY",d:"",sec:1,h:"Clave del motor Hermes (router de modelos abiertos)"},
     {k:"ENGINE_MODEL",d:"nousresearch/hermes-4-70b",h:"Modelo Hermes"},
     {k:"ENGINE_BASE_URL",d:"https://openrouter.ai/api/v1",h:"Base URL del motor Hermes"},
@@ -383,6 +387,5 @@ function App(){
   if(auth===null) return <Gate onEnter={(admin)=>setAuth({admin})}/>;
   return <MainApp admin={auth.admin} onLock={lock}/>;
 }
+
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
-
-
