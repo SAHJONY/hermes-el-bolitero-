@@ -118,11 +118,14 @@ const HIGGSFIELD_MCP = { type:"url", url:"https://mcp.higgsfield.ai/mcp", name:"
 async function askClaude(messages, { system, mcp=false, web=false, maxTokens=1000 } = {}){
   let env={};
   try{ const r=await window.storage.get("env",false); env=JSON.parse(r.value); }catch{}
+  const antKey=env.ANTHROPIC_API_KEY;
+  const groqKey=env.GROQ_API_KEY;
+  const groqModel=env.GROQ_MODEL||"llama-3.3-70b-versatile";
   const nimKey=env.NVIDIA_API_KEY, nimModel=env.NVIDIA_MODEL||"nvidia/llama-3.1-nemotron-70b-instruct";
   const nimBase=env.NVIDIA_BASE_URL||"https://integrate.api.nvidia.com/v1";
-  const antKey=env.ANTHROPIC_API_KEY;
   const needAnthropic = web || mcp;
 
+  // SEÑAL EN VIVO + estudio (necesitan búsqueda web / MCP) -> Anthropic directo
   if(needAnthropic){
     if(!antKey) throw new Error("sin-anthropic");
     const body={ model:"claude-sonnet-4-6", max_tokens:maxTokens, messages };
@@ -136,33 +139,34 @@ async function askClaude(messages, { system, mcp=false, web=false, maxTokens=100
     return r.json();
   }
 
-  // Default brain (Hermes). Prefer the secure server proxy (/api/hermes) so the
-  // model key stays server-side. If an admin key is configured locally, use it
-  // as a direct fallback when the proxy is unavailable.
-  const viaProxy = async () => {
-    const r=await fetch("/api/hermes",{
+  // CEREBRO DE HERMES (chat + sueños): Groq directo (gratis, permite navegador).
+  // Si no hay Groq, intenta el proxy /api/hermes; y si tampoco, NVIDIA directo.
+  const asOpenAI = (base, key, model) => fetch(`${base}/chat/completions`,{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ messages, system, max_tokens:Math.min(maxTokens,1024) })});
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(d.detail||d.error||("proxy-"+r.status));
-    return { content: d.content||[] };
-  };
-  const viaDirect = async () => {
-    const r=await fetch(`${nimBase}/chat/completions`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":`Bearer ${nimKey}`},
-      body:JSON.stringify({ model:nimModel, max_tokens:Math.min(maxTokens,600), temperature:0.6,
+      headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},
+      body:JSON.stringify({ model, max_tokens:Math.min(maxTokens,800), temperature:0.6,
         messages: system?[{role:"system",content:system},...messages]:messages })});
+
+  if(groqKey){
+    const r=await asOpenAI("https://api.groq.com/openai/v1", groqKey, groqModel);
     const d=await r.json();
-    const text=d.choices?.[0]?.message?.content ?? "";
-    return { content:[{type:"text",text}] };
-  };
-  // Always prefer the server proxy (rotates across NVIDIA models, key stays
-  // server-side). Only fall back to a locally-stored admin key if the proxy
-  // itself is unreachable/unconfigured.
-  try{ return await viaProxy(); }
-  catch(e){ if(nimKey) return await viaDirect(); throw e; }
+    if(!r.ok) throw new Error(d.error?.message||("groq-"+r.status));
+    return { content:[{type:"text",text:d.choices?.[0]?.message?.content ?? ""}] };
+  }
+  // Respaldo: proxy server-side (si algún día se activa)
+  try{
+    const r=await fetch("/api/hermes",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ messages, system, max_tokens:Math.min(maxTokens,800) })});
+    const d=await r.json();
+    if(r.ok) return { content: d.content||[] };
+  }catch(e){}
+  // Último respaldo: NVIDIA directo (puede fallar por CORS en navegador)
+  if(nimKey){
+    const r=await asOpenAI(nimBase, nimKey, nimModel);
+    const d=await r.json();
+    return { content:[{type:"text",text:d.choices?.[0]?.message?.content ?? ""}] };
+  }
+  throw new Error("sin-cerebro");
 }
 const textOf = (data) => (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
 const toolResultsOf = (data) => (data.content||[]).filter(b=>b.type==="mcp_tool_result");
