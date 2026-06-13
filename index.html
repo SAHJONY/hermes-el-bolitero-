@@ -12,9 +12,21 @@ html,body{margin:0;background:#0B141A;color:#F4EFE4;font-family:system-ui,sans-s
 #boot .ball{width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff,#cfd9dd 70%);animation:b 1s ease-in-out infinite alternate}
 @keyframes b{from{transform:translateY(0)}to{transform:translateY(-14px)}}
 #booterr{display:none;padding:22px;color:#FF8A8A;white-space:pre-wrap;font-size:13px}
+/* worldwide translate widget — neutralize Google's banner, keep our layout */
+.goog-te-banner-frame,.goog-te-gadget-icon,.skiptranslate iframe{display:none!important}
+body{top:0!important}
+#xlate{position:fixed;top:8px;right:10px;z-index:99999;background:rgba(19,34,43,.92);border:1px solid rgba(244,239,228,.18);border-radius:999px;padding:3px 8px;font-size:12px;backdrop-filter:blur(8px)}
+#xlate .goog-te-gadget{color:#8AA0AB;font-size:0}
+#xlate .goog-te-gadget .goog-te-combo{color:#F4EFE4;background:transparent;border:none;font-family:system-ui,sans-serif;font-size:12px;padding:2px}
+#xlate .goog-te-combo option{color:#111}
 </style>
 </head>
 <body>
+<div id="xlate" title="🌐 Idioma / Language"></div>
+<script>
+function googleTranslateElementInit(){try{new google.translate.TranslateElement({pageLanguage:"es",autoDisplay:false},"xlate");}catch(e){}}
+</script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 <div id="root">
 <div id="boot"><div class="ball"></div><div style="color:#FFB838;font-weight:700;letter-spacing:.18em">HERMES EL BOLITERO</div><div style="color:#8AA0AB;font-size:13px">cargando la bola…</div></div>
 <div id="booterr"></div>

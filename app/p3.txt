@@ -191,6 +191,91 @@ function TabTicket(){
   );
 }
 
+/* ============================ TAB: CONFIRMACIÓN DE PAGO ============================ */
+function TabPago(){
+  const METODOS=["PayPal","Cash App","Zelle","Venmo","Tarjeta","Efectivo","Otro"];
+  const [metodo,setMetodo]=useState("PayPal");
+  const [monto,setMonto]=useState("");
+  const [tx,setTx]=useState("");
+  const [recibo,setRecibo]=useState("");
+  const [contacto,setContacto]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState("");
+  const [pagos,setPagos]=useState(null);
+  const [alias,setAlias]=useState("");
+  useEffect(()=>{(async()=>{
+    setPagos(await sGet("pagos:mine",false)||[]);
+    let a=await sGet("chat:alias",false);
+    if(!a){ a="Cliente-"+Math.random().toString(36).slice(2,7).toUpperCase(); await sSet("chat:alias",a,false); }
+    setAlias(a);
+  })();},[]);
+  const enviar=async()=>{
+    if(busy) return;
+    if(!recibo.trim() && !tx.trim()){ setMsg("Pega el recibo o escribe el número de transacción."); return; }
+    setBusy(true); setMsg("");
+    const ref="HB-PAY-"+Math.random().toString(36).slice(2,7).toUpperCase();
+    const texto=`Método: ${metodo}\nMonto: ${monto||"—"}\nTransacción: ${tx||"—"}`+(recibo.trim()?`\nRecibo:\n${recibo.trim()}`:"");
+    let delivered=false;
+    try{
+      const r=await fetch("/api/ticket",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({tipo:"pago",alias,contacto:contacto.trim(),texto,ref})});
+      const d=await r.json().catch(()=>({})); delivered=!!d.delivered;
+    }catch{}
+    const rec={ref,metodo,monto:monto.trim(),tx:tx.trim(),recibo:recibo.trim(),contacto:contacto.trim(),ts:Date.now(),delivered,status:"en revisión"};
+    const next=[rec,...(pagos||[])].slice(0,50);
+    setPagos(next); await sSet("pagos:mine",next,false);
+    setMsg(`✅ Pago enviado para confirmación · ${ref}.`+(delivered?" El dueño ya lo recibió.":" Lo guardamos; el dueño lo verá pronto."));
+    setMonto(""); setTx(""); setRecibo("");
+    setBusy(false);
+  };
+  const copiar=async(p)=>{
+    const txt=`HERMES EL BOLITERO · Confirmación de pago ${p.ref}\n${p.metodo} · ${p.monto||"—"} · Tx ${p.tx||"—"}\nEstado: ${p.status}`;
+    try{ if(navigator.share) await navigator.share({text:txt}); else { await navigator.clipboard.writeText(txt); setMsg("Confirmación copiada ✔"); } }catch{}
+  };
+  return (
+    <div className="fade-in">
+      <Section title="Confirmar pago 💳" sub="Paga por tu canal y pega aquí el recibo — el dueño lo confirma">
+        <div className="card" style={{display:"grid",gap:10}}>
+          <div className="scroll-x">{METODOS.map(m=><button key={m} className={"chip"+(metodo===m?" on":"")} onClick={()=>setMetodo(m)}>{m}</button>)}</div>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}><Label>Monto</Label>
+              <input className="input mono" inputMode="decimal" placeholder="$0.00" value={monto} onChange={e=>setMonto(e.target.value)}/></div>
+            <div style={{flex:2}}><Label>N.º de transacción / referencia</Label>
+              <input className="input mono" placeholder="ID del pago" value={tx} onChange={e=>setTx(e.target.value)}/></div>
+          </div>
+          <div><Label>Recibo / comprobante</Label>
+            <textarea className="input" rows={4} placeholder="Pega aquí el recibo del pago (PayPal, Cash App, Zelle, captura de la transacción…)" value={recibo} onChange={e=>setRecibo(e.target.value)} style={{resize:"none"}}/></div>
+          <input className="input" placeholder="Tu contacto (teléfono, Telegram, email) — opcional" value={contacto} onChange={e=>setContacto(e.target.value)}/>
+          <button className="btn primary" onClick={enviar} disabled={busy}>{busy?"Enviando…":"💳 Enviar pago para confirmación"}</button>
+          {msg&&<div style={{fontSize:12,color:msg.includes("✅")||msg.includes("✔")?T.teal:T.coral}}>{msg}</div>}
+        </div>
+      </Section>
+      <Section title="Mis pagos" right={<span style={{fontSize:11,color:T.dim}}>{(pagos||[]).length}</span>}>
+        <div style={{display:"grid",gap:10}}>
+          {pagos&&pagos.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no has enviado ningún pago.</div>}
+          {(pagos||[]).map(p=>(
+            <div key={p.ref} className="card" style={{padding:"12px 14px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span className="mono" style={{fontSize:12,fontWeight:700,color:T.mango}}>{p.ref}</span>
+                <span className="chip" style={{cursor:"default"}}>{p.delivered?"📨 en revisión":"⏳ guardado"}</span>
+              </div>
+              <div style={{fontSize:13}}>{p.metodo}{p.monto?` · ${p.monto}`:""}{p.tx?` · Tx ${p.tx}`:""}</div>
+              {p.recibo&&<div style={{fontSize:12,color:T.dim,whiteSpace:"pre-wrap",marginTop:6,maxHeight:80,overflow:"hidden"}}>{p.recibo}</div>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+                <span style={{fontSize:10,color:T.dim}}>{new Date(p.ts).toLocaleString("es-ES",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                <button className="chip" onClick={()=>copiar(p)}>📤 Copiar confirmación</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
+        El recibo se guarda en tu cuenta y se le envía al dueño para verificación. Solo información y entretenimiento.
+      </div>
+    </div>
+  );
+}
+
 /* ============================ SHELL ============================ */
 const APP_VERSION="2.0";
 const CHANGELOG=[
@@ -211,6 +296,7 @@ const TABS=[
   {id:"ia",icon:"⚡",label:"Hermes"},
   {id:"studio",icon:"🎨",label:"Studio"},
   {id:"ticket",icon:"🎟️",label:"Ticket"},
+  {id:"pago",icon:"💳",label:"Pago"},
   {id:"alertas",icon:"🔔",label:"Alertas"},
   {id:"foro",icon:"💬",label:"Foro"},
 ];
@@ -252,6 +338,7 @@ function MainApp({admin,onLock}){
         {tab==="ia"&&<TabIA lot={lot}/>}
         {tab==="studio"&&<TabStudio lot={lot}/>}
         {tab==="ticket"&&<TabTicket/>}
+        {tab==="pago"&&<TabPago/>}
         {tab==="alertas"&&<TabAlertas/>}
         {tab==="foro"&&<TabForo/>}
         {tab==="admin"&&admin&&<TabAdmin/>}

@@ -26,7 +26,8 @@ module.exports = async (req, res) => {
   const alias = String(b.alias || "Cliente").slice(0, 60);
   const contacto = String(b.contacto || "").slice(0, 80);
   const ref = (String(b.ref || "").slice(0, 40)) || ("HB-" + Date.now().toString(36).toUpperCase());
-  const tipo = b.tipo === "ticket" ? "Ticket" : "Comprobante";
+  const TIPOS = { ticket: "Ticket 🎟️", pago: "Pago 💳", recibo: "Comprobante" };
+  const tipo = TIPOS[b.tipo] || "Comprobante";
 
   const msg =
     `🎟️ <b>${tipo} para confirmar</b>\n` +
