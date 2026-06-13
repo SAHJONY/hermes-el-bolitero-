@@ -3,6 +3,24 @@
 // sorteos (datos reales del horario, NO números) e invita a la app. Vercel
 // añade Authorization: Bearer CRON_SECRET cuando esa env var está configurada.
 const { sendTelegram } = require("../lib/notify");
+const { buildResults } = require("../lib/results");
+
+// Latest REAL results to include in the broadcast (today only — real boards).
+async function realResultsLine() {
+  try {
+    const { draws } = await buildResults();
+    const real = draws.filter(d => d.source === "real");
+    if (!real.length) return "";
+    const latest = real.reduce((a, b) => (b.date > a ? b.date : a), "0000-00-00");
+    const today = real.filter(d => d.date === latest);
+    if (!today.length) return "";
+    const byBoard = {};
+    today.forEach(d => { (byBoard[d.board] = byBoard[d.board] || []).push(`${d.session}: <b>${d.pick3}</b>${d.pick4 ? " / " + d.pick4 : ""}`); });
+    const names = { newyork: "New York 🗽" };
+    const lines = Object.keys(byBoard).map(b => `${names[b] || b} — ${byBoard[b].join(" · ")}`);
+    return `\n🏆 <b>Resultados reales (${latest})</b>\n${lines.join("\n")}\n`;
+  } catch { return ""; }
+}
 
 const SESSIONS = [
   { name: "Mañana", time: "10:30" },
@@ -27,10 +45,12 @@ module.exports = async (req, res) => {
 
   const app = process.env.APP_URL || "https://hermes-el-bolitero.vercel.app";
   const horario = SESSIONS.map(s => `• <b>${s.name}</b> — ${s.time}`).join("\n");
+  const resultados = await realResultsLine();
   const texto =
     `🎱 <b>HERMES EL BOLITERO</b> · ¡Buenos días, familia!\n\n` +
-    `Hoy hay tiros de: ${BOARDS}\n\n` +
-    `🕒 <b>Horario de hoy</b>\n${horario}\n\n` +
+    `Hoy hay tiros de: ${BOARDS}\n` +
+    resultados +
+    `\n🕒 <b>Horario de hoy</b>\n${horario}\n\n` +
     `Entra a la app para los resultados, estadísticas y la charada 👉 ${app}\n` +
     `<i>Solo información y entretenimiento. Cada tiro es azar independiente.</i>`;
 

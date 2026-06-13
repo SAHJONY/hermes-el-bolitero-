@@ -204,11 +204,26 @@ function aiContext(lot){
   return `Lotería ${lottery.name}, hoy ${dk}. ${lines}. Calientes: ${st.hot.slice(0,5).map(x=>x.n).join(",")}. Atrasados: ${st.late.slice(0,5).map(x=>`${x.n}(${x.days}d)`).join(",")}.`;
 }
 function TabIA({lot}){
-  const [msgs,setMsgs]=useState([{role:"assistant",text:"¡Asere, qué bolá! ⚡ Soy Hermes, el cerebro de HERMES EL BOLITERO. Pregúntame por los números de hoy, la charada, estadísticas o pídeme la adivinanza del día."}]);
+  const GREET={role:"assistant",text:"¡Asere, qué bolá! ⚡ Soy Hermes. Aquí hablas conmigo en privado: pregúntame por los números, la charada o las estadísticas. ¿Tienes un recibo o comprobante? Pégalo con el botón 📎 y te doy una confirmación que el dueño revisa."};
+  const [msgs,setMsgs]=useState([GREET]);
+  const [loaded,setLoaded]=useState(false);
   const [input,setInput]=useState("");
   const [busy,setBusy]=useState(false);
+  const [alias,setAlias]=useState("");
+  const [showRec,setShowRec]=useState(false);
+  const [rec,setRec]=useState("");
+  const [contacto,setContacto]=useState("");
+  const [recBusy,setRecBusy]=useState(false);
   const endRef=useRef(null);
+  // Private, per-customer: persist this chat and a stable alias on the device.
+  useEffect(()=>{(async()=>{
+    const h=await sGet("chat:hist",false); if(Array.isArray(h)&&h.length) setMsgs(h);
+    let a=await sGet("chat:alias",false);
+    if(!a){ a="Cliente-"+Math.random().toString(36).slice(2,7).toUpperCase(); await sSet("chat:alias",a,false); }
+    setAlias(a); setLoaded(true);
+  })();},[]);
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs]);
+  useEffect(()=>{ if(loaded) sSet("chat:hist",msgs.slice(-60),false); },[msgs,loaded]);
   const send=async(text)=>{
     const t=(text??input).trim(); if(!t||busy) return;
     const hist=[...msgs,{role:"user",text:t}];
@@ -217,13 +232,29 @@ function TabIA({lot}){
       const data=await askClaude(
         hist.slice(-10).map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.text})),
         {system:
-          `Eres "Hermes", el agente-cerebro IA de HERMES EL BOLITERO, app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca aceptas ni gestionas apuestas, nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot)}. Charada disponible 1-100. Responde en español, máximo ~120 palabras.`,
+          `Eres "Hermes", el agente-cerebro IA de HERMES EL BOLITERO, app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Atiendes a cada cliente en privado. Si el cliente pega un recibo o comprobante, agradece, confírmale que quedó registrado y que el dueño lo revisará; no calcules premios ni manejes dinero. Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot)}. Charada disponible 1-100. Responde en español, máximo ~120 palabras.`,
           maxTokens:500});
       setMsgs(m=>[...m,{role:"assistant",text:textOf(data)||"…"}]);
     }catch{
       setMsgs(m=>[...m,{role:"assistant",text:"Se me fue la señal 📡 — intenta otra vez."}]);
     }
     setBusy(false);
+  };
+  const enviarRecibo=async()=>{
+    const t=rec.trim(); if(!t||recBusy) return;
+    setRecBusy(true);
+    const ref="HB-"+Math.random().toString(36).slice(2,8).toUpperCase();
+    setMsgs(m=>[...m,{role:"user",text:"📎 Comprobante enviado:\n"+t}]);
+    let delivered=false;
+    try{
+      const r=await fetch("/api/ticket",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({tipo:"recibo",alias,contacto:contacto.trim(),texto:t,ref})});
+      const d=await r.json().catch(()=>({})); delivered=!!d.delivered;
+    }catch{}
+    const recs=await sGet("recibos:mine",false)||[];
+    await sSet("recibos:mine",[{ref,texto:t,contacto:contacto.trim(),ts:Date.now(),delivered},...recs].slice(0,50),false);
+    setMsgs(m=>[...m,{role:"assistant",text:`✅ Recibí tu comprobante. Tu número de confirmación es ${ref}.`+(delivered?" Ya se lo pasé al dueño para verificarlo.":" Lo guardé en tu cuenta; el dueño lo verá en cuanto haya señal.")+" Copia y guarda esta confirmación."}]);
+    setRec(""); setContacto(""); setShowRec(false); setRecBusy(false);
   };
   const quick=["¿Qué salió hoy?","Adivinanza del día","¿Qué número está más atrasado?","Significado del 17"];
   return (
@@ -240,7 +271,20 @@ function TabIA({lot}){
         {busy && <div style={{color:T.dim,fontSize:13}}>Hermes está escribiendo…</div>}
         <div ref={endRef}/>
       </div>
+      {showRec&&(
+        <div className="card fade-in" style={{margin:"6px 0",display:"grid",gap:8}}>
+          <div style={{fontSize:12,color:T.mango,fontWeight:700}}>📎 Pega tu recibo o comprobante</div>
+          <textarea className="input" rows={3} placeholder="Pega aquí el texto de tu recibo / comprobante…" value={rec} onChange={e=>setRec(e.target.value)} style={{resize:"none"}}/>
+          <input className="input" placeholder="Tu contacto (teléfono, Telegram, email) — opcional" value={contacto} onChange={e=>setContacto(e.target.value)}/>
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn ghost" style={{flex:1}} onClick={()=>setShowRec(false)} disabled={recBusy}>Cancelar</button>
+            <button className="btn primary" style={{flex:2}} onClick={enviarRecibo} disabled={recBusy}>{recBusy?"Enviando…":"Enviar para confirmación"}</button>
+          </div>
+          <div style={{fontSize:10,color:T.dim}}>Tu comprobante se guarda en tu cuenta y se le envía al dueño para verificación. Solo información — aquí no se paga premio.</div>
+        </div>
+      )}
       <div className="scroll-x" style={{margin:"6px 0"}}>
+        <button className="chip" style={{background:T.raise,borderColor:"rgba(255,184,56,.4)",color:T.mango,fontWeight:700}} onClick={()=>setShowRec(s=>!s)}>📎 Recibo</button>
         {quick.map(q=><button key={q} className="chip" onClick={()=>send(q)}>{q}</button>)}
       </div>
       <div style={{display:"flex",gap:8}}>
