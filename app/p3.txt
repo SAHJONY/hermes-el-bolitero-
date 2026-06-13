@@ -7,7 +7,7 @@ function TabAlertas(){
     const mine=await sGet("alerta:mine",false);
     if(mine){ setF(x=>({...x,...mine.data})); setYa(true); }
   })();},[]);
-  const guardar=async()=>{
+const guardar=async()=>{
     if(!f.tel.trim()&&!f.email.trim()){ setEstado("Pon al menos un teléfono o un email."); return; }
     if(f.voz&&!f.tel.trim()){ setEstado("Para la llamada de Hermes hace falta tu teléfono."); return; }
     let mine=await sGet("alerta:mine",false);
