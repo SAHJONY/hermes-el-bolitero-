@@ -383,5 +383,6 @@ function App(){
   if(auth===null) return <Gate onEnter={(admin)=>setAuth({admin})}/>;
   return <MainApp admin={auth.admin} onLock={lock}/>;
 }
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 
 
