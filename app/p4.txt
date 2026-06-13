@@ -384,4 +384,4 @@ function App(){
   return <MainApp admin={auth.admin} onLock={lock}/>;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+
