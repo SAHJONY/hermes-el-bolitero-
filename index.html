@@ -36,10 +36,22 @@ function bootErr(m){var e=document.getElementById("booterr"),b=document.getEleme
 window.addEventListener("error",function(e){bootErr(e.message||e.type)},true);
 window.__HB_PROD=true;
 (function(){var K=function(k,s){return (s?"shared":"local")+":"+k};
-window.storage={get:async function(k,s){var v=localStorage.getItem(K(k,!!s));if(v===null)throw new Error("nf");return{key:k,value:v,shared:!!s}},
-set:async function(k,v,s){localStorage.setItem(K(k,!!s),v);return{key:k,value:v,shared:!!s}},
-"delete":async function(k,s){localStorage.removeItem(K(k,!!s));return{key:k,deleted:true,shared:!!s}},
-list:async function(p,s){p=p||"";var ks=Object.keys(localStorage).filter(function(x){return x.indexOf(K(p,!!s))===0}).map(function(x){return x.split(":").slice(1).join(":")});return{keys:ks,prefix:p,shared:!!s}}};})();
+// Shared data goes to the native DB (/api/db) when a store is connected; otherwise
+// it transparently falls back to localStorage. Private data is always local.
+async function db(op,payload){try{var r=await fetch("/api/db",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({op:op},payload))});if(!r.ok)return null;var d=await r.json();if(!d||d.configured===false)return null;return d;}catch(e){return null;}}
+window.storage={
+get:async function(k,s){
+  if(s){var d=await db("get",{key:k});if(d){if(d.value===null||d.value===undefined)throw new Error("nf");try{localStorage.setItem(K(k,true),d.value);}catch(e){}return{key:k,value:d.value,shared:true};}}
+  var v=localStorage.getItem(K(k,!!s));if(v===null)throw new Error("nf");return{key:k,value:v,shared:!!s};},
+set:async function(k,v,s){
+  if(s){await db("set",{key:k,value:v});}
+  try{localStorage.setItem(K(k,!!s),v);}catch(e){}return{key:k,value:v,shared:!!s};},
+"delete":async function(k,s){
+  if(s){await db("del",{key:k});}
+  localStorage.removeItem(K(k,!!s));return{key:k,deleted:true,shared:!!s};},
+list:async function(p,s){p=p||"";
+  if(s){var d=await db("list",{prefix:p});if(d&&d.keys){return{keys:d.keys,prefix:p,shared:true};}}
+  var ks=Object.keys(localStorage).filter(function(x){return x.indexOf(K(p,!!s))===0}).map(function(x){return x.split(":").slice(1).join(":")});return{keys:ks,prefix:p,shared:!!s}}};})();
 </script>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>

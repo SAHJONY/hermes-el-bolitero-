@@ -80,7 +80,12 @@ function TabTicket(){
   const [sess,setSess]=useState("Noche");
   const [fijo,setFijo]=useState("");
   const [c1,setC1]=useState(""); const [c2,setC2]=useState("");
+  const [monto,setMonto]=useState("");
   const [tickets,setTickets]=useState(null);
+  const PAYOUTS={fijo:75,corrido:25}; // multiplicadores referenciales (solo información)
+  const num=v=>{ const n=parseFloat(String(v||"").replace(/[^0-9.]/g,"")); return isNaN(n)?0:n; };
+  const nCorr=[c1,c2].filter(Boolean).length;
+  const estimado=num(monto)*(PAYOUTS.fijo + nCorr*PAYOUTS.corrido);
   const [msg,setMsg]=useState("");
   const [checking,setChecking]=useState(false);
   const d2ok=v=>/^\d{2}$/.test(v);
@@ -95,9 +100,9 @@ function TabTicket(){
     if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
     const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
       board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
-      fijo, corridos:[c1,c2].filter(Boolean), ts:Date.now(), status:"pendiente", premio:null };
+      fijo, corridos:[c1,c2].filter(Boolean), monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
     await save([t,...(tickets||[])].slice(0,30));
-    setFijo("");setC1("");setC2("");
+    setFijo("");setC1("");setC2("");setMonto("");
     setMsg("🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.");
   };
   const comprobar=async()=>{
@@ -149,6 +154,17 @@ function TabTicket(){
               <input className="input mono" inputMode="numeric" maxLength={2} placeholder="—" value={c2} onChange={e=>setC2(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:22}}/></div>
           </div>
           {fijo.length===2&&<div style={{fontSize:12,color:T.mango,textAlign:"center"}}>{parseInt(fijo,10)===0?100:parseInt(fijo,10)} · {charadaOf(parseInt(fijo,10))}</div>}
+          <div>
+            <Label>Monto que juegas (calculadora) 🧮</Label>
+            <input className="input mono" inputMode="decimal" placeholder="$ ej: 5" value={monto} onChange={e=>setMonto(e.target.value)} style={{textAlign:"center",fontSize:18}}/>
+          </div>
+          {num(monto)>0&&(
+            <div className="card" style={{background:T.raise,textAlign:"center",padding:"10px 12px"}}>
+              <div style={{fontSize:11,color:T.dim}}>Ganancia estimada si sale tu número (referencial)</div>
+              <div className="disp" style={{fontWeight:800,fontSize:22,color:T.teal}}>≈ ${estimado.toFixed(2)}</div>
+              <div style={{fontSize:10,color:T.dim}}>Fijo ×{PAYOUTS.fijo}{nCorr>0?` · ${nCorr} corrido(s) ×${PAYOUTS.corrido}`:""} · solo información, no es pago garantizado</div>
+            </div>
+          )}
           <button className="btn primary" onClick={crear}>🎟️ Generar mi ticket souvenir</button>
           <button className="btn ghost" onClick={comprobar} disabled={checking}>{checking?"Comprobando con los tiros oficiales…":"🔎 Comprobar mis tickets"}</button>
           {msg&&<div style={{fontSize:12,color:msg.includes("🎉")||msg.includes("✔")||msg.includes("🎟️")?T.teal:T.coral}}>{msg}</div>}
@@ -164,7 +180,10 @@ function TabTicket(){
                 <span className="mono" style={{fontSize:11,fontWeight:700}}>{t.id}</span>
               </div>
               <div style={{padding:"12px 14px"}}>
-                <div style={{fontSize:11,color:T.dim,marginBottom:8}}>{t.boardName} · {t.session} · {t.date}</div>
+                <div style={{fontSize:11,color:T.dim,marginBottom:8,display:"flex",justifyContent:"space-between"}}>
+                  <span>{t.boardName} · {t.session} · {t.date}</span>
+                  {num(t.monto)>0&&<span style={{color:T.mango}}>Jugado ${num(t.monto).toFixed(2)} · posible ≈ ${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}</span>}
+                </div>
                 <div style={{display:"flex",gap:10,alignItems:"center"}}>
                   <div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.fijo}</div>
                   {t.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}
@@ -193,8 +212,8 @@ function TabTicket(){
 
 /* ============================ TAB: CONFIRMACIÓN DE PAGO ============================ */
 function TabPago(){
-  const METODOS=["PayPal","Cash App","Zelle","Venmo","Tarjeta","Efectivo","Otro"];
-  const [metodo,setMetodo]=useState("PayPal");
+  const [metodos,setMetodos]=useState([]);
+  const [metodo,setMetodo]=useState("");
   const [monto,setMonto]=useState("");
   const [tx,setTx]=useState("");
   const [recibo,setRecibo]=useState("");
@@ -207,6 +226,8 @@ function TabPago(){
   useEffect(()=>{(async()=>{
     setPagos(await sGet("pagos:mine",false)||[]);
     setAcct(await enforceAccount());
+    const am=(await getActivePayMethods()).map(m=>`${m.icon?m.icon+" ":""}${m.name}`);
+    const names=am.length?am:["Otro"]; setMetodos(names); setMetodo(names[0]);
     let a=await sGet("chat:alias",false);
     if(!a){ a="Cliente-"+Math.random().toString(36).slice(2,7).toUpperCase(); await sSet("chat:alias",a,false); }
     setAlias(a);
@@ -227,6 +248,8 @@ function TabPago(){
     const rec={ref,metodo,monto:monto.trim(),tx:tx.trim(),recibo:recibo.trim(),contacto:contacto.trim(),ts:Date.now(),delivered,status:"en revisión"};
     const next=[rec,...(pagos||[])].slice(0,50);
     setPagos(next); await sSet("pagos:mine",next,false);
+    // CRM: record to the shared store so the owner's Finanzas/CRM sees it.
+    try{ const crm=await sGet("crm:pagos",true)||[]; await sSet("crm:pagos",[{ref,alias,metodo,monto:monto.trim(),tx:tx.trim(),contacto:contacto.trim(),ts:Date.now()},...crm].slice(0,1000),true); }catch{}
     const a=await activateAccount(ref); setAcct(a);
     setMsg(`✅ Pago enviado · ${ref}. Hermes ACTIVÓ tu cuenta hasta ${new Date(a.expires).toLocaleDateString("es-ES")}.`+(delivered?" El dueño ya lo recibió.":" El dueño lo confirmará pronto."));
     setMonto(""); setTx(""); setRecibo("");
@@ -247,7 +270,7 @@ function TabPago(){
       )}
       <Section title="Confirmar pago 💳" sub="Paga por tu canal y pega aquí el recibo — el dueño lo confirma">
         <div className="card" style={{display:"grid",gap:10}}>
-          <div className="scroll-x">{METODOS.map(m=><button key={m} className={"chip"+(metodo===m?" on":"")} onClick={()=>setMetodo(m)}>{m}</button>)}</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{metodos.map(m=><button key={m} className={"chip"+(metodo===m?" on":"")} onClick={()=>setMetodo(m)}>{m}</button>)}</div>
           <div style={{display:"flex",gap:8}}>
             <div style={{flex:1}}><Label>Monto</Label>
               <input className="input mono" inputMode="decimal" placeholder="$0.00" value={monto} onChange={e=>setMonto(e.target.value)}/></div>

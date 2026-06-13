@@ -31,6 +31,60 @@ async function deleteAccount(){
   return await getAccount();
 }
 
+/* ---------- Pagos: catálogo mundial (servicios + tarjetas prepago) ----------
+   Solo aparecen en la app los que el dueño ACTIVA (pay:methods compartido).   */
+const PAY_CATALOG=[
+  // Servicios / wallets
+  {id:"paypal",name:"PayPal",icon:"🅿️",type:"service"},
+  {id:"cashapp",name:"Cash App",icon:"💵",type:"service"},
+  {id:"zelle",name:"Zelle",icon:"⚡",type:"service"},
+  {id:"venmo",name:"Venmo",icon:"🔵",type:"service"},
+  {id:"applepay",name:"Apple Pay",icon:"",type:"service"},
+  {id:"googlepay",name:"Google Pay",icon:"🟢",type:"service"},
+  {id:"stripe",name:"Tarjeta (Stripe)",icon:"💳",type:"service"},
+  {id:"wise",name:"Wise",icon:"🌍",type:"service"},
+  {id:"revolut",name:"Revolut",icon:"🟣",type:"service"},
+  {id:"skrill",name:"Skrill",icon:"🟪",type:"service"},
+  {id:"neteller",name:"Neteller",icon:"🟩",type:"service"},
+  {id:"payoneer",name:"Payoneer",icon:"🟠",type:"service"},
+  {id:"westernunion",name:"Western Union",icon:"💛",type:"service"},
+  {id:"moneygram",name:"MoneyGram",icon:"❤️",type:"service"},
+  {id:"bizum",name:"Bizum (ES)",icon:"🇪🇸",type:"service"},
+  {id:"mercadopago",name:"Mercado Pago",icon:"💙",type:"service"},
+  {id:"pix",name:"Pix (BR)",icon:"🇧🇷",type:"service"},
+  {id:"nequi",name:"Nequi (CO)",icon:"🇨🇴",type:"service"},
+  {id:"yappy",name:"Yappy (PA)",icon:"🇵🇦",type:"service"},
+  {id:"pagomovil",name:"Pago Móvil (VE)",icon:"🇻🇪",type:"service"},
+  {id:"zinli",name:"Zinli",icon:"🟦",type:"service"},
+  {id:"binancepay",name:"Binance Pay",icon:"🟨",type:"service"},
+  {id:"usdt",name:"USDT / Cripto",icon:"₿",type:"service"},
+  // Tarjetas prepago mundiales
+  {id:"visa_prepaid",name:"Visa Prepaid",icon:"💳",type:"prepaid"},
+  {id:"mc_prepaid",name:"Mastercard Prepaid",icon:"💳",type:"prepaid"},
+  {id:"amex_serve",name:"Amex Serve",icon:"💳",type:"prepaid"},
+  {id:"vanilla",name:"Vanilla Visa/MC",icon:"🍦",type:"prepaid"},
+  {id:"greendot",name:"Green Dot",icon:"💚",type:"prepaid"},
+  {id:"netspend",name:"NetSpend",icon:"💳",type:"prepaid"},
+  {id:"paypal_prepaid",name:"PayPal Prepaid",icon:"🅿️",type:"prepaid"},
+  {id:"bluebird",name:"Bluebird (Amex)",icon:"🐦",type:"prepaid"},
+  {id:"paysafecard",name:"paysafecard",icon:"🟦",type:"prepaid"},
+  {id:"neosurf",name:"Neosurf",icon:"🟧",type:"prepaid"},
+  {id:"flexepin",name:"Flexepin",icon:"🟥",type:"prepaid"},
+  {id:"astropay",name:"AstroPay",icon:"🔷",type:"prepaid"},
+  {id:"cashlib",name:"CASHlib",icon:"🟩",type:"prepaid"},
+  {id:"transcash",name:"Transcash",icon:"🟪",type:"prepaid"},
+  {id:"jeton",name:"Jeton Cash",icon:"⚫",type:"prepaid"},
+  {id:"mifinity",name:"MiFinity eVoucher",icon:"🔵",type:"prepaid"},
+  {id:"recharge",name:"Recharge.com",icon:"🔋",type:"prepaid"},
+];
+const PAY_DEFAULT_ACTIVE=["paypal","cashapp","zelle","venmo","stripe"];
+async function getActivePayMethods(){
+  const cfg=await sGet("pay:methods",true)||{};
+  const all=[...PAY_CATALOG,...((cfg.custom)||[])];
+  const am=cfg.active;
+  return all.filter(m=> am ? !!am[m.id] : PAY_DEFAULT_ACTIVE.includes(m.id));
+}
+
 function Gate({onEnter}){
   const [stage,setStage]=useState("loading"); // loading | code | newadmin | adminpin | planes
   const [val,setVal]=useState("");
@@ -300,6 +354,7 @@ function PagosPage(){
   const save=async()=>{ setMsg((await sSet("pay:links",links,true))?"Links de pago publicados — ya aparecen en la página de planes. ✔":"No se pudo guardar."); };
   return (
     <div>
+      <PayMethodsManager/>
       <Section title="Planes y precios" sub="MIEMBRO $19.99/mes · VIP CORONA $39.99/mes">
         <div className="card" style={{display:"grid",gap:10}}>
           <div>
@@ -332,6 +387,74 @@ function PagosPage(){
   );
 }
 
+function PayMethodsManager(){
+  const [cfg,setCfg]=useState(null);
+  const [newName,setNewName]=useState("");
+  useEffect(()=>{(async()=>{
+    const c=await sGet("pay:methods",true);
+    if(c) setCfg({active:c.active||{},custom:c.custom||[]});
+    else { const active={}; PAY_DEFAULT_ACTIVE.forEach(id=>active[id]=true); setCfg({active,custom:[]}); }
+  })();},[]);
+  const persist=async(next)=>{ setCfg(next); await sSet("pay:methods",next,true); };
+  const toggle=(id)=>persist({...cfg,active:{...cfg.active,[id]:!cfg.active[id]}});
+  const addCustom=async()=>{ const n=newName.trim(); if(!n) return; const id="custom_"+Math.random().toString(36).slice(2,7);
+    setNewName(""); await persist({...cfg,custom:[...cfg.custom,{id,name:n,icon:"💠",type:"service"}],active:{...cfg.active,[id]:true}}); };
+  const delCustom=async(id)=>{ const a={...cfg.active}; delete a[id]; await persist({active:a,custom:cfg.custom.filter(c=>c.id!==id)}); };
+  if(!cfg) return null;
+  const all=[...PAY_CATALOG,...cfg.custom];
+  const Row=(m)=>(
+    <button key={m.id} className={"chip"+(cfg.active[m.id]?" on":"")} onClick={()=>toggle(m.id)}>
+      {m.icon} {m.name}{String(m.id).startsWith("custom_")&&<span onClick={(e)=>{e.stopPropagation();delCustom(m.id);}} style={{marginLeft:6,color:T.coral}}>✕</span>}
+    </button>
+  );
+  return (
+    <Section title="Métodos de pago" sub="Activa lo que aceptas — solo lo activo aparece a los clientes">
+      <div className="card" style={{display:"grid",gap:10}}>
+        <div style={{fontSize:12,color:T.mango,fontWeight:700}}>Servicios / wallets</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{all.filter(m=>m.type==="service").map(Row)}</div>
+        <div style={{fontSize:12,color:T.mango,fontWeight:700,marginTop:6}}>Tarjetas prepago (mundial)</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{all.filter(m=>m.type==="prepaid").map(Row)}</div>
+        <div style={{display:"flex",gap:8,marginTop:6}}>
+          <input className="input" placeholder="Añadir método propio…" value={newName} onChange={e=>setNewName(e.target.value)}/>
+          <button className="btn primary" onClick={addCustom}>+ Añadir</button>
+        </div>
+        <div style={{fontSize:11,color:T.dim}}>Toca para activar (dorado) o desactivar. Aparecen en la pestaña 💳 Pago en cuanto los actives.</div>
+      </div>
+    </Section>
+  );
+}
+
+function FinanzasPage(){
+  const [pagos,setPagos]=useState(null);
+  useEffect(()=>{(async()=>{ setPagos(await sGet("crm:pagos",true)||[]); })();},[]);
+  const num=s=>{ const n=parseFloat(String(s||"").replace(/[^0-9.]/g,"")); return isNaN(n)?0:n; };
+  if(!pagos) return <div style={{color:T.dim,fontSize:13}}>Cargando finanzas…</div>;
+  const total=pagos.reduce((a,p)=>a+num(p.monto),0);
+  const clientes=new Set(pagos.map(p=>p.alias||p.contacto||p.ref)).size;
+  return (
+    <div>
+      <Section title="Finanzas · CRM" sub="Hermes lleva la cuenta de cada cliente y del negocio">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+          {[["Pagos",pagos.length],["Clientes",clientes],["Total","$"+total.toFixed(2)]].map(([k,v])=>(
+            <div key={k} className="card" style={{textAlign:"center"}}><div className="disp" style={{fontWeight:800,fontSize:18,color:T.mango}}>{v}</div><div style={{fontSize:11,color:T.dim}}>{k}</div></div>
+          ))}
+        </div>
+        <div style={{display:"grid",gap:8}}>
+          {pagos.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no hay pagos. Aparecen aquí cuando los clientes confirman pagos (global al conectar la base de datos).</div>}
+          {pagos.slice(0,100).map(p=>(
+            <div key={p.ref} className="card" style={{padding:"10px 12px"}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:T.mango,fontWeight:600,fontSize:13}}>{p.alias||"Cliente"}</span><span className="mono" style={{fontSize:11,color:T.dim}}>{p.ref}</span></div>
+              <div style={{fontSize:12,color:T.dim}}>{p.metodo}{p.monto?` · ${p.monto}`:""}{p.tx?` · Tx ${p.tx}`:""}{p.contacto?` · ${p.contacto}`:""}</div>
+              <div style={{fontSize:10,color:T.dim}}>{new Date(p.ts).toLocaleString("es-ES")}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim}}>Totales globales cuando conectas la base de datos (Upstash/Vercel KV). Sin ella, ves los de este dispositivo.</div>
+    </div>
+  );
+}
+
 function TabAdmin(){
   const [view,setView]=useState("miembros");
   const [codes,setCodes]=useState(null);
@@ -357,11 +480,12 @@ function TabAdmin(){
         </div>
       </div>
       <div className="scroll-x" style={{marginBottom:14}}>
-        {[["miembros","🎟️ Miembros"],["alertas","🔔 Alertas"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
+        {[["miembros","🎟️ Miembros"],["finanzas","💰 Finanzas"],["alertas","🔔 Alertas"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
           <button key={id} className={"chip"+(view===id?" on":"")} onClick={()=>setView(id)}>{lab}</button>
         ))}
       </div>
       {view==="env"&&<EnvPage/>}
+      {view==="finanzas"&&<FinanzasPage/>}
       {view==="pagos"&&<PagosPage/>}
       {view==="alertas"&&<AlertasAdmin/>}
       {view==="miembros"&&(<>
