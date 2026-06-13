@@ -193,15 +193,24 @@ function TabCharada(){
 }
 
 /* ============================ TAB: AGENTES IA ============================ */
-function aiContext(lot){
+/* aiContext ahora arma el contexto con NÚMEROS REALES (feed oficial) si se le pasan;
+   si no hay reales, NO inventa: deja el contexto sin números de hoy. */
+function aiContext(lot, realDraws){
   const lottery=LOTTERIES.find(l=>l.id===lot);
   const dk=dateKey(new Date());
-  const lines=lottery.sessions.map(s=>{
-    const r=resultFor(lot,dk,s);
-    return `${s}: fijo ${r.fijo3} (charada ${charadaOf(parseInt(r.fijo2,10))}), corridos ${r.corridos.join(",")}`;
-  }).join(" | ");
+  let lines="(sin resultados oficiales cargados — dile al cliente que mire la pestaña 🎱 Hoy)";
+  if(realDraws && realDraws.length){
+    const mine=realDraws.filter(d=>(d.board||"labolita")===lot);
+    if(mine.length){
+      lines=mine.map(d=>{
+        const f3=String(d.pick3).padStart(3,"0"), f2=f3.slice(1);
+        const p4=String(d.pick4).padStart(4,"0");
+        return `${d.session} (${d.date}): fijo ${f3} (charada ${charadaOf(parseInt(f2,10))}), corridos ${p4.slice(0,2)},${p4.slice(2,4)}`;
+      }).join(" | ");
+    }
+  }
   const st=buildStats(lot);
-  return `Lotería ${lottery.name}, hoy ${dk}. ${lines}. Calientes: ${st.hot.slice(0,5).map(x=>x.n).join(",")}. Atrasados: ${st.late.slice(0,5).map(x=>`${x.n}(${x.days}d)`).join(",")}.`;
+  return `Lotería ${lottery.name}, hoy ${dk}. RESULTADOS OFICIALES: ${lines}. Estadística (de demostración, solo orientativa) — Calientes: ${st.hot.slice(0,5).map(x=>x.n).join(",")}. Atrasados: ${st.late.slice(0,5).map(x=>`${x.n}(${x.days}d)`).join(",")}.`;
 }
 function TabIA({lot}){
   const GREET={role:"assistant",text:"¡Asere, qué bolá! ⚡ Soy Hermes. Aquí hablas conmigo en privado: pregúntame por los números, la charada o las estadísticas. ¿Tienes un recibo o comprobante? Pégalo con el botón 📎 y te doy una confirmación que el dueño revisa."};
@@ -228,11 +237,14 @@ function TabIA({lot}){
     const t=(text??input).trim(); if(!t||busy) return;
     const hist=[...msgs,{role:"user",text:t}];
     setMsgs(hist); setInput(""); setBusy(true);
+    // Carga los NÚMEROS REALES del feed oficial para dárselos a Hermes (sin inventar).
+    let realDraws=null;
+    try{ const live=await fetchLiveDraws(); realDraws=live?.draws||null; }catch{}
     try{
       const data=await askClaude(
         hist.slice(-10).map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.text})),
         {system:
-          `Eres "Hermes", el agente-cerebro IA de HERMES EL BOLITERO, app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Atiendes a cada cliente en privado. Si el cliente pega un recibo o comprobante, agradece, confírmale que quedó registrado y que el dueño lo revisará; no calcules premios ni manejes dinero. Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot)}. Charada disponible 1-100. IMPORTANTE: responde SIEMPRE en el mismo idioma en que te escribe el cliente (detéctalo de su último mensaje; si es español, mantén el sabor cubano). Máximo ~120 palabras.`,
+          `Eres "Hermes", el agente-cerebro IA de HERMES EL BOLITERO, app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca aceptas ni gestionas apuestas, nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Atiendes a cada cliente en privado. Si el cliente pega un recibo o comprobante, agradece, confírmale que quedó registrado y que el dueño lo revisará; no calcules premios ni manejes dinero. Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot, realDraws)}. Charada disponible 1-100. REGLA DE ORO DE LOS NÚMEROS: solo puedes dar como resultado de un sorteo los números que aparezcan en "RESULTADOS OFICIALES" del contexto. JAMÁS inventes, adivines ni recites de memoria un número de lotería. Si te piden un resultado que no está en el contexto (otra fecha, otra lotería o aún no cae), responde con honestidad que no lo tienes verificado y dile que mire la pestaña 🎱 Hoy de la app, que trae los números oficiales en vivo. Las estadísticas (calientes/atrasados) son orientativas, deja claro que no predicen nada. IMPORTANTE: responde SIEMPRE en el mismo idioma en que te escribe el cliente (detéctalo de su último mensaje; si es español, mantén el sabor cubano). Máximo ~120 palabras.`,
           maxTokens:500});
       setMsgs(m=>[...m,{role:"assistant",text:textOf(data)||"…"}]);
     }catch{
