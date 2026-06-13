@@ -189,30 +189,19 @@ function toRes(fijo3, c1, c2){
   return { fijo3:f3, fijo2:f2, corridos:[a,b], parles:[[f2,a],[f2,b],[a,b]], candado:[f2,a,b] };
 }
 async function fetchLiveDraws(){
-  const cacheKey=`live:v2`;
+  const cacheKey=`live:v3`;
   try{
     const c=await window.storage.get(cacheKey,true);
     const cached=JSON.parse(c.value);
     if(Date.now()-cached.ts < LIVE_TTL_MIN*60*1000) return cached;
   }catch{}
-  const data=await askClaude([{role:"user",content:
-    `Busca en la web los resultados oficiales más recientes, de hoy y de ayer, de: `+
-    `(a) Tennessee Lottery CASH 3 y CASH 4 sorteo MORNING, (b) Florida Lottery PICK 3 y PICK 4 (midday y evening), `+
-    `(c) Georgia Lottery CASH 3 y CASH 4 (midday, evening y night), (d) Illinois Lottery PICK 3 y PICK 4 (midday y evening) `+
-    `y (e) New York Lottery NUMBERS y WIN 4 (midday y evening). `+
-    `Responde SOLO JSON, sin texto extra:\n`+
-    `{"draws":[{"board":"labolita"|"florida"|"chicago"|"georgia"|"newyork","date":"YYYY-MM-DD","session":"Mañana"|"Mediodía"|"Tarde"|"Noche","pick3":"###","pick4":"####"}]}\n`+
-    `Mapa exacto:\n`+
-    `board "labolita": Tennessee morning=Mañana, Florida midday=Mediodía, Georgia evening=Tarde, Florida evening=Noche.\n`+
-    `board "florida": Florida midday=Mediodía, Florida evening=Noche.\n`+
-    `board "chicago": Illinois midday=Mediodía, Illinois evening=Noche.\n`+
-    `board "georgia": Georgia midday=Mediodía, Georgia evening=Tarde, Georgia night=Noche.\n`+
-    `board "newyork": New York midday=Mediodía, New York evening=Noche.\n`+
-    `pick3 = Cash 3 / Pick 3 / Numbers (3 dígitos), pick4 = Cash 4 / Pick 4 / Win 4 (4 dígitos) del mismo sorteo y misma sesión. Incluye solo sorteos ya publicados.`}],
-    { web:true, maxTokens:2200 });
-  const j=parseJsonLoose(textOf(data));
+  // Real results come from the server (/api/results): New York is live official
+  // data; other boards use a stable engine until a paid multi-state feed is set.
+  const r=await fetch("/api/results");
+  if(!r.ok) throw new Error("results-"+r.status);
+  const j=await r.json();
   if(!j?.draws?.length) throw new Error("no-draws");
-  const out={ ts:Date.now(), draws:j.draws };
+  const out={ ts:Date.now(), draws:j.draws, realBoards:j.realBoards||[] };
   try{ await window.storage.set(cacheKey, JSON.stringify(out), true); }catch{}
   return out;
 }
