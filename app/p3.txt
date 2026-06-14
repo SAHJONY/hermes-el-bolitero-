@@ -140,7 +140,7 @@ function TabTicket(){
     if(!d2ok(fijo)){ setMsg("El fijo son 2 dígitos (00–99)."); return; }
     if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
     const bet=num(monto);
-    if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } }
+    if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } await recordWager(bet); }
     const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
       board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
       fijo, corridos:[c1,c2].filter(Boolean), monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
@@ -303,6 +303,36 @@ function TabTicket(){
 }
 
 /* ============================ TAB: CONFIRMACIÓN DE PAGO ============================ */
+/* ---------- Tarjeta: unirme a una sucursal (juego social estilo Monopoly) ---------- */
+function BranchJoinCard(){
+  const [me,setMe]=useState(null);
+  const [code,setCode]=useState("");
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{ setMe(await myBranch()); })();},[]);
+  const join=async()=>{
+    const m=await joinBranch(code.trim());
+    if(m){ setMe(m); setMsg("¡Entraste a "+m.name+"! 🏦"); setCode(""); }
+    else setMsg("Código de sucursal inválido o pausado.");
+  };
+  return (
+    <div className="card" style={{marginBottom:12}}>
+      <div className="disp" style={{fontWeight:800,fontSize:15,marginBottom:6}}>🏦 Mi sucursal</div>
+      {me?(
+        <div style={{fontSize:13,color:T.dim}}>Juegas en <b style={{color:T.mango}}>{me.name}</b> <span className="mono">({me.code})</span>. Tus jugadas suman a tu sucursal en el ranking del Banco Central 🏛️.</div>
+      ):(
+        <>
+          <div style={{fontSize:12,color:T.dim,marginBottom:8}}>¿Tienes un código de sucursal de un amigo? Únete a su banca (todo monedas de juego).</div>
+          <div style={{display:"flex",gap:8}}>
+            <input className="input mono" placeholder="CÓDIGO" value={code} onChange={e=>setCode(e.target.value.toUpperCase())} style={{textAlign:"center",letterSpacing:"0.15em"}}/>
+            <button className="btn primary" onClick={join}>Unirme</button>
+          </div>
+        </>
+      )}
+      {msg&&<div style={{fontSize:12,color:msg.includes("¡")?T.teal:T.coral,marginTop:8}}>{msg}</div>}
+    </div>
+  );
+}
+
 function TabPago(){
   const [metodos,setMetodos]=useState([]);
   const [metodo,setMetodo]=useState("");
@@ -360,6 +390,7 @@ function TabPago(){
           <div style={{fontSize:12,color:T.dim,marginTop:4}}>{active?`Hermes activó tu cuenta · válida hasta ${new Date(acct.expires).toLocaleDateString("es-ES")}`:"Confirma un pago y Hermes activa tu cuenta al instante."}</div>
         </div>
       )}
+      <BranchJoinCard/>
       <Section title="Confirmar pago 💳" sub="Paga por tu canal y pega aquí el recibo — el dueño lo confirma">
         <div className="card" style={{display:"grid",gap:10}}>
           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{metodos.map(m=><button key={m} className={"chip"+(metodo===m?" on":"")} onClick={()=>setMetodo(m)}>{m}</button>)}</div>
