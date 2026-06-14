@@ -210,11 +210,13 @@ function TabTicket(){
   const [sess,setSess]=useState("Noche");
   const [fijo,setFijo]=useState("");
   const [c1,setC1]=useState(""); const [c2,setC2]=useState("");
+  const [play4,setPlay4]=useState("");
+  const [modo,setModo]=useState("bolita"); // "bolita" (fijo+corridos) | "play4" (4 dígitos directo)
   const [monto,setMonto]=useState("");
   const [tickets,setTickets]=useState(null);
   // Multiplicadores controlados 100% por el dueño (panel 👑 → 🪙 Monedas y premios). Solo monedas virtuales.
-  const [PAYOUTS,setPAYOUTS]=useState({fijo:75,corrido:25,parle:1000,candado:2000});
-  useEffect(()=>{(async()=>{ const cfg=await getCoinsConfig(); setPAYOUTS({fijo:cfg.payFijo,corrido:cfg.payCorrido,parle:cfg.payParle,candado:cfg.payCandado}); })();},[]);
+  const [PAYOUTS,setPAYOUTS]=useState({fijo:75,corrido:25,parle:1000,candado:2000,play4:5000});
+  useEffect(()=>{(async()=>{ const cfg=await getCoinsConfig(); setPAYOUTS({fijo:cfg.payFijo,corrido:cfg.payCorrido,parle:cfg.payParle,candado:cfg.payCandado,play4:cfg.payPlay4}); })();},[]);
   const num=v=>{ const n=parseFloat(String(v||"").replace(/[^0-9.]/g,"")); return isNaN(n)?0:n; };
   const nCorr=[c1,c2].filter(Boolean).length;
   const estimado=num(monto)*(PAYOUTS.fijo + nCorr*PAYOUTS.corrido);
@@ -228,15 +230,21 @@ function TabTicket(){
     all[(mine?.id)||"anon-"+(list[0]?.id||"x")]=list.slice(0,20); await sSet("tickets:all",all,true); };
   const crear=async()=>{
     setMsg("");
-    if(!d2ok(fijo)){ setMsg("El fijo son 2 dígitos (00–99)."); return; }
-    if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
+    if(modo==="play4"){
+      if(!/^\d{4}$/.test(play4)){ setMsg("El Play 4 son 4 dígitos (0000–9999)."); return; }
+    } else {
+      if(!d2ok(fijo)){ setMsg("El fijo son 2 dígitos (00–99)."); return; }
+      if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
+    }
     const bet=num(monto);
     if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } await recordWager(bet); }
     const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
       board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
-      fijo, corridos:[c1,c2].filter(Boolean), monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
+      tipo:modo, play4:modo==="play4"?play4:"",
+      fijo:modo==="play4"?"":fijo, corridos:modo==="play4"?[]:[c1,c2].filter(Boolean),
+      monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
     await save([t,...(tickets||[])].slice(0,30));
-    setFijo("");setC1("");setC2("");setMonto("");
+    setFijo("");setC1("");setC2("");setPlay4("");setMonto("");
     try{ await bumpMission("play3"); }catch{}
     setMsg("🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.");
   };
@@ -250,6 +258,13 @@ function TabTicket(){
         if(t.status!=="pendiente") return t;
         const d=pickDraw(live.draws,t.board,t.date,t.session);
         if(!d) return t;
+        if(t.tipo==="play4"){
+          const p4=String(d.pick4).padStart(4,"0");
+          const won=t.play4===p4;
+          const pay=won?num(t.monto)*PAYOUTS.play4:0;
+          if(won && !t.coinPaid && pay>0) coinWin+=pay;
+          return {...t, status:won?"ganador":"no salió", premio:won?"4️⃣ PLAY 4":null, resultado:p4, ganancia:won?pay:0, coinPaid:won?true:t.coinPaid};
+        }
         const f2=String(d.pick3).padStart(3,"0").slice(1);
         const ca=String(d.pick4).padStart(4,"0").slice(0,2), cb=String(d.pick4).padStart(4,"0").slice(2,4);
         const hits=[]; const fijoHit=t.fijo===f2; if(fijoHit) hits.push("FIJO "+f2);
@@ -297,6 +312,11 @@ function TabTicket(){
           <div className="scroll-x">{LOTTERIES.map(l=><button key={l.id} className={"chip"+(board===l.id?" on":"")} onClick={()=>setBoard(l.id)}>{l.short}</button>)}</div>
           <div className="scroll-x">{lottery.sessions.map(s=><button key={s} className={"chip"+(sess===s?" on":"")} onClick={()=>setSess(s)}>{s}</button>)}</div>
           <div style={{display:"flex",gap:8}}>
+            <button className={"chip"+(modo==="bolita"?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setModo("bolita")}>🔴 Bolita (fijo + corridos)</button>
+            <button className={"chip"+(modo==="play4"?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setModo("play4")}>4️⃣ Play 4</button>
+          </div>
+          {modo==="bolita"&&(<>
+          <div style={{display:"flex",gap:8}}>
             <div style={{flex:1}}><Label>Fijo</Label>
               <input className="input mono" inputMode="numeric" maxLength={2} placeholder="17" value={fijo} onChange={e=>setFijo(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:22,fontWeight:700}}/></div>
             <div style={{flex:1}}><Label>Corrido 1</Label>
@@ -305,12 +325,33 @@ function TabTicket(){
               <input className="input mono" inputMode="numeric" maxLength={2} placeholder="—" value={c2} onChange={e=>setC2(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:22}}/></div>
           </div>
           {fijo.length===2&&<div style={{fontSize:12,color:T.mango,textAlign:"center"}}>{parseInt(fijo,10)===0?100:parseInt(fijo,10)} · {charadaOf(parseInt(fijo,10))}</div>}
+          </>)}
+          {modo==="play4"&&(
+            <div>
+              <Label>Play 4 · 4 dígitos directos (0000–9999)</Label>
+              <input className="input mono" inputMode="numeric" maxLength={4} placeholder="1234" value={play4} onChange={e=>setPlay4(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.18em"}}/>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Ganas si los 4 dígitos salen EXACTOS en el Play 4 / Win 4 oficial de ese tablero y sesión.</div>
+            </div>
+          )}
           <div>
             <Label>Monto que juegas (calculadora) 🧮</Label>
             <input className="input mono" inputMode="decimal" placeholder="$ ej: 5" value={monto} onChange={e=>setMonto(e.target.value)} style={{textAlign:"center",fontSize:18}}/>
           </div>
           {num(monto)>0&&(()=>{
             const bet=num(monto);
+            if(modo==="play4"){
+              if(!/^\d{4}$/.test(play4)) return null;
+              return (
+                <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu Play 4 sale directo (en monedas 🪙):</div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:13}}>4️⃣ <b>Play 4</b> <span style={{fontSize:10,color:T.dim}}>· 4 dígitos exactos</span></span>
+                    <span className="disp" style={{fontWeight:800,fontSize:16,color:"#FFD978"}}>≈ {(bet*PAYOUTS.play4).toLocaleString()} 🪙</span>
+                  </div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicador: Play 4 ×{PAYOUTS.play4} · monedas de juego (no dinero real)</div>
+                </div>
+              );
+            }
             const hasFijo=d2ok(fijo);
             // Escenarios posibles según lo que el jugador llenó:
             const escenarios=[];
@@ -350,18 +391,29 @@ function TabTicket(){
               <div style={{padding:"12px 14px"}}>
                 <div style={{fontSize:11,color:T.dim,marginBottom:8,display:"flex",justifyContent:"space-between"}}>
                   <span>{t.boardName} · {t.session} · {t.date}</span>
-                  {num(t.monto)>0&&<span style={{color:T.mango}}>Jugado ${num(t.monto).toFixed(2)} · posible ≈ ${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}</span>}
+                  {num(t.monto)>0&&<span style={{color:T.mango}}>Jugado ${num(t.monto).toFixed(2)}{t.tipo==="play4"?` · Play 4 ×${PAYOUTS.play4}`:` · posible ≈ $${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}`}</span>}
                 </div>
                 <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                  <div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.fijo}</div>
-                  {t.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}
+                  {t.tipo==="play4"
+                    ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.14em"}}>{t.play4}</div>
+                    : <><div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.fijo}</div>
+                      {t.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}</>}
                   <div style={{marginLeft:"auto",textAlign:"right"}}>
                     {t.status==="pendiente"&&<span className="chip" style={{cursor:"default"}}>⏳ pendiente</span>}
                     {t.status==="ganador"&&<span className="chip" style={{cursor:"default",background:"#FFD978",color:"#3A2604",fontWeight:800}}>🏆 {t.premio}{num(t.ganancia)>0?` · +${num(t.ganancia).toLocaleString()}🪙`:""}</span>}
                     {t.status==="no salió"&&<span className="chip" style={{cursor:"default"}}>{t.resultado||"no salió"}</span>}
                   </div>
                 </div>
-                {num(t.monto)>0&&(()=>{
+                {num(t.monto)>0&&t.tipo==="play4"&&(
+                  <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙):</div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+                      <span>4️⃣ Play 4 directo</span>
+                      <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*PAYOUTS.play4).toLocaleString()} 🪙</span>
+                    </div>
+                  </div>
+                )}
+                {num(t.monto)>0&&t.tipo!=="play4"&&(()=>{
                   const bet=num(t.monto); const ncor=t.corridos.length;
                   const filas=[["🎯 Fijo",bet*PAYOUTS.fijo,true]];
                   if(ncor>0) filas.push([`➡️ Corrido${ncor>1?"s":""} (${ncor})`,bet*ncor*PAYOUTS.corrido,true]);
