@@ -113,6 +113,97 @@ function fireConfetti(){
   }catch(e){}
 }
 
+/* ============================ ENGANCHE: GameHub + Ranking ============================ */
+function GameHub(){
+  const [coins,setCoinsState]=useState(null);
+  const [miss,setMiss]=useState(null);
+  const [msg,setMsg]=useState("");
+  const load=async()=>{ setCoinsState(await getCoins()); setMiss(await getMissions()); };
+  useEffect(()=>{ load(); },[]);
+  if(!coins) return null;
+  const rk=rankOf(coins.xp||0);
+  const streak=coins.streak||0;
+  const claim=async(id)=>{ const r=await claimMission(id); if(r.ok){ setMsg("+"+r.reward+" 🪙 reclamadas"); await load(); } };
+  return (
+    <div className="card fade-in" style={{marginBottom:14,background:`linear-gradient(180deg, rgba(255,184,56,.1), ${T.surface} 60%)`,border:"1px solid rgba(255,184,56,.3)"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:24}}>{rk.icon}</span>
+          <div>
+            <div className="disp" style={{fontWeight:800,fontSize:15}}>{rk.name}</div>
+            <div style={{fontSize:10,color:T.dim}}>{(coins.xp||0).toLocaleString()} 🪙 ganadas{rk.next?` · próximo: ${rk.next.name} ${rk.next.icon}`:" · ¡máximo!"}</div>
+          </div>
+        </div>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:20}}>🔥</div>
+          <div className="disp" style={{fontWeight:800,fontSize:16,color:T.mango,lineHeight:1}}>{streak}</div>
+          <div style={{fontSize:9,color:T.dim}}>días</div>
+        </div>
+      </div>
+      {/* barra de nivel */}
+      <div style={{height:7,background:T.bg,borderRadius:99,overflow:"hidden",marginBottom:12}}>
+        <div style={{height:"100%",width:`${Math.round(rk.progress*100)}%`,background:"linear-gradient(90deg,#FFE9A8,#FFB838,#E08C00)",borderRadius:99}}/>
+      </div>
+      {/* misiones del día */}
+      <div style={{fontSize:11,color:T.mango,fontWeight:700,marginBottom:6}}>🎯 Misiones de hoy</div>
+      <div style={{display:"grid",gap:6}}>
+        {MISSIONS.map(m=>{
+          const prog=Math.min((miss?.prog?.[m.id])||0, m.goal);
+          const done=prog>=m.goal; const claimed=!!(miss?.claimed?.[m.id]);
+          return (
+            <div key={m.id} style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:15}}>{m.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,display:"flex",justifyContent:"space-between"}}>
+                  <span>{m.txt}</span>
+                  <span style={{color:T.dim}}>{prog}/{m.goal} · {m.reward}🪙</span>
+                </div>
+                <div style={{height:5,background:T.bg,borderRadius:99,marginTop:3,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.round(prog/m.goal*100)}%`,background:done?T.teal:T.mangoDeep,borderRadius:99}}/>
+                </div>
+              </div>
+              <button className="chip" disabled={!done||claimed} onClick={()=>claim(m.id)}
+                style={claimed?{opacity:.5}:done?{background:T.teal,color:"#062019",fontWeight:700}:{}}>
+                {claimed?"✓":"Reclamar"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {msg&&<div style={{color:T.teal,fontSize:12,textAlign:"center",marginTop:8}}>{msg}</div>}
+    </div>
+  );
+}
+
+function PlayerLeaderboard(){
+  const [lb,setLb]=useState(null);
+  const [me,setMe]=useState("");
+  useEffect(()=>{(async()=>{
+    const al=await sGet("chat:alias",false); setMe(al||"");
+    try{ const c=await getCoins(); await pushScore(al||"Jugador",c.xp||0); }catch{}
+    setLb(await getLeaderboard());
+  })();},[]);
+  if(!lb) return null;
+  const rows=Object.entries(lb.players||{}).map(([alias,p])=>({alias,...p})).sort((a,b)=>b.score-a.score).slice(0,10);
+  return (
+    <Section title="🏆 Top jugadores · esta semana" sub="Quién ganó más monedas — se reinicia cada semana">
+      <div style={{display:"grid",gap:6}}>
+        {rows.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún nadie en la tabla. ¡Juega y gana para entrar!</div>}
+        {rows.map((r,i)=>{
+          const mine=false;
+          return (
+            <div key={r.alias} className="card" style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:10,border:i===0?"1px solid #FFD978":`1px solid ${T.line}`}}>
+              <span className="disp" style={{fontWeight:800,fontSize:15,color:i===0?"#FFD978":i<3?T.mango:T.dim,minWidth:26}}>{i===0?"👑":"#"+(i+1)}</span>
+              <span style={{flex:1,fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name||r.alias}</span>
+              <span className="mono disp" style={{fontWeight:800,color:T.teal}}>{(r.score||0).toLocaleString()} 🪙</span>
+            </div>
+          );
+        })}
+      </div>
+    </Section>
+  );
+}
+
 function TabTicket(){
   const [board,setBoard]=useState("labolita");
   const lottery=LOTTERIES.find(l=>l.id===board);
@@ -146,6 +237,7 @@ function TabTicket(){
       fijo, corridos:[c1,c2].filter(Boolean), monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
     await save([t,...(tickets||[])].slice(0,30));
     setFijo("");setC1("");setC2("");setMonto("");
+    try{ await bumpMission("play3"); }catch{}
     setMsg("🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.");
   };
   const comprobar=async()=>{
@@ -177,6 +269,9 @@ function TabTicket(){
       wins=next.filter(t=>t.status==="ganador").length-(tickets||[]).filter(t=>t.status==="ganador").length;
       await save(next);
       if(coinWin>0) await addCoins(coinWin);
+      try{ await bumpMission("check"); if(wins>0) await bumpMission("win1",wins);
+        const cc=await getCoins(); const al=await sGet("chat:alias",false); await pushScore(al||"Jugador",cc.xp||0);
+      }catch{}
       if(wins>0) fireConfetti();
       setMsg(wins>0?("🎉 ¡¡GANASTE!! "+wins+" ticket(s) · +"+coinWin.toLocaleString()+" 🪙 acreditados a tu saldo."):"Comprobado contra los tiros oficiales publicados.");
     }catch{ setMsg("La señal no respondió — intenta en un momento."); }
@@ -189,6 +284,7 @@ function TabTicket(){
   const ganados=(tickets||[]).filter(t=>t.status==="ganador").length;
   return (
     <div className="fade-in">
+      <GameHub/>
       {ganados>0&&(
         <div className="card" style={{marginBottom:12,border:"1.5px solid #FFD978",background:"linear-gradient(135deg, rgba(255,184,56,.18), rgba(19,34,43,.9))",textAlign:"center"}}>
           <div style={{fontSize:22}}>🎉👑🎉</div>
@@ -294,6 +390,7 @@ function TabTicket(){
           ))}
         </div>
       </Section>
+      <PlayerLeaderboard/>
       <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
         Cuando tu número salga, lo verás aquí en tu cuenta al instante — y si activaste 🔔 Alertas,
         Hermes te avisa también por llamada, email o el grupo de Telegram del dueño.
@@ -460,21 +557,25 @@ const TABS=[
 ];
 function CoinBalance({admin}){
   const [bal,setBal]=useState(null);
+  const [rk,setRk]=useState(null);
+  const [streak,setStreak]=useState(0);
   const [app,setApp]=useState(null);
   const [flash,setFlash]=useState("");
   const [enabled,setEnabled]=useState(true);
   useEffect(()=>{
     let alive=true;
-    const tick=async()=>{ const cfg=await getCoinsConfig(); if(alive) setEnabled(cfg.enabled); const c=await getCoins(); if(alive) setBal(c.bal);
+    const tick=async()=>{ const cfg=await getCoinsConfig(); if(alive) setEnabled(cfg.enabled); const c=await getCoins(); if(alive){ setBal(c.bal); setRk(rankOf(c.xp||0)); setStreak(c.streak||0); }
       if(admin){ try{ const r=await fetch("/api/balance"); const d=await r.json(); if(alive&&d&&d.configured) setApp(d); }catch(e){} } };
-    (async()=>{ const b=await claimDailyBonus(); if(b.claimed){ const cfg=await getCoinsConfig(); setFlash("+"+cfg.daily); setTimeout(()=>alive&&setFlash(""),2600); } await tick(); })();
+    (async()=>{ const b=await claimDailyBonus(); if(b.claimed){ setFlash("+"+(b.amount||0)+(b.jackpot?" 🎉":"")); setTimeout(()=>alive&&setFlash(""),3000); } await tick(); })();
     const i=setInterval(tick,5000);
     return ()=>{ alive=false; clearInterval(i); };
   },[admin]);
   if(bal===null||!enabled) return null;
   return (
     <div className="chip" style={{cursor:"default",background:T.raise,borderColor:"rgba(255,184,56,.4)"}} title="Monedas de juego (virtuales)">
+      {rk&&<span style={{marginRight:4}} title={rk.name}>{rk.icon}</span>}
       <span style={{color:T.mango,fontWeight:800}}>🪙 {bal.toLocaleString()}</span>
+      {streak>0&&<span style={{marginLeft:5,fontSize:11}} title={streak+" días seguidos"}>🔥{streak}</span>}
       {flash&&<span style={{color:T.teal,marginLeft:4,fontWeight:700}}>{flash}</span>}
       {admin&&app&&<span style={{color:T.dim,marginLeft:6,fontSize:10}}>· app {Number(app.totalCoins||0).toLocaleString()}🪙 / {app.accounts} ctas</span>}
     </div>
