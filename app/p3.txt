@@ -213,13 +213,30 @@ function TabTicket(){
             <Label>Monto que juegas (calculadora) 🧮</Label>
             <input className="input mono" inputMode="decimal" placeholder="$ ej: 5" value={monto} onChange={e=>setMonto(e.target.value)} style={{textAlign:"center",fontSize:18}}/>
           </div>
-          {num(monto)>0&&(
-            <div className="card" style={{background:T.raise,textAlign:"center",padding:"10px 12px"}}>
-              <div style={{fontSize:11,color:T.dim}}>Ganancia estimada si sale tu número (referencial)</div>
-              <div className="disp" style={{fontWeight:800,fontSize:22,color:T.teal}}>≈ ${estimado.toFixed(2)}</div>
-              <div style={{fontSize:10,color:T.dim}}>Fijo ×{PAYOUTS.fijo}{nCorr>0?` · ${nCorr} corrido(s) ×${PAYOUTS.corrido}`:""} · parlé ×{PAYOUTS.parle} · candado ×{PAYOUTS.candado} · solo monedas de juego</div>
+          {num(monto)>0&&(()=>{
+            const bet=num(monto);
+            const hasFijo=d2ok(fijo);
+            // Escenarios posibles según lo que el jugador llenó:
+            const escenarios=[];
+            if(hasFijo) escenarios.push({k:"Fijo",icon:"🎯",pago:bet*PAYOUTS.fijo,nota:"si pega el fijo"});
+            if(nCorr>0) escenarios.push({k:nCorr===1?"1 Corrido":"Corridos",icon:"➡️",pago:bet*nCorr*PAYOUTS.corrido,nota:`si pega ${nCorr} corrido(s)`});
+            if((hasFijo&&nCorr>=1)||nCorr>=2) escenarios.push({k:"Parlé",icon:"🎯",pago:bet*((hasFijo?PAYOUTS.fijo:0)+nCorr*PAYOUTS.corrido+PAYOUTS.parle),nota:"fijo + corrido juntos"});
+            if(hasFijo&&nCorr>=2) escenarios.push({k:"Candado",icon:"🔒",pago:bet*(PAYOUTS.fijo+2*PAYOUTS.corrido+PAYOUTS.candado),nota:"fijo + 2 corridos · ¡el mayor!"});
+            return (
+            <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
+              <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si sale tu número, ganarías (en monedas 🪙):</div>
+              <div style={{display:"grid",gap:6}}>
+                {escenarios.map((e,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:i<escenarios.length-1?`1px dashed ${T.line}`:"none",paddingBottom:5}}>
+                    <span style={{fontSize:13}}>{e.icon} <b>{e.k}</b> <span style={{fontSize:10,color:T.dim}}>· {e.nota}</span></span>
+                    <span className="disp" style={{fontWeight:800,fontSize:16,color:e.k==="Candado"?"#FFD978":T.teal}}>≈ {e.pago.toLocaleString()} 🪙</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicadores: Fijo ×{PAYOUTS.fijo} · Corrido ×{PAYOUTS.corrido} · Parlé ×{PAYOUTS.parle} · Candado ×{PAYOUTS.candado} · monedas de juego (no dinero real)</div>
             </div>
-          )}
+            );
+          })()}
           <button className="btn primary" onClick={crear}>🎟️ Generar mi ticket souvenir</button>
           <button className="btn ghost" onClick={comprobar} disabled={checking}>{checking?"Comprobando con los tiros oficiales…":"🔎 Comprobar mis tickets"}</button>
           {msg&&<div style={{fontSize:12,color:msg.includes("🎉")||msg.includes("✔")||msg.includes("🎟️")?T.teal:T.coral}}>{msg}</div>}
@@ -248,7 +265,27 @@ function TabTicket(){
                     {t.status==="no salió"&&<span className="chip" style={{cursor:"default"}}>{t.resultado||"no salió"}</span>}
                   </div>
                 </div>
-                <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                {num(t.monto)>0&&(()=>{
+                  const bet=num(t.monto); const ncor=t.corridos.length;
+                  const filas=[["🎯 Fijo",bet*PAYOUTS.fijo,true]];
+                  if(ncor>0) filas.push([`➡️ Corrido${ncor>1?"s":""} (${ncor})`,bet*ncor*PAYOUTS.corrido,true]);
+                  if(ncor>=1) filas.push(["🎯 Parlé",bet*(PAYOUTS.fijo+ncor*PAYOUTS.corrido+PAYOUTS.parle),true]);
+                  if(ncor>=2) filas.push(["🔒 Candado",bet*(PAYOUTS.fijo+2*PAYOUTS.corrido+PAYOUTS.candado),false]);
+                  return (
+                    <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
+                      <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga cada juego (en monedas 🪙):</div>
+                      <div style={{display:"grid",gap:4}}>
+                        {filas.map((f,i)=>(
+                          <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+                            <span>{f[0]}</span>
+                            <span className="mono" style={{fontWeight:700,color:f[0].includes("Candado")?"#FFD978":T.teal}}>≈ {f[1].toLocaleString()} 🪙</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div style={{borderTop:`1px dashed ${T.line}`,marginTop:10,paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span style={{fontSize:9,color:T.dim,maxWidth:"70%"}}>RECUERDO SIN VALOR MONETARIO · Juega estos números en una tienda autorizada de la lotería legal de tu estado. Aquí no se apuesta ni se paga premio.</span>
                   <button className="chip" onClick={()=>compartir(t)}>📤</button>
                 </div>
