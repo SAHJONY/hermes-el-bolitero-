@@ -21,6 +21,11 @@ const MAP = [
   // New York
   { board:"newyork",  session:"Mediodía", p3:"us_ny_numbers_mid", p4:"us_ny_win4_mid" },
   { board:"newyork",  session:"Noche",    p3:"us_ny_numbers_eve", p4:"us_ny_win4_eve" },
+  // Puerto Rico (Lotería Electrónica) — Pega 3 + Pega 4, mediodía y noche
+  { board:"pr", session:"Mediodía", p3:"pr_pega3_day",   p4:"pr_pega4_day" },
+  { board:"pr", session:"Noche",    p3:"pr_pega3_night", p4:"pr_pega4_night" },
+  // República Dominicana — Pega 3 Más (oficial 3 dígitos), sesión de Noche.
+  { board:"rd", session:"Noche",    p3:"do_pega3", p4:"do_pega3" },
 ];
 
 async function fetchGame(key, game){
@@ -57,7 +62,8 @@ module.exports = async (req, res) => {
         pick4: b.value.padStart(4,"0").slice(-4),
       });
     }
-    res.status(200).json({ draws, source: "magayo-official", ts: Date.now() });
+    const realBoards = Array.from(new Set(draws.map(d => d.board)));
+    res.status(200).json({ draws, realBoards, source: "magayo-official", ts: Date.now() });
   } catch (e) {
     res.status(500).json({ error: "numeros_oficial_failed", detail: String(e) });
   }
