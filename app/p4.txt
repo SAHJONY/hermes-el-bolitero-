@@ -61,6 +61,48 @@ async function spendCoins(n){ const c=await getCoins(); if(c.bal<n) return {ok:f
 async function addCoins(n){ const c=await getCoins(); c.bal=Math.max(0,c.bal+Math.round(n)); await setCoins(c); return c.bal; }
 async function resetMyCoins(to){ const cfg=await getCoinsConfig(); const c={bal:(typeof to==="number"?to:cfg.start),lastBonus:""}; await setCoins(c); return c.bal; }
 
+/* ---------- SUCURSALES estilo Monopoly (Banco Central → Sucursales) ----------
+   100% monedas virtuales. El Banco Central (dueño) crea sucursales; cada sucursal
+   reparte monedas a SUS jugadores y por cada jugada virtual una comisión % fluye
+   al Banco Central. Todo compartido vía /api/db para verse entre dispositivos.
+   Claves compartidas:
+     bank:config         -> { commissionPct }
+     bank:central        -> { coins }                 (bolsa del Banco Central)
+     branches            -> { "CODE": {name,active,created,coins,plays,commission,wagered} }
+   Local (por dispositivo): branch:me -> code de la sucursal en la que juega este device */
+const BANK_DEFAULTS={ commissionPct:10 };
+async function getBankConfig(){ const c=await sGet("bank:config",true); return {...BANK_DEFAULTS, ...(c||{})}; }
+async function setBankConfig(patch){ const cur=await getBankConfig(); const next={...cur,...patch}; await sSet("bank:config",next,true); return next; }
+async function getBranches(){ return (await sGet("branches",true))||{}; }
+async function getCentral(){ return (await sGet("bank:central",true))||{coins:0}; }
+async function newBranch(name){
+  const br=await getBranches();
+  const code=Array.from({length:5},()=> "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+  br[code]={ name:name||"Sucursal", active:true, created:Date.now(), coins:0, plays:0, commission:0, wagered:0 };
+  await sSet("branches",br,true); return code;
+}
+async function setBranchActive(code,on){ const br=await getBranches(); if(br[code]){ br[code].active=on; await sSet("branches",br,true);} return br; }
+async function removeBranch(code){ const br=await getBranches(); delete br[code]; await sSet("branches",br,true); return br; }
+async function myBranch(){ return await sGet("branch:me",false); }       // {code,name}
+async function joinBranch(code){
+  const br=await getBranches(); const b=br[String(code).toUpperCase()];
+  if(!b||!b.active) return null;
+  const me={code:String(code).toUpperCase(),name:b.name};
+  await sSet("branch:me",me,false); return me;
+}
+// Registrar una jugada virtual: cobra comisión a la sucursal y la pasa al Banco Central.
+async function recordWager(amount){
+  amount=Math.max(0,Math.round(amount||0)); if(!amount) return;
+  const me=await myBranch(); if(!me) return;                 // jugador sin sucursal -> sin comisión
+  const cfg=await getBankConfig(); const pct=Math.max(0,Math.min(100,cfg.commissionPct||0));
+  const fee=Math.round(amount*pct/100);
+  const br=await getBranches(); const b=br[me.code]; if(!b) return;
+  b.plays=(b.plays||0)+1; b.wagered=(b.wagered||0)+amount; b.commission=(b.commission||0)+fee;
+  await sSet("branches",br,true);
+  if(fee>0){ const c=await getCentral(); c.coins=(c.coins||0)+fee; await sSet("bank:central",c,true); }
+}
+
+
 /* ---------- Pagos: catálogo mundial (servicios + tarjetas prepago) ----------
    Solo aparecen en la app los que el dueño ACTIVA (pay:methods compartido).   */
 const PAY_CATALOG=[
@@ -581,6 +623,76 @@ function FinanzasPage(){
   );
 }
 
+/* ---------- Panel del Banco Central: sucursales tipo Monopoly ---------- */
+function SucursalesPage(){
+  const [cfg,setCfg]=useState(null);
+  const [central,setCentral]=useState(null);
+  const [branches,setBranches]=useState(null);
+  const [name,setName]=useState("");
+  const [pct,setPct]=useState(10);
+  const [msg,setMsg]=useState("");
+  const load=async()=>{ const c=await getBankConfig(); setCfg(c); setPct(c.commissionPct); setCentral(await getCentral()); setBranches(await getBranches()); };
+  useEffect(()=>{ load(); const i=setInterval(load,6000); return ()=>clearInterval(i); },[]);
+  if(!cfg||!branches) return <div style={{color:T.dim,fontSize:13}}>Cargando Banco Central…</div>;
+  const list=Object.entries(branches).sort((a,b)=>(b[1].coins||0)-(a[1].coins||0));
+  const crear=async()=>{ const code=await newBranch(name.trim()); setName(""); setMsg("Sucursal creada · código "+code); load(); };
+  const guardarPct=async()=>{ await setBankConfig({commissionPct:Math.max(0,Math.min(100,parseInt(pct,10)||0))}); setMsg("Comisión guardada: "+pct+"%"); load(); };
+  const totalComision=list.reduce((a,[,b])=>a+(b.commission||0),0);
+  return (
+    <div>
+      <Section title="Banco Central 🏛️" sub="Tú repartes sucursales; cada jugada virtual te paga comisión">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+          {[["Bolsa central",(central?.coins||0).toLocaleString()+" 🪙"],["Sucursales",list.length],["Comisión total",totalComision.toLocaleString()+" 🪙"]].map(([k,v])=>(
+            <div key={k} className="card" style={{textAlign:"center"}}><div className="disp" style={{fontWeight:800,fontSize:17,color:T.mango}}>{v}</div><div style={{fontSize:11,color:T.dim}}>{k}</div></div>
+          ))}
+        </div>
+        <div className="card" style={{display:"grid",gap:10,marginBottom:12}}>
+          <Label>Comisión al Banco Central (% de cada jugada)</Label>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input className="input mono" inputMode="numeric" value={pct} onChange={e=>setPct(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:18,fontWeight:700,maxWidth:90}}/>
+            <span style={{color:T.dim}}>%</span>
+            <button className="btn primary" style={{flex:1}} onClick={guardarPct}>Guardar %</button>
+          </div>
+        </div>
+        <div className="card" style={{display:"flex",gap:8}}>
+          <input className="input" placeholder="Nombre de la sucursal (ej: Sucursal de Pedro)" value={name} onChange={e=>setName(e.target.value)}/>
+          <button className="btn primary" onClick={crear}>+ Sucursal</button>
+        </div>
+      </Section>
+      <Section title={`Ranking de sucursales (${list.length})`} sub="Quién mueve más monedas — actualiza solo">
+        <div style={{display:"grid",gap:8}}>
+          {list.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no hay sucursales. Crea la primera y dale el código a un amigo.</div>}
+          {list.map(([code,b],i)=>(
+            <div key={code} className="card" style={{padding:"12px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span className="disp" style={{fontWeight:800,fontSize:16,color:i===0?"#FFD978":T.dim,minWidth:24}}>{i===0?"👑":"#"+(i+1)}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{b.name}</div>
+                  <div className="mono" style={{fontSize:11,color:T.dim}}>código {code} · {b.plays||0} jugadas</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div className="disp" style={{fontWeight:800,color:T.teal}}>{(b.coins||0).toLocaleString()} 🪙</div>
+                  <div style={{fontSize:10,color:T.mango}}>+{(b.commission||0).toLocaleString()} comisión</div>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:6,marginTop:10,justifyContent:"flex-end"}}>
+                <button className="chip" onClick={async()=>{ await setBranchActive(code,!b.active); load(); }}>{b.active?"Activa":"Pausada"}</button>
+                <button className="chip" style={{color:T.coral}} onClick={async()=>{ if(window.confirm("¿Eliminar la sucursal "+b.name+"?")){ await removeBranch(code); load(); } }}>✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      {msg&&<div style={{color:T.teal,fontSize:12,textAlign:"center",marginBottom:10}}>{msg}</div>}
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
+        Es un juego social estilo Monopoly: TODO en monedas virtuales, sin dinero real. Le das un código de sucursal
+        a un amigo; él reparte monedas a sus jugadores y por cada jugada virtual un {cfg.commissionPct}% va a tu bolsa central.
+        El ranking muestra quién va ganando. No se intercambia dinero de verdad.
+      </div>
+    </div>
+  );
+}
+
 function TabAdmin(){
   const [view,setView]=useState("miembros");
   const [codes,setCodes]=useState(null);
@@ -606,13 +718,14 @@ function TabAdmin(){
         </div>
       </div>
       <div className="scroll-x" style={{marginBottom:14}}>
-        {[["miembros","🎟️ Miembros"],["finanzas","💰 Finanzas"],["monedas","🪙 Monedas y premios"],["alertas","🔔 Alertas"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
+        {[["miembros","🎟️ Miembros"],["finanzas","💰 Finanzas"],["monedas","🪙 Monedas y premios"],["sucursales","🏦 Sucursales"],["alertas","🔔 Alertas"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
           <button key={id} className={"chip"+(view===id?" on":"")} onClick={()=>setView(id)}>{lab}</button>
         ))}
       </div>
       {view==="env"&&<EnvPage/>}
       {view==="finanzas"&&<FinanzasPage/>}
       {view==="monedas"&&<MonedasPage/>}
+      {view==="sucursales"&&<SucursalesPage/>}
       {view==="pagos"&&<PagosPage/>}
       {view==="alertas"&&<AlertasAdmin/>}
       {view==="miembros"&&(<>
