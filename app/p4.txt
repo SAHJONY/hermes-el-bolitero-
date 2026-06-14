@@ -1,4 +1,3 @@
-
 /* ============================ MEMBERS GATE + ADMIN ============================ */
 /* Claves compartidas:
    members:codes  -> {"CODE":{label,active,created,uses}}
@@ -54,12 +53,84 @@ async function setCoinsConfig(patch){
   return next;
 }
 async function coinsAlias(){ let a=await sGet("chat:alias",false); if(!a){ a="Cliente-"+Math.random().toString(36).slice(2,7).toUpperCase(); await sSet("chat:alias",a,false);} return a; }
-async function getCoins(){ const cfg=await getCoinsConfig(); const c=await sGet("coins",false); return (c&&typeof c.bal==="number")?c:{bal:cfg.start,lastBonus:""}; }
+async function getCoins(){ const cfg=await getCoinsConfig(); const c=await sGet("coins",false); return (c&&typeof c.bal==="number")?{streak:0,bestStreak:0,xp:0,...c}:{bal:cfg.start,lastBonus:"",streak:0,bestStreak:0,xp:0}; }
 async function setCoins(c){ await sSet("coins",c,false); try{ const a=await coinsAlias(); await sSet("bal:"+a,{bal:c.bal,ts:Date.now()},true); }catch(e){} return c; }
-async function claimDailyBonus(){ const cfg=await getCoinsConfig(); if(!cfg.enabled||cfg.daily<=0) return {claimed:false,bal:(await getCoins()).bal}; const c=await getCoins(); const today=new Date().toISOString().slice(0,10); if(c.lastBonus!==today){ c.bal+=cfg.daily; c.lastBonus=today; await setCoins(c); return {claimed:true,bal:c.bal}; } return {claimed:false,bal:c.bal}; }
+const STREAK_MULT=[0.5,0.75,1,1.5,2,3,10]; // día 1..7+ : el día 7 es jackpot ×10
+async function claimDailyBonus(){
+  const cfg=await getCoinsConfig();
+  if(!cfg.enabled) return {claimed:false,bal:(await getCoins()).bal};
+  const c=await getCoins();
+  const today=new Date().toISOString().slice(0,10);
+  if(c.lastBonus===today) return {claimed:false,bal:c.bal,streak:c.streak||0};
+  const ayer=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  c.streak = (c.lastBonus===ayer) ? (c.streak||0)+1 : 1;
+  c.bestStreak=Math.max(c.bestStreak||0,c.streak);
+  const idx=Math.min(c.streak-1, STREAK_MULT.length-1);
+  const amount=Math.max(1,Math.round((cfg.daily||100)*STREAK_MULT[idx]));
+  c.bal+=amount; c.lastBonus=today; c.xp=(c.xp||0); 
+  await setCoins(c);
+  return {claimed:true,bal:c.bal,amount,streak:c.streak,jackpot:c.streak>=7};
+}
 async function spendCoins(n){ const c=await getCoins(); if(c.bal<n) return {ok:false,bal:c.bal}; c.bal-=n; await setCoins(c); return {ok:true,bal:c.bal}; }
-async function addCoins(n){ const c=await getCoins(); c.bal=Math.max(0,c.bal+Math.round(n)); await setCoins(c); return c.bal; }
+async function addCoins(n){ const c=await getCoins(); n=Math.round(n); c.bal=Math.max(0,c.bal+n); if(n>0) c.xp=(c.xp||0)+n; await setCoins(c); return c.bal; }
 async function resetMyCoins(to){ const cfg=await getCoinsConfig(); const c={bal:(typeof to==="number"?to:cfg.start),lastBonus:""}; await setCoins(c); return c.bal; }
+
+/* ---------- NIVELES / RANGOS (prestigio por monedas ganadas) ---------- */
+const RANKS=[
+  {min:0,name:"Novato",icon:"🥉"},
+  {min:1000,name:"Bolitero",icon:"🥈"},
+  {min:10000,name:"Maestro",icon:"🥇"},
+  {min:50000,name:"Leyenda",icon:"👑"},
+  {min:200000,name:"Mito",icon:"⚡"},
+];
+function rankOf(xp){
+  xp=xp||0; let r=RANKS[0];
+  for(const x of RANKS){ if(xp>=x.min) r=x; }
+  const i=RANKS.indexOf(r); const next=RANKS[i+1]||null;
+  return {...r, next, progress: next? Math.max(0,Math.min(1,(xp-r.min)/(next.min-r.min))) : 1};
+}
+
+/* ---------- MISIONES DIARIAS (local por dispositivo, se reinician cada día) ---------- */
+const MISSIONS=[
+  {id:"play3", txt:"Juega 3 tickets", goal:3, reward:150, icon:"🎟️"},
+  {id:"check", txt:"Comprueba tus tickets", goal:1, reward:50, icon:"🔎"},
+  {id:"win1", txt:"Acierta una jugada", goal:1, reward:300, icon:"🏆"},
+];
+async function getMissions(){
+  const today=new Date().toISOString().slice(0,10);
+  let m=await sGet("missions",false);
+  if(!m||m.date!==today){ m={date:today,prog:{},claimed:{}}; await sSet("missions",m,false); }
+  return m;
+}
+async function bumpMission(id,by){
+  const m=await getMissions(); m.prog[id]=(m.prog[id]||0)+(by||1); await sSet("missions",m,false); return m;
+}
+async function claimMission(id){
+  const m=await getMissions(); const def=MISSIONS.find(x=>x.id===id);
+  if(!def||m.claimed[id]||(m.prog[id]||0)<def.goal) return {ok:false};
+  m.claimed[id]=true; await sSet("missions",m,false); await addCoins(def.reward);
+  return {ok:true,reward:def.reward};
+}
+
+/* ---------- RANKING SEMANAL DE JUGADORES (compartido) ---------- */
+function weekKey(){
+  const d=new Date(); const onejan=new Date(d.getFullYear(),0,1);
+  const week=Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+  return d.getFullYear()+"-W"+week;
+}
+async function pushScore(name,xp){
+  const wk=weekKey(); let lb=await sGet("leaderboard",true);
+  if(!lb||lb.week!==wk) lb={week:wk,players:{}};
+  const a=await coinsAlias();
+  const prev=(lb.players[a]&&lb.players[a].score)||0;
+  lb.players[a]={name:name||a,score:Math.max(prev, Math.round(xp||0))};
+  await sSet("leaderboard",lb,true); return lb;
+}
+async function getLeaderboard(){
+  const wk=weekKey(); const lb=await sGet("leaderboard",true);
+  if(!lb||lb.week!==wk) return {week:wk,players:{}};
+  return lb;
+}
 
 /* ---------- SUCURSALES estilo Monopoly (Banco Central → Sucursales) ----------
    100% monedas virtuales. El Banco Central (dueño) crea sucursales; cada sucursal
