@@ -121,7 +121,9 @@ function TabTicket(){
   const [c1,setC1]=useState(""); const [c2,setC2]=useState("");
   const [monto,setMonto]=useState("");
   const [tickets,setTickets]=useState(null);
-  const PAYOUTS={fijo:75,corrido:25}; // multiplicadores referenciales (solo información)
+  // Multiplicadores controlados 100% por el dueño (panel 👑 → 🪙 Monedas y premios). Solo monedas virtuales.
+  const [PAYOUTS,setPAYOUTS]=useState({fijo:75,corrido:25,parle:1000,candado:2000});
+  useEffect(()=>{(async()=>{ const cfg=await getCoinsConfig(); setPAYOUTS({fijo:cfg.payFijo,corrido:cfg.payCorrido,parle:cfg.payParle,candado:cfg.payCandado}); })();},[]);
   const num=v=>{ const n=parseFloat(String(v||"").replace(/[^0-9.]/g,"")); return isNaN(n)?0:n; };
   const nCorr=[c1,c2].filter(Boolean).length;
   const estimado=num(monto)*(PAYOUTS.fijo + nCorr*PAYOUTS.corrido);
@@ -161,7 +163,14 @@ function TabTicket(){
         const hits=[]; const fijoHit=t.fijo===f2; if(fijoHit) hits.push("FIJO "+f2);
         let corr=0; t.corridos.forEach(c=>{ if(c===ca||c===cb){ hits.push("corrido "+c); corr++; } });
         const won=hits.length>0;
-        const pay= won ? num(t.monto)*((fijoHit?PAYOUTS.fijo:0)+corr*PAYOUTS.corrido) : 0;
+        // Premios virtuales: candado (fijo + 2 corridos) > parlé (fijo+1 corrido, o 2 corridos) > fijo/corrido suelto.
+        const candadoHit = fijoHit && corr>=2;
+        const parleHit = !candadoHit && ((fijoHit && corr>=1) || corr>=2);
+        let mult = (fijoHit?PAYOUTS.fijo:0) + corr*PAYOUTS.corrido;
+        if(parleHit) mult += PAYOUTS.parle;
+        if(candadoHit) mult += PAYOUTS.candado;
+        const pay= won ? num(t.monto)*mult : 0;
+        if(candadoHit) hits.push("🔒 CANDADO"); else if(parleHit) hits.push("🎯 PARLÉ");
         if(won && !t.coinPaid && pay>0) coinWin+=pay;
         return {...t, status:won?"ganador":"no salió", premio:hits.join(" + ")||null, resultado:f2+" · "+ca+" "+cb, ganancia:won?pay:0, coinPaid:won?true:t.coinPaid};
       });
@@ -208,7 +217,7 @@ function TabTicket(){
             <div className="card" style={{background:T.raise,textAlign:"center",padding:"10px 12px"}}>
               <div style={{fontSize:11,color:T.dim}}>Ganancia estimada si sale tu número (referencial)</div>
               <div className="disp" style={{fontWeight:800,fontSize:22,color:T.teal}}>≈ ${estimado.toFixed(2)}</div>
-              <div style={{fontSize:10,color:T.dim}}>Fijo ×{PAYOUTS.fijo}{nCorr>0?` · ${nCorr} corrido(s) ×${PAYOUTS.corrido}`:""} · solo información, no es pago garantizado</div>
+              <div style={{fontSize:10,color:T.dim}}>Fijo ×{PAYOUTS.fijo}{nCorr>0?` · ${nCorr} corrido(s) ×${PAYOUTS.corrido}`:""} · parlé ×{PAYOUTS.parle} · candado ×{PAYOUTS.candado} · solo monedas de juego</div>
             </div>
           )}
           <button className="btn primary" onClick={crear}>🎟️ Generar mi ticket souvenir</button>
@@ -385,15 +394,16 @@ function CoinBalance({admin}){
   const [bal,setBal]=useState(null);
   const [app,setApp]=useState(null);
   const [flash,setFlash]=useState("");
+  const [enabled,setEnabled]=useState(true);
   useEffect(()=>{
     let alive=true;
-    const tick=async()=>{ const c=await getCoins(); if(alive) setBal(c.bal);
+    const tick=async()=>{ const cfg=await getCoinsConfig(); if(alive) setEnabled(cfg.enabled); const c=await getCoins(); if(alive) setBal(c.bal);
       if(admin){ try{ const r=await fetch("/api/balance"); const d=await r.json(); if(alive&&d&&d.configured) setApp(d); }catch(e){} } };
-    (async()=>{ const b=await claimDailyBonus(); if(b.claimed){ setFlash("+"+DAILY_BONUS); setTimeout(()=>alive&&setFlash(""),2600); } await tick(); })();
+    (async()=>{ const b=await claimDailyBonus(); if(b.claimed){ const cfg=await getCoinsConfig(); setFlash("+"+cfg.daily); setTimeout(()=>alive&&setFlash(""),2600); } await tick(); })();
     const i=setInterval(tick,5000);
     return ()=>{ alive=false; clearInterval(i); };
   },[admin]);
-  if(bal===null) return null;
+  if(bal===null||!enabled) return null;
   return (
     <div className="chip" style={{cursor:"default",background:T.raise,borderColor:"rgba(255,184,56,.4)"}} title="Monedas de juego (virtuales)">
       <span style={{color:T.mango,fontWeight:800}}>🪙 {bal.toLocaleString()}</span>
