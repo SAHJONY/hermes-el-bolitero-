@@ -1,4 +1,3 @@
-
 /* ============================ MEMBERS GATE + ADMIN ============================ */
 /* Claves compartidas:
    members:codes  -> {"CODE":{label,active,created,uses}}
@@ -34,14 +33,32 @@ async function deleteAccount(){
 /* ---------- Monedas virtuales (entretenimiento) + saldo en tiempo real ----------
    Saldo de juego en MONEDAS virtuales (no dinero real). Se guarda por cuenta y
    se refleja al instante; se replica al store compartido (bal:<alias>) para el
-   seguimiento global del saldo de la app vía /api/balance.                      */
-const START_COINS=1000, DAILY_BONUS=100;
+   seguimiento global del saldo de la app vía /api/balance.
+   La CONFIGURACIÓN (saldo inicial, bono, multiplicadores, on/off) la controla el
+   dueño desde el panel 👑 → 🪙 Monedas y se guarda en el store compartido
+   "coins:config" para que aplique a TODOS los usuarios.                          */
+const COINS_DEFAULTS={ enabled:true, start:1000, daily:100, payFijo:75, payCorrido:25 };
+let _coinsCfg=null;
+async function getCoinsConfig(){
+  if(_coinsCfg) return _coinsCfg;
+  const c=await sGet("coins:config",true);
+  _coinsCfg={...COINS_DEFAULTS, ...(c||{})};
+  return _coinsCfg;
+}
+async function setCoinsConfig(patch){
+  const cur=await getCoinsConfig();
+  const next={...cur,...patch};
+  _coinsCfg=next;
+  await sSet("coins:config",next,true);
+  return next;
+}
 async function coinsAlias(){ let a=await sGet("chat:alias",false); if(!a){ a="Cliente-"+Math.random().toString(36).slice(2,7).toUpperCase(); await sSet("chat:alias",a,false);} return a; }
-async function getCoins(){ const c=await sGet("coins",false); return (c&&typeof c.bal==="number")?c:{bal:START_COINS,lastBonus:""}; }
+async function getCoins(){ const cfg=await getCoinsConfig(); const c=await sGet("coins",false); return (c&&typeof c.bal==="number")?c:{bal:cfg.start,lastBonus:""}; }
 async function setCoins(c){ await sSet("coins",c,false); try{ const a=await coinsAlias(); await sSet("bal:"+a,{bal:c.bal,ts:Date.now()},true); }catch(e){} return c; }
-async function claimDailyBonus(){ const c=await getCoins(); const today=new Date().toISOString().slice(0,10); if(c.lastBonus!==today){ c.bal+=DAILY_BONUS; c.lastBonus=today; await setCoins(c); return {claimed:true,bal:c.bal}; } return {claimed:false,bal:c.bal}; }
+async function claimDailyBonus(){ const cfg=await getCoinsConfig(); if(!cfg.enabled||cfg.daily<=0) return {claimed:false,bal:(await getCoins()).bal}; const c=await getCoins(); const today=new Date().toISOString().slice(0,10); if(c.lastBonus!==today){ c.bal+=cfg.daily; c.lastBonus=today; await setCoins(c); return {claimed:true,bal:c.bal}; } return {claimed:false,bal:c.bal}; }
 async function spendCoins(n){ const c=await getCoins(); if(c.bal<n) return {ok:false,bal:c.bal}; c.bal-=n; await setCoins(c); return {ok:true,bal:c.bal}; }
 async function addCoins(n){ const c=await getCoins(); c.bal=Math.max(0,c.bal+Math.round(n)); await setCoins(c); return c.bal; }
+async function resetMyCoins(to){ const cfg=await getCoinsConfig(); const c={bal:(typeof to==="number"?to:cfg.start),lastBonus:""}; await setCoins(c); return c.bal; }
 
 /* ---------- Pagos: catálogo mundial (servicios + tarjetas prepago) ----------
    Solo aparecen en la app los que el dueño ACTIVA (pay:methods compartido).   */
@@ -303,6 +320,98 @@ function EnvPage(){
   );
 }
 
+/* ---------- Panel del dueño: control 100% de monedas y premios ---------- */
+function MonedasPage(){
+  const [cfg,setCfg]=useState(null);
+  const [msg,setMsg]=useState("");
+  const [myBal,setMyBal]=useState(null);
+  const [resetTo,setResetTo]=useState("");
+  useEffect(()=>{(async()=>{ _coinsCfg=null; setCfg(await getCoinsConfig()); setMyBal((await getCoins()).bal); })();},[]);
+  if(!cfg) return <div style={{color:T.dim,fontSize:13}}>Cargando configuración…</div>;
+  const upd=(k,v)=>setCfg({...cfg,[k]:v});
+  const numField=(k,label,help,suffix)=>(
+    <div>
+      <Label>{label}</Label>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <input className="input mono" inputMode="numeric" value={cfg[k]}
+          onChange={e=>upd(k,Math.max(0,parseInt(e.target.value.replace(/\D/g,"")||"0",10)))}
+          style={{textAlign:"center",fontSize:18,fontWeight:700}}/>
+        {suffix&&<span style={{fontSize:12,color:T.dim,whiteSpace:"nowrap"}}>{suffix}</span>}
+      </div>
+      <div style={{fontSize:10,color:T.dim,marginTop:3}}>{help}</div>
+    </div>
+  );
+  const guardar=async()=>{
+    const saved=await setCoinsConfig({
+      enabled:!!cfg.enabled,
+      start:Math.max(0,parseInt(cfg.start,10)||0),
+      daily:Math.max(0,parseInt(cfg.daily,10)||0),
+      payFijo:Math.max(0,parseInt(cfg.payFijo,10)||0),
+      payCorrido:Math.max(0,parseInt(cfg.payCorrido,10)||0),
+    });
+    setCfg(saved);
+    setMsg("✔ Guardado. Aplica a todos los usuarios (saldo inicial y bono a cuentas nuevas; los multiplicadores, al instante).");
+  };
+  const ejemplo=(monto)=>{
+    const m=parseFloat(monto)||0;
+    return { fijo:(m*cfg.payFijo).toFixed(2), full:(m*(cfg.payFijo+2*cfg.payCorrido)).toFixed(2) };
+  };
+  const ej=ejemplo(1);
+  return (
+    <div>
+      <Section title="Premios · cuánto se paga 💰" sub="Controlas el multiplicador del Fijo y de los Corridos — aplica a toda la app">
+        <div className="card" style={{display:"grid",gap:14}}>
+          {numField("payFijo","Multiplicador del FIJO","Si el cliente juega $1 al fijo y acierta, gana $ este número.","× lo jugado")}
+          {numField("payCorrido","Multiplicador de cada CORRIDO","Cada corrido acertado paga $ este número por cada $1 jugado.","× lo jugado")}
+          <div className="card" style={{background:T.raise,textAlign:"center",padding:"10px 12px"}}>
+            <div style={{fontSize:11,color:T.dim}}>Ejemplo con $1 jugado</div>
+            <div className="disp" style={{fontWeight:800,fontSize:18,color:T.teal}}>Fijo acertado ≈ ${ej.fijo}</div>
+            <div style={{fontSize:11,color:T.dim}}>Fijo + 2 corridos ≈ ${ej.full}</div>
+          </div>
+          <button className="btn primary" onClick={guardar}>💾 Guardar premios y monedas</button>
+        </div>
+      </Section>
+
+      <Section title="Monedas de juego 🪙" sub="El saldo virtual de enganche (no es dinero real)">
+        <div className="card" style={{display:"grid",gap:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:14}}>Sistema de monedas</div>
+              <div style={{fontSize:11,color:T.dim}}>Apágalo para esconder la bolita 🪙 y el juego con monedas.</div>
+            </div>
+            <button className={"chip"+(cfg.enabled?" on":"")} onClick={()=>upd("enabled",!cfg.enabled)}>
+              {cfg.enabled?"Activado":"Apagado"}
+            </button>
+          </div>
+          {numField("start","Saldo inicial","Con cuántas monedas arranca una cuenta nueva.","🪙")}
+          {numField("daily","Bono diario","Monedas gratis por entrar cada día (0 = sin bono).","🪙/día")}
+          <button className="btn primary" onClick={guardar}>💾 Guardar premios y monedas</button>
+        </div>
+      </Section>
+
+      <Section title="Tu saldo (este dispositivo)" sub={`Tienes ${myBal?.toLocaleString?.()||myBal} 🪙`}>
+        <div className="card" style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+          <div style={{flex:1}}>
+            <Label>Ponerme este saldo</Label>
+            <input className="input mono" inputMode="numeric" placeholder="ej: 1000" value={resetTo}
+              onChange={e=>setResetTo(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:16}}/>
+          </div>
+          <button className="btn ghost" onClick={async()=>{ const b=await resetMyCoins(resetTo?parseInt(resetTo,10):undefined); setMyBal(b); setResetTo(""); setMsg("Tu saldo quedó en "+b.toLocaleString()+" 🪙"); }}>Aplicar</button>
+        </div>
+      </Section>
+
+      {msg&&<div style={{color:T.teal,fontSize:12,textAlign:"center",marginBottom:10}}>{msg}</div>}
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
+        Honesto: la <b>configuración</b> (saldo inicial, bono, multiplicadores, on/off) se guarda en el
+        almacén compartido y aplica a todos. El <b>saldo</b> de cada cliente vive en su dispositivo
+        (el saldo inicial y el bono nuevos aplican a cuentas nuevas o que aún no han reclamado el bono de hoy).
+        Para control central del saldo de cada cliente hace falta conectar la base de datos.
+        Recuerda: las monedas son de entretenimiento, no dinero real ni pago de premios.
+      </div>
+    </div>
+  );
+}
+
 function AlertasAdmin(){
   const [subs,setSubs]=useState(null);
   const [msg,setMsg]=useState("");
@@ -492,12 +601,13 @@ function TabAdmin(){
         </div>
       </div>
       <div className="scroll-x" style={{marginBottom:14}}>
-        {[["miembros","🎟️ Miembros"],["finanzas","💰 Finanzas"],["alertas","🔔 Alertas"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
+        {[["miembros","🎟️ Miembros"],["finanzas","💰 Finanzas"],["monedas","🪙 Monedas y premios"],["alertas","🔔 Alertas"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
           <button key={id} className={"chip"+(view===id?" on":"")} onClick={()=>setView(id)}>{lab}</button>
         ))}
       </div>
       {view==="env"&&<EnvPage/>}
       {view==="finanzas"&&<FinanzasPage/>}
+      {view==="monedas"&&<MonedasPage/>}
       {view==="pagos"&&<PagosPage/>}
       {view==="alertas"&&<AlertasAdmin/>}
       {view==="miembros"&&(<>
