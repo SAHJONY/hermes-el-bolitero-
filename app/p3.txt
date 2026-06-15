@@ -204,6 +204,86 @@ function PlayerLeaderboard(){
   );
 }
 
+/* ============================ TAB: JUEGA (mini-juegos diarios) ============================ */
+function TabJuega({lot}){
+  const [mini,setMini]=useState(null);
+  const [hbGuess,setHbGuess]=useState("");
+  const [hbRes,setHbRes]=useState(null);
+  const [chRes,setChRes]=useState(null);
+  const [reto,setReto]=useState(null);
+  const load=async()=>{ setMini(await getMiniState()); };
+  useEffect(()=>{ load(); },[]);
+  // Construir el reto de charada del día (determinístico por fecha): un símbolo + 4 opciones.
+  useEffect(()=>{
+    const dk=dateKey(new Date());
+    let h=0; for(let i=0;i<dk.length;i++){ h=(h*31+dk.charCodeAt(i))>>>0; }
+    const correct=(h%100)+1;
+    const opts=new Set([correct]);
+    let seed=h;
+    while(opts.size<4){ seed=(seed*1103515245+12345)>>>0; opts.add((seed%100)+1); }
+    const arr=[...opts]; // barajar
+    for(let i=arr.length-1;i>0;i--){ seed=(seed*1103515245+12345)>>>0; const j=seed%(i+1); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+    setReto({symbol:charadaOf(correct), correct, options:arr});
+  },[]);
+  const jugarHot=async()=>{
+    if(!/^\d{1,2}$/.test(hbGuess)) return;
+    const r=await playHotBall(lot, hbGuess); if(r.already){ await load(); return; }
+    setHbRes(r); if(r.won) fireConfetti(); await load();
+  };
+  const jugarCharada=async(pick)=>{
+    if(!reto) return;
+    const r=await playCharada(reto.correct, pick); if(r.already){ await load(); return; }
+    setChRes({...r, pick}); if(r.won) fireConfetti(); await load();
+  };
+  const hbDone=mini?.hotball?.played; const chDone=mini?.charada?.played;
+  return (
+    <div className="fade-in">
+      <Section title="Juega y gana monedas 🪙" sub="Mini-juegos diarios — una tirada gratis de cada uno por día">
+        {/* HOT BALL */}
+        <div className="card" style={{marginBottom:14}}>
+          <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>🔥 La Bola Caliente</div>
+          <div style={{fontSize:12,color:T.dim,marginBottom:10}}>Adivina un número (00–99) que esté entre los 5 más calientes de {LOTTERIES.find(l=>l.id===lot)?.short||"tu tablero"}. Si aciertas, ganas {200} 🪙.</div>
+          {!hbDone&&(
+            <div style={{display:"flex",gap:8}}>
+              <input className="input mono" inputMode="numeric" maxLength={2} placeholder="17" value={hbGuess} onChange={e=>setHbGuess(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:22,fontWeight:700}}/>
+              <button className="btn primary" onClick={jugarHot}>Jugar</button>
+            </div>
+          )}
+          {(hbDone||hbRes)&&(
+            <div className="card" style={{background:T.raise,marginTop:10,textAlign:"center"}}>
+              {(hbRes?.won ?? mini?.hotball?.won)
+                ? <div className="disp" style={{fontWeight:800,color:T.teal}}>¡Acertaste! +200 🪙 🎉</div>
+                : <div style={{color:T.dim,fontSize:13}}>Hoy no salió. Las calientes fueron: <b style={{color:T.mango}}>{(hbRes?.hot||mini?.hotball?.hot||[]).map(n=>String(n).padStart(2,"0")).join(", ")}</b></div>}
+              <div style={{fontSize:11,color:T.dim,marginTop:6}}>Vuelve mañana para otra tirada.</div>
+            </div>
+          )}
+        </div>
+        {/* CHARADA CHALLENGE */}
+        <div className="card">
+          <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>🌙 Reto de la Charada</div>
+          {reto&&<div style={{fontSize:12,color:T.dim,marginBottom:10}}>¿Qué número es <b style={{color:T.mango}}>"{reto.symbol}"</b> en la charada? Acierta y gana {150} 🪙.</div>}
+          {!chDone&&reto&&(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {reto.options.map(o=>(
+                <button key={o} className="btn ghost" onClick={()=>jugarCharada(o)}>{String(o).padStart(2,"0")}</button>
+              ))}
+            </div>
+          )}
+          {(chDone||chRes)&&(
+            <div className="card" style={{background:T.raise,marginTop:4,textAlign:"center"}}>
+              {(chRes?.won ?? mini?.charada?.won)
+                ? <div className="disp" style={{fontWeight:800,color:T.teal}}>¡Correcto! +150 🪙 🎉</div>
+                : <div style={{color:T.dim,fontSize:13}}>No era. La respuesta correcta es <b style={{color:T.mango}}>{reto?String(reto.correct).padStart(2,"0"):""}</b> ({reto?.symbol}).</div>}
+              <div style={{fontSize:11,color:T.dim,marginTop:6}}>Vuelve mañana para otro reto.</div>
+            </div>
+          )}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,textAlign:"center"}}>Mini-juegos de entretenimiento con monedas virtuales. No es dinero real ni apuestas.</div>
+    </div>
+  );
+}
+
 function TabTicket(){
   const [board,setBoard]=useState("labolita");
   const lottery=LOTTERIES.find(l=>l.id===board);
@@ -211,12 +291,13 @@ function TabTicket(){
   const [fijo,setFijo]=useState("");
   const [c1,setC1]=useState(""); const [c2,setC2]=useState("");
   const [play4,setPlay4]=useState("");
-  const [modo,setModo]=useState("bolita"); // "bolita" (fijo+corridos) | "play4" (4 dígitos directo)
+  const [qnum,setQnum]=useState("");
+  const [modo,setModo]=useState("bolita"); // "bolita" | "play4" | "quiniela" (1ro/2do/3ro)
   const [monto,setMonto]=useState("");
   const [tickets,setTickets]=useState(null);
   // Multiplicadores controlados 100% por el dueño (panel 👑 → 🪙 Monedas y premios). Solo monedas virtuales.
-  const [PAYOUTS,setPAYOUTS]=useState({fijo:75,corrido:25,parle:1000,candado:2000,play4:5000});
-  useEffect(()=>{(async()=>{ const cfg=await getCoinsConfig(); setPAYOUTS({fijo:cfg.payFijo,corrido:cfg.payCorrido,parle:cfg.payParle,candado:cfg.payCandado,play4:cfg.payPlay4}); })();},[]);
+  const [PAYOUTS,setPAYOUTS]=useState({fijo:75,corrido:25,parle:1000,candado:2000,play4:5000,q1:60,q2:20,q3:10});
+  useEffect(()=>{(async()=>{ const cfg=await getCoinsConfig(); setPAYOUTS({fijo:cfg.payFijo,corrido:cfg.payCorrido,parle:cfg.payParle,candado:cfg.payCandado,play4:cfg.payPlay4,q1:cfg.payQ1,q2:cfg.payQ2,q3:cfg.payQ3}); })();},[]);
   const num=v=>{ const n=parseFloat(String(v||"").replace(/[^0-9.]/g,"")); return isNaN(n)?0:n; };
   const nCorr=[c1,c2].filter(Boolean).length;
   const estimado=num(monto)*(PAYOUTS.fijo + nCorr*PAYOUTS.corrido);
@@ -232,6 +313,8 @@ function TabTicket(){
     setMsg("");
     if(modo==="play4"){
       if(!/^\d{4}$/.test(play4)){ setMsg("El Play 4 son 4 dígitos (0000–9999)."); return; }
+    } else if(modo==="quiniela"){
+      if(!d2ok(qnum)){ setMsg("La quiniela es un número de 2 cifras (00–99)."); return; }
     } else {
       if(!d2ok(fijo)){ setMsg("El fijo son 2 dígitos (00–99)."); return; }
       if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
@@ -240,11 +323,11 @@ function TabTicket(){
     if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } await recordWager(bet); }
     const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
       board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
-      tipo:modo, play4:modo==="play4"?play4:"",
-      fijo:modo==="play4"?"":fijo, corridos:modo==="play4"?[]:[c1,c2].filter(Boolean),
+      tipo:modo, play4:modo==="play4"?play4:"", qnum:modo==="quiniela"?qnum:"",
+      fijo:(modo==="play4"||modo==="quiniela")?"":fijo, corridos:(modo==="play4"||modo==="quiniela")?[]:[c1,c2].filter(Boolean),
       monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
     await save([t,...(tickets||[])].slice(0,30));
-    setFijo("");setC1("");setC2("");setPlay4("");setMonto("");
+    setFijo("");setC1("");setC2("");setPlay4("");setQnum("");setMonto("");
     try{ await bumpMission("play3"); }catch{}
     setMsg("🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.");
   };
@@ -264,6 +347,17 @@ function TabTicket(){
           const pay=won?num(t.monto)*PAYOUTS.play4:0;
           if(won && !t.coinPaid && pay>0) coinWin+=pay;
           return {...t, status:won?"ganador":"no salió", premio:won?"4️⃣ PLAY 4":null, resultado:p4, ganancia:won?pay:0, coinPaid:won?true:t.coinPaid};
+        }
+        if(t.tipo==="quiniela"){
+          // posiciones oficiales 1ro/2do/3ro (2 cifras). Si el feed solo trae 1, solo 1ro es comprobable.
+          const pos=(d.quiniela&&d.quiniela.length)?d.quiniela.map(x=>String(x).padStart(2,"0").slice(-2)):[String(d.pick3).padStart(3,"0").slice(1)];
+          let idx=pos.indexOf(t.qnum);
+          const mult=idx===0?PAYOUTS.q1:idx===1?PAYOUTS.q2:idx===2?PAYOUTS.q3:0;
+          const won=idx>=0;
+          const pay=won?num(t.monto)*mult:0;
+          if(won && !t.coinPaid && pay>0) coinWin+=pay;
+          const etiqueta=idx===0?"🥇 1er premio":idx===1?"🥈 2do premio":idx===2?"🥉 3er premio":null;
+          return {...t, status:won?"ganador":"no salió", premio:won?("🎲 "+etiqueta):null, resultado:pos.join(" · "), ganancia:won?pay:0, coinPaid:won?true:t.coinPaid};
         }
         const f2=String(d.pick3).padStart(3,"0").slice(1);
         const ca=String(d.pick4).padStart(4,"0").slice(0,2), cb=String(d.pick4).padStart(4,"0").slice(2,4);
@@ -311,9 +405,10 @@ function TabTicket(){
         <div className="card" style={{display:"grid",gap:10}}>
           <div className="scroll-x">{LOTTERIES.map(l=><button key={l.id} className={"chip"+(board===l.id?" on":"")} onClick={()=>setBoard(l.id)}>{l.short}</button>)}</div>
           <div className="scroll-x">{lottery.sessions.map(s=><button key={s} className={"chip"+(sess===s?" on":"")} onClick={()=>setSess(s)}>{s}</button>)}</div>
-          <div style={{display:"flex",gap:8}}>
-            <button className={"chip"+(modo==="bolita"?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setModo("bolita")}>🔴 Bolita (fijo + corridos)</button>
-            <button className={"chip"+(modo==="play4"?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setModo("play4")}>4️⃣ Play 4</button>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            <button className={"chip"+(modo==="bolita"?" on":"")} style={{flex:1,justifyContent:"center",minWidth:90}} onClick={()=>setModo("bolita")}>🔴 Bolita</button>
+            <button className={"chip"+(modo==="play4"?" on":"")} style={{flex:1,justifyContent:"center",minWidth:70}} onClick={()=>setModo("play4")}>4️⃣ Play 4</button>
+            <button className={"chip"+(modo==="quiniela"?" on":"")} style={{flex:1,justifyContent:"center",minWidth:80}} onClick={()=>setModo("quiniela")}>🎲 Quiniela</button>
           </div>
           {modo==="bolita"&&(<>
           <div style={{display:"flex",gap:8}}>
@@ -333,6 +428,14 @@ function TabTicket(){
               <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Ganas si los 4 dígitos salen EXACTOS en el Play 4 / Win 4 oficial de ese tablero y sesión.</div>
             </div>
           )}
+          {modo==="quiniela"&&(
+            <div>
+              <Label>Quiniela · número de 2 cifras (00–99)</Label>
+              <input className="input mono" inputMode="numeric" maxLength={2} placeholder="17" value={qnum} onChange={e=>setQnum(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.14em"}}/>
+              {qnum.length===2&&<div style={{fontSize:12,color:T.mango,textAlign:"center",marginTop:4}}>{parseInt(qnum,10)===0?100:parseInt(qnum,10)} · {charadaOf(parseInt(qnum,10))}</div>}
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Juegas a cualquiera de las 3 posiciones. Cobras según dónde salga: 1ro (mayor), 2do o 3ro.</div>
+            </div>
+          )}
           <div>
             <Label>Monto que juegas (calculadora) 🧮</Label>
             <input className="input mono" inputMode="decimal" placeholder="$ ej: 5" value={monto} onChange={e=>setMonto(e.target.value)} style={{textAlign:"center",fontSize:18}}/>
@@ -349,6 +452,24 @@ function TabTicket(){
                     <span className="disp" style={{fontWeight:800,fontSize:16,color:"#FFD978"}}>≈ {(bet*PAYOUTS.play4).toLocaleString()} 🪙</span>
                   </div>
                   <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicador: Play 4 ×{PAYOUTS.play4} · monedas de juego (no dinero real)</div>
+                </div>
+              );
+            }
+            if(modo==="quiniela"){
+              if(!/^\d{2}$/.test(qnum)) return null;
+              const rows=[["🥇 1er premio",bet*PAYOUTS.q1],["🥈 2do premio",bet*PAYOUTS.q2],["🥉 3er premio",bet*PAYOUTS.q3]];
+              return (
+                <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu número sale, cobras según la posición (🪙):</div>
+                  <div style={{display:"grid",gap:6}}>
+                    {rows.map((r,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:i<rows.length-1?`1px dashed ${T.line}`:"none",paddingBottom:5}}>
+                        <span style={{fontSize:13}}>{r[0]}</span>
+                        <span className="disp" style={{fontWeight:800,fontSize:16,color:i===0?"#FFD978":T.teal}}>≈ {r[1].toLocaleString()} 🪙</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Quiniela ×{PAYOUTS.q1}/{PAYOUTS.q2}/{PAYOUTS.q3} · monedas de juego (no dinero real)</div>
                 </div>
               );
             }
@@ -391,11 +512,13 @@ function TabTicket(){
               <div style={{padding:"12px 14px"}}>
                 <div style={{fontSize:11,color:T.dim,marginBottom:8,display:"flex",justifyContent:"space-between"}}>
                   <span>{t.boardName} · {t.session} · {t.date}</span>
-                  {num(t.monto)>0&&<span style={{color:T.mango}}>Jugado ${num(t.monto).toFixed(2)}{t.tipo==="play4"?` · Play 4 ×${PAYOUTS.play4}`:` · posible ≈ $${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}`}</span>}
+                  {num(t.monto)>0&&<span style={{color:T.mango}}>Jugado ${num(t.monto).toFixed(2)}{t.tipo==="play4"?` · Play 4 ×${PAYOUTS.play4}`:t.tipo==="quiniela"?` · Quiniela ×${PAYOUTS.q1}/${PAYOUTS.q2}/${PAYOUTS.q3}`:` · posible ≈ $${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}`}</span>}
                 </div>
                 <div style={{display:"flex",gap:10,alignItems:"center"}}>
                   {t.tipo==="play4"
                     ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.14em"}}>{t.play4}</div>
+                    : t.tipo==="quiniela"
+                    ? <div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.qnum}</div>
                     : <><div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.fijo}</div>
                       {t.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}</>}
                   <div style={{marginLeft:"auto",textAlign:"right"}}>
@@ -413,7 +536,20 @@ function TabTicket(){
                     </div>
                   </div>
                 )}
-                {num(t.monto)>0&&t.tipo!=="play4"&&(()=>{
+                {num(t.monto)>0&&t.tipo==="quiniela"&&(
+                  <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga según la posición (en monedas 🪙):</div>
+                    <div style={{display:"grid",gap:4}}>
+                      {[["🥇 1er premio",PAYOUTS.q1,true],["🥈 2do premio",PAYOUTS.q2,false],["🥉 3er premio",PAYOUTS.q3,false]].map((f,i)=>(
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+                          <span>{f[0]}</span>
+                          <span className="mono" style={{fontWeight:700,color:f[2]?"#FFD978":T.teal}}>≈ {(num(t.monto)*f[1]).toLocaleString()} 🪙</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {num(t.monto)>0&&t.tipo!=="play4"&&t.tipo!=="quiniela"&&(()=>{
                   const bet=num(t.monto); const ncor=t.corridos.length;
                   const filas=[["🎯 Fijo",bet*PAYOUTS.fijo,true]];
                   if(ncor>0) filas.push([`➡️ Corrido${ncor>1?"s":""} (${ncor})`,bet*ncor*PAYOUTS.corrido,true]);
@@ -603,6 +739,7 @@ const TABS=[
   {id:"ia",icon:"⚡",label:"Hermes"},
   {id:"studio",icon:"🎨",label:"Studio"},
   {id:"ticket",icon:"🎟️",label:"Ticket"},
+  {id:"juega",icon:"🎮",label:"Juega"},
   {id:"pago",icon:"💳",label:"Pago"},
   {id:"alertas",icon:"🔔",label:"Alertas"},
   {id:"foro",icon:"💬",label:"Foro"},
@@ -685,6 +822,7 @@ function MainApp({admin,onLock}){
             </div>)}
         {tab==="studio"&&<TabStudio lot={lot}/>}
         {tab==="ticket"&&<TabTicket/>}
+        {tab==="juega"&&<TabJuega lot={lot}/>}
         {tab==="pago"&&<TabPago/>}
         {tab==="alertas"&&<TabAlertas/>}
         {tab==="foro"&&<TabForo/>}
