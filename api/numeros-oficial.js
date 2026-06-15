@@ -1,6 +1,13 @@
-// /api/numeros-oficial — Resultados OFICIALES y verificables vía magayo Lottery Data API.
-// Variable en Vercel: MAGAYO_API_KEY (tu clave de magayo.com/lottery-feeds/lottery-data-api)
-// Devuelve el mismo formato que tu app espera: { draws:[{board,date,session,pick3,pick4}] }
+// /api/numeros-oficial — Resultados OFICIALES y verificables.
+// Combina DOS fuentes oficiales y las normaliza al formato bolitero
+// { draws:[{board,date,session,pick3,pick4,quiniela?}], realBoards, source }:
+//
+//   1) New York  → GRATIS, sin clave (data.ny.gov: Daily Numbers + Win 4).
+//   2) magayo    → requiere MAGAYO_API_KEY (cubre FL, GA, IL, TX, NY, PR, RD…).
+//
+// Importante: ya NO falla con 500 cuando falta la clave de magayo — devuelve al
+// menos los números reales y gratis de New York, y el resto cae a demo/IA en el
+// cliente. Pon MAGAYO_API_KEY en Vercel para activar todos los demás tableros.
 
 const MAP = [
   // board "labolita": 4 tiros armados desde sorteos oficiales reales
@@ -18,7 +25,7 @@ const MAP = [
   { board:"georgia",  session:"Mediodía", p3:"us_ga_cash3_mid", p4:"us_ga_cash4_mid" },
   { board:"georgia",  session:"Tarde",    p3:"us_ga_cash3_eve", p4:"us_ga_cash4_eve" },
   { board:"georgia",  session:"Noche",    p3:"us_ga_cash3_night", p4:"us_ga_cash4_night" },
-  // New York
+  // New York (también lo cubre el feed gratis; magayo queda como respaldo)
   { board:"newyork",  session:"Mediodía", p3:"us_ny_numbers_mid", p4:"us_ny_win4_mid" },
   { board:"newyork",  session:"Noche",    p3:"us_ny_numbers_eve", p4:"us_ny_win4_eve" },
   // Puerto Rico (Lotería Electrónica) — Pega 3 + Pega 4, mediodía y noche
@@ -28,48 +35,91 @@ const MAP = [
   { board:"rd", session:"Noche",    p3:"do_pega3", p4:"do_pega3" },
 ];
 
+const dkey = (d) => `${d.board}|${d.date}|${d.session}`;
+
+// 1) New York Daily Numbers + Win 4 — datos oficiales abiertos, GRATIS, sin clave.
+async function fetchNewYorkFree() {
+  try {
+    const url = "https://data.ny.gov/resource/hsys-3def.json?$limit=6&$order=draw_date%20DESC";
+    const r = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!r.ok) return [];
+    const rows = await r.json();
+    const p3 = (v) => String(v).padStart(3, "0").slice(-3);
+    const p4 = (v) => String(v).padStart(4, "0").slice(-4);
+    const out = [];
+    for (const row of rows || []) {
+      const date = String(row.draw_date || "").slice(0, 10);
+      if (!date) continue;
+      if (row.midday_daily) out.push({ board:"newyork", date, session:"Mediodía", pick3:p3(row.midday_daily), pick4:p4(row.midday_win_4||""), quiniela:[p3(row.midday_daily).slice(-2)] });
+      if (row.evening_daily) out.push({ board:"newyork", date, session:"Noche", pick3:p3(row.evening_daily), pick4:p4(row.evening_win_4||""), quiniela:[p3(row.evening_daily).slice(-2)] });
+    }
+    return out;
+  } catch { return []; }
+}
+
+// 2) magayo — un juego a la vez. results: premios separados por coma (1ro,2do,3ro).
 async function fetchGame(key, game){
   try{
-    const r = await fetch(`https://www.magayo.com/api/results.php?api_key=${key}&game=${game}`);
+    const r = await fetch(`https://www.magayo.com/api/results.php?api_key=${encodeURIComponent(key)}&game=${encodeURIComponent(game)}`);
     const d = await r.json();
     if(d.error && d.error !== 0) return null;
-    // results: top prize first, comma-separated. Pick3="123", Pick4="1234".
-    // Para quinielas con varios premios vienen "p1,p2,p3" (1ro,2do,3ro).
     const parts = String(d.results||"").split(",").map(x=>x.trim()).filter(Boolean);
     return { draw: d.draw, value: parts[0]||"", positions: parts };
   }catch(e){ return null; }
 }
 
-module.exports = async (req, res) => {
-  if (req.method !== "POST") { res.status(405).json({ error: "POST only" }); return; }
-  const key = process.env.MAGAYO_API_KEY;
-  if (!key) { res.status(500).json({ error: "no-magayo-key" }); return; }
-  try {
-    // de-duplicate the game codes we need, fetch each once
-    const codes = new Set();
-    MAP.forEach(m => { codes.add(m.p3); codes.add(m.p4); });
-    const cache = {};
-    await Promise.all([...codes].map(async g => { cache[g] = await fetchGame(key, g); }));
+async function fetchMagayo(key){
+  const codes = new Set();
+  MAP.forEach(m => { codes.add(m.p3); codes.add(m.p4); });
+  const cache = {};
+  await Promise.all([...codes].map(async g => { cache[g] = await fetchGame(key, g); }));
+  const draws = [];
+  for (const m of MAP) {
+    const a = cache[m.p3], b = cache[m.p4];
+    if (!a || !b || !a.value || !b.value) continue;
+    const quiniela = (a.positions && a.positions.length>=1)
+      ? a.positions.slice(0,3).map(p=>String(p).padStart(2,"0").slice(-2))
+      : [a.value.padStart(3,"0").slice(-2)];
+    draws.push({
+      board: m.board,
+      date: a.draw || b.draw,
+      session: m.session,
+      pick3: a.value.padStart(3,"0").slice(-3),
+      pick4: b.value.padStart(4,"0").slice(-4),
+      quiniela,
+    });
+  }
+  return draws;
+}
 
-    const draws = [];
-    for (const m of MAP) {
-      const a = cache[m.p3], b = cache[m.p4];
-      if (!a || !b || !a.value || !b.value) continue;
-      const quiniela = (a.positions && a.positions.length>=1)
-        ? a.positions.slice(0,3).map(p=>String(p).padStart(2,"0").slice(-2))
-        : [a.value.padStart(3,"0").slice(-2)];
-      draws.push({
-        board: m.board,
-        date: a.draw || b.draw,
-        session: m.session,
-        pick3: a.value.padStart(3,"0").slice(-3),
-        pick4: b.value.padStart(4,"0").slice(-4),
-        quiniela, // [1ro,2do,3ro] de 2 cifras cuando el feed los entrega
-      });
-    }
+module.exports = async (req, res) => {
+  if (req.method !== "POST" && req.method !== "GET") { res.status(405).json({ error: "POST or GET only" }); return; }
+  try {
+    const key = process.env.MAGAYO_API_KEY;
+    // New York es gratis y siempre se intenta; magayo solo si hay clave.
+    const [ny, magayo] = await Promise.all([
+      fetchNewYorkFree(),
+      key ? fetchMagayo(key).catch(() => []) : Promise.resolve([]),
+    ]);
+
+    // Merge: NY (gratis, autoritativo para newyork) tiene prioridad; magayo
+    // rellena el resto. Dedupe por board|date|session.
+    const byKey = new Map();
+    for (const d of magayo) byKey.set(dkey(d), d);
+    for (const d of ny) byKey.set(dkey(d), d); // NY pisa a magayo en newyork
+    const draws = [...byKey.values()];
+
     const realBoards = Array.from(new Set(draws.map(d => d.board)));
-    res.status(200).json({ draws, realBoards, source: "magayo-official", ts: Date.now() });
+    const sources = [ny.length && "ny-open-data", magayo.length && "magayo"].filter(Boolean);
+    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=600");
+    res.status(200).json({
+      draws,
+      realBoards,
+      source: sources.join("+") || "none",
+      magayoConfigured: !!key,
+      ts: Date.now(),
+    });
   } catch (e) {
-    res.status(500).json({ error: "numeros_oficial_failed", detail: String(e) });
+    res.status(500).json({ error: "numeros_oficial_failed", detail: String((e && e.message) || e) });
   }
 };
