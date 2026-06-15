@@ -95,7 +95,10 @@ function fireConfetti(){
         parts.push({fw:true,x:cx,y:cy,r:2+Math.random()*2.6,col,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,rot:0,vr:0,delay,life:1}); }
     }
     const start=performance.now();
+    let done=false;
+    const cleanup=()=>{ if(done) return; done=true; try{ c.remove(); }catch(e){} };
     (function frame(now){
+      if(done) return;
       const el=now-start; ctx.clearRect(0,0,c.width,c.height);
       for(const p of parts){
         if(p.fw){
@@ -108,8 +111,10 @@ function fireConfetti(){
           ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.col; ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*0.62); ctx.restore();
         }
       }
-      if(el<3600) requestAnimationFrame(frame); else c.remove();
+      if(el<3600) requestAnimationFrame(frame); else cleanup();
     })(start);
+    // Failsafe: limpia el canvas aunque rAF esté pausado (pestaña oculta).
+    setTimeout(cleanup,5000);
   }catch(e){}
 }
 
@@ -190,7 +195,6 @@ function PlayerLeaderboard(){
       <div style={{display:"grid",gap:6}}>
         {rows.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún nadie en la tabla. ¡Juega y gana para entrar!</div>}
         {rows.map((r,i)=>{
-          const mine=false;
           return (
             <div key={r.alias} className="card" style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:10,border:i===0?"1px solid #FFD978":`1px solid ${T.line}`}}>
               <span className="disp" style={{fontWeight:800,fontSize:15,color:i===0?"#FFD978":i<3?T.mango:T.dim,minWidth:26}}>{i===0?"👑":"#"+(i+1)}</span>
@@ -307,8 +311,12 @@ function TabTicket(){
   useEffect(()=>{(async()=>{ setTickets(await sGet("tickets:mine",false)||[]); })();},[]);
   useEffect(()=>{ if(!lottery.sessions.includes(sess)) setSess(lottery.sessions[lottery.sessions.length-1]); },[board]);
   const save=async(list)=>{ setTickets(list); await sSet("tickets:mine",list,false);
-    const all=await sGet("tickets:all",true)||{}; let mine=await sGet("alerta:mine",false);
-    all[(mine?.id)||"anon-"+(list[0]?.id||"x")]=list.slice(0,20); await sSet("tickets:all",all,true); };
+    const all=await sGet("tickets:all",true)||{}; const mine=await sGet("alerta:mine",false);
+    // Clave estable por dispositivo: si no, cada ticket nuevo creaba una entrada
+    // huérfana distinta en el store compartido (fuga ilimitada).
+    let key=mine?.id;
+    if(!key){ key=await sGet("chat:alias",false); if(!key){ key="anon-"+Math.random().toString(36).slice(2,9); await sSet("chat:alias",key,false); } }
+    all[key]=list.slice(0,20); await sSet("tickets:all",all,true); };
   const crear=async()=>{
     setMsg("");
     if(modo==="play4"){
