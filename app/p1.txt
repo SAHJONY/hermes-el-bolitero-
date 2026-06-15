@@ -417,6 +417,11 @@ function TabHoy({lot,setLot}){
       )}
       {res&&<FijoHero res={res} session={sess}/>}
       {res&&<ResultDetail res={res}/>}
+      {isLive&&res&&(live?.aiBoards||[]).includes(lot)&&(
+        <div style={{marginTop:10,fontSize:11,color:T.mango,textAlign:"center",lineHeight:1.5}}>
+          🔎 Números aproximados de búsqueda web — no es el resultado oficial. Confírmalos en la lotería oficial de tu estado.
+        </div>
+      )}
       {!isLive&&(
         <div style={{marginTop:12,fontSize:11,color:T.dim,textAlign:"center"}}>
           Tablero de demostración.
