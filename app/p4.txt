@@ -365,7 +365,7 @@ const ENV_SCHEMA=[
   ]},
   {g:"Correo (alertas)",vars:[
     {k:"MAIL_API_KEY",d:"",sec:1,h:"Clave del servicio de correo"},
-    {k:"MAIL_FROM",d:"hermeselbolitero@protonmail.com",h:"Remitente (verifica el envio en tu servicio de correo)"},
+    {k:"MAIL_FROM",d:"hermeselbolitero@outlook.com",h:"Remitente (verifica el envio en tu servicio de correo)"},
   ]},
   {g:"Telegram (grupo HERMES EL BOLITERO)",vars:[
     {k:"TELEGRAM_BOT_TOKEN",d:"",sec:1,h:"Token del bot (@BotFather)"},
@@ -628,7 +628,7 @@ function AlertasAdmin(){
       {msg&&<div style={{color:T.teal,fontSize:12,marginBottom:10}}>{msg}</div>}
       <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
         Tu backend lee esta lista y dispara <b>/api/call-result</b> (voz), <b>/api/email-result</b>
-        (desde hermeselbolitero@protonmail.com) y <b>/api/telegram-result</b> (canta el número en el grupo)
+        (desde hermeselbolitero@outlook.com) y <b>/api/telegram-result</b> (canta el número en el grupo)
         cuando se publica cada tiro. En Vercel: un Cron Job cada 5 min que compara el último
         resultado con el último avisado y llama a los inscritos del tiro correspondiente.
       </div>
