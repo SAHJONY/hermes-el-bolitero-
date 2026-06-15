@@ -150,28 +150,30 @@ async function askClaude(messages, { system, mcp=false, web=false, maxTokens=100
       body:JSON.stringify(body)});
     return r.json();
   }
-  // CEREBRO DE HERMES (chat + sueños): Groq directo (gratis, permite navegador).
-  // Si no hay Groq, intenta el proxy /api/hermes; y si tampoco, NVIDIA directo.
+  // CEREBRO DE HERMES (chat + sueños): primero el proxy server-side /api/hermes,
+  // donde la clave del modelo vive SOLO en el servidor. Si el proxy no está
+  // configurado (503) o falla, cae a una clave guardada en el panel de Admin:
+  // Groq directo desde el navegador y, como último respaldo, NVIDIA directo.
   const asOpenAI = (base, key, model) => fetch(`${base}/chat/completions`,{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},
       body:JSON.stringify({ model, max_tokens:Math.min(maxTokens,800), temperature:0.6,
         messages: system?[{role:"system",content:system},...messages]:messages })});
 
+  // 1) Proxy server-side (la clave nunca sale del servidor).
+  try{
+    const r=await fetch("/api/hermes",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ messages, system, max_tokens:Math.min(maxTokens,800) })});
+    if(r.ok){ const d=await r.json(); if(d&&Array.isArray(d.content)) return { content:d.content }; }
+  }catch(e){}
+  // 2) Respaldo: Groq directo desde el navegador (clave guardada en Admin).
   if(groqKey){
     const r=await asOpenAI("https://api.groq.com/openai/v1", groqKey, groqModel);
     const d=await r.json();
     if(!r.ok) throw new Error(d.error?.message||("groq-"+r.status));
     return { content:[{type:"text",text:d.choices?.[0]?.message?.content ?? ""}] };
   }
-  // Respaldo: proxy server-side (si algún día se activa)
-  try{
-    const r=await fetch("/api/hermes",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ messages, system, max_tokens:Math.min(maxTokens,800) })});
-    const d=await r.json();
-    if(r.ok) return { content: d.content||[] };
-  }catch(e){}
-  // Último respaldo: NVIDIA directo (puede fallar por CORS en navegador)
+  // 3) Último respaldo: NVIDIA directo (puede fallar por CORS en navegador)
   if(nimKey){
     const r=await asOpenAI(nimBase, nimKey, nimModel);
     const d=await r.json();

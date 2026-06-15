@@ -3,7 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "description": "HERMES EL BOLITERO — serverless functions (AI brain + result broadcasts)",
+  "scripts": {
+    "check": "node scripts/check-app.js"
+  },
   "dependencies": {
     "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-react": "^7.29.7"
   }
 }
