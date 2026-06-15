@@ -331,7 +331,8 @@ const GateShell=({children})=>(
     <style>{FONT_CSS}</style>
     <div className="card fade-in" style={{width:"100%",maxWidth:360,textAlign:"center",padding:"28px 22px"}}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:14}}><Logo size={72}/></div>
-      <div style={{display:"flex",justifyContent:"center",marginBottom:18}}><Wordmark size={1.2} center/></div>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><Wordmark size={1.2} center/></div>
+      <a href="https://www.hermeselbolitero.com" target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",marginBottom:18,fontSize:12,letterSpacing:"0.16em",color:T.mango,textDecoration:"none",fontWeight:700}}>www.hermeselbolitero.com</a>
       {children}
     </div>
   </div>
