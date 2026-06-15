@@ -33,9 +33,10 @@ async function fetchGame(key, game){
     const r = await fetch(`https://www.magayo.com/api/results.php?api_key=${key}&game=${game}`);
     const d = await r.json();
     if(d.error && d.error !== 0) return null;
-    // results: top prize first, comma-separated. Pick3="123", Pick4="1234" (may include extra like Fireball)
-    const first = String(d.results||"").split(",")[0].trim();
-    return { draw: d.draw, value: first };
+    // results: top prize first, comma-separated. Pick3="123", Pick4="1234".
+    // Para quinielas con varios premios vienen "p1,p2,p3" (1ro,2do,3ro).
+    const parts = String(d.results||"").split(",").map(x=>x.trim()).filter(Boolean);
+    return { draw: d.draw, value: parts[0]||"", positions: parts };
   }catch(e){ return null; }
 }
 
@@ -54,12 +55,16 @@ module.exports = async (req, res) => {
     for (const m of MAP) {
       const a = cache[m.p3], b = cache[m.p4];
       if (!a || !b || !a.value || !b.value) continue;
+      const quiniela = (a.positions && a.positions.length>=1)
+        ? a.positions.slice(0,3).map(p=>String(p).padStart(2,"0").slice(-2))
+        : [a.value.padStart(3,"0").slice(-2)];
       draws.push({
         board: m.board,
         date: a.draw || b.draw,
         session: m.session,
         pick3: a.value.padStart(3,"0").slice(-3),
         pick4: b.value.padStart(4,"0").slice(-4),
+        quiniela, // [1ro,2do,3ro] de 2 cifras cuando el feed los entrega
       });
     }
     const realBoards = Array.from(new Set(draws.map(d => d.board)));
