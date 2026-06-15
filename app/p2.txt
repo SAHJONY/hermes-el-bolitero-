@@ -154,11 +154,11 @@ function TabCharada(){
   };
   return (
     <div className="fade-in">
-      <Section title="Intérprete de sueños IA" sub="Cuéntale tu sueño y la IA lo traduce a la charada">
+      <Section title="Intérprete de sueños Hermes" sub="Cuéntale tu sueño y Hermes lo traduce a la charada">
         <div className="card">
           <textarea className="input" rows={3} placeholder="Anoche soñé con un caballo blanco cruzando un río…" value={dream} onChange={e=>setDream(e.target.value)} style={{resize:"none",marginBottom:10}}/>
           <button className="btn primary" style={{width:"100%"}} onClick={interpret} disabled={busy}>
-            {busy?"Interpretando…":"Interpretar con IA"}
+            {busy?"Interpretando…":"Interpretar con Hermes"}
           </button>
           {interp==="err" && <div style={{color:T.coral,fontSize:12,marginTop:10}}>No se pudo interpretar ahora. Intenta de nuevo.</div>}
           {Array.isArray(interp) && (

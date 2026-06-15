@@ -1,6 +1,8 @@
 node_modules/
 .vercel
 .DS_Store
+
+# local env (pulled secrets — never commit)
 .env
 .env.*
 *.local

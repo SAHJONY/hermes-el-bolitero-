@@ -1,6 +1,6 @@
 // POST /api/notify-win — aviso multicanal a un miembro ganador.
-// Body: { miembro: {nombre, tel, email, voz, mail, tg_chat_id}, ticket: {id, session, date}, resultado: string }
-// Sin dinero: solo felicitación e información. Cada tiro es azar independiente.
+// Body: { miembro: {nombre, tel, email, voz, mail, tg_chat_id}, ticket: {id, session, date}, resultado: string, monto?: string }
+// Sin dinero: solo felicitación e información (monto = cantidad ganada, informativo). Cada tiro es azar independiente.
 const { readBody, checkSecret, sendTelegram, sendEmail, placeCall } = require("../lib/notify");
 
 module.exports = async (req, res) => {
@@ -8,9 +8,11 @@ module.exports = async (req, res) => {
   const auth = checkSecret(req);
   if (!auth.ok) { res.status(auth.code).json(auth.body); return; }
 
-  const { miembro = {}, ticket = {}, resultado = "" } = readBody(req);
+  const { miembro = {}, ticket = {}, resultado = "", monto = "" } = readBody(req);
+  const premio = String(monto || "").trim();
+  const lineaPremio = premio ? ` Ganaste ${premio}.` : "";
   const texto = `🎉👑 ¡FELICIDADES ${miembro.nombre || ""}! Tu número SALIÓ en HERMES EL BOLITERO: ` +
-    `ticket ${ticket.id || "—"} · ${ticket.session || ""} ${ticket.date || ""} · ${resultado}. ` +
+    `ticket ${ticket.id || "—"} · ${ticket.session || ""} ${ticket.date || ""} · ${resultado}.${lineaPremio} ` +
     `Si lo jugaste en la tienda autorizada de la lotería legal, ve a cobrar allá. Aquí celebramos contigo. 🎱`;
 
   const jobs = [];

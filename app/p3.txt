@@ -19,8 +19,21 @@ function TabAlertas(){
     subs[id]=data;
     const ok=await sSet("alertas:subs",subs,true);
     await sSet("alerta:mine",{id,data},false);
+    const eraNuevo=!yaInscrito;
     setYa(true);
     setEstado(ok?"✔ Inscrito. Cuando caiga el número, Hermes te avisa.":"No se pudo guardar — intenta de nuevo.");
+    // Llamada de bienvenida: solo en la primera inscripción, si pidió llamada.
+    if(ok && eraNuevo && f.voz && f.tel.trim()){
+      const tel=f.tel.trim().replace(/[^\d+]/g,"");
+      try{
+        setEstado("✔ Inscrito. Hermes te está llamando para darte la bienvenida… 📞");
+        const r=await fetch("/api/call-result",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({tipo:"welcome",phone:tel,nombre:f.nombre.trim()})});
+        const d=await r.json().catch(()=>({}));
+        if(d&&d.ok) setEstado("✔ ¡Bienvenido! Hermes te está llamando ahora. 📞 Cuando caiga tu número, te avisa.");
+        else setEstado("✔ Inscrito. (La llamada de bienvenida no salió, pero te avisaremos cuando caiga el número.)");
+      }catch{ setEstado("✔ Inscrito. Cuando caiga el número, Hermes te avisa."); }
+    }
   };
   const baja=async()=>{
     const mine=await sGet("alerta:mine",false);
