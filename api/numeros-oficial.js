@@ -96,6 +96,31 @@ module.exports = async (req, res) => {
   if (req.method !== "POST" && req.method !== "GET") { res.status(405).json({ error: "POST or GET only" }); return; }
   try {
     const key = process.env.MAGAYO_API_KEY;
+
+    // Diagnóstico para VERIFICAR/limpiar los códigos de magayo sin exponer la
+    // clave: GET /api/numeros-oficial?debug=1 → lista cada código y si trae datos.
+    if (req.method === "GET" && /[?&]debug=/.test(req.url || "")) {
+      const ny0 = await fetchNewYorkFree();
+      const codes = [...new Set(MAP.flatMap(m => [m.p3, m.p4]))];
+      const magayoCodes = key
+        ? await Promise.all(codes.map(async c => {
+            const g = await fetchGame(key, c);
+            return { code: c, ok: !!(g && g.value), value: g ? g.value : null, draw: g ? g.draw : null };
+          }))
+        : [];
+      res.setHeader("Cache-Control", "no-store");
+      res.status(200).json({
+        magayoConfigured: !!key,
+        ny: { ok: ny0.length > 0, draws: ny0.length },
+        okCount: magayoCodes.filter(c => c.ok).length,
+        failCount: magayoCodes.filter(c => !c.ok).length,
+        badCodes: magayoCodes.filter(c => !c.ok).map(c => c.code),
+        magayoCodes,
+        ts: Date.now(),
+      });
+      return;
+    }
+
     // New York es gratis y siempre se intenta; magayo solo si hay clave.
     const [ny, magayo] = await Promise.all([
       fetchNewYorkFree(),
