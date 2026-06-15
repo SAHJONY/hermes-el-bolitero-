@@ -1212,6 +1212,10 @@ const PLANES=[
   ]},
 ];
 function Planes({payLinks,onBack}){
+  const [prices,setPrices]=useState(null);
+  useEffect(()=>{(async()=>{ setPrices(await sGet("pay:prices",true)); })();},[]);
+  // El dueño controla los precios desde 👑 → 💳 Pagos; si no, usa los de fábrica.
+  const plans=PLANES.map(p=>{ const monto=(prices&&prices[p.id])||p.monto; return {...p, monto, precio:"$"+monto}; });
   return (
     <div className="bol-app" style={{minHeight:"100vh",padding:"24px 16px 40px"}}>
       <style>{FONT_CSS}</style>
@@ -1220,7 +1224,7 @@ function Planes({payLinks,onBack}){
         <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><Wordmark size={1} center/></div>
         <div style={{textAlign:"center",fontSize:13,color:T.dim,marginBottom:20}}>Elige tu plan y recibe tu código de acceso.</div>
         <div style={{display:"grid",gap:14}}>
-          {PLANES.map(p=>(
+          {plans.map(p=>(
             <div key={p.id} className="card" style={p.gold?{
               border:"1.5px solid #FFD978",
               background:`linear-gradient(180deg, rgba(255,184,56,.12), ${T.surface} 55%)`,

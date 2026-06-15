@@ -639,20 +639,38 @@ function AlertasAdmin(){
 
 function PagosPage(){
   const [links,setLinks]=useState({miembro:"",vip:"",paypal:"",cashtag:""});
+  const [prices,setPrices]=useState({miembro:"19.99",vip:"39.99"});
   const [msg,setMsg]=useState("");
-  useEffect(()=>{(async()=>{ const l=await sGet("pay:links",true); if(l) setLinks(x=>({...x,...l})); })();},[]);
+  const [pmsg,setPmsg]=useState("");
+  useEffect(()=>{(async()=>{
+    const l=await sGet("pay:links",true); if(l) setLinks(x=>({...x,...l}));
+    const pr=await sGet("pay:prices",true); if(pr) setPrices(x=>({...x,...pr}));
+  })();},[]);
   const save=async()=>{ setMsg((await sSet("pay:links",links,true))?"Links de pago publicados — ya aparecen en la página de planes. ✔":"No se pudo guardar."); };
+  const savePrices=async()=>{ setPmsg((await sSet("pay:prices",{miembro:prices.miembro||"19.99",vip:prices.vip||"39.99"},true))?"Precios actualizados — ya aparecen en la página de planes. ✔":"No se pudo guardar."); };
   return (
     <div>
       <PayMethodsManager/>
-      <Section title="Planes y precios" sub="MIEMBRO $19.99/mes · VIP CORONA $39.99/mes">
+      <Section title="Precios de los planes 💵" sub="Cámbialos cuando quieras — se actualizan al instante en la página de planes">
+        <div className="card" style={{display:"grid",gap:10}}>
+          <div style={{display:"flex",gap:10}}>
+            <div style={{flex:1}}><Label>MIEMBRO · $/mes</Label>
+              <input className="input mono" inputMode="decimal" placeholder="19.99" value={prices.miembro} onChange={e=>setPrices({...prices,miembro:e.target.value.replace(/[^0-9.]/g,"")})} style={{textAlign:"center",fontSize:18}}/></div>
+            <div style={{flex:1}}><Label>VIP CORONA · $/mes</Label>
+              <input className="input mono" inputMode="decimal" placeholder="39.99" value={prices.vip} onChange={e=>setPrices({...prices,vip:e.target.value.replace(/[^0-9.]/g,"")})} style={{textAlign:"center",fontSize:18}}/></div>
+          </div>
+          <button className="btn primary" onClick={savePrices}>💵 Guardar precios</button>
+          {pmsg&&<div style={{color:T.teal,fontSize:12}}>{pmsg}</div>}
+        </div>
+      </Section>
+      <Section title="Links de pago" sub={`MIEMBRO $${prices.miembro}/mes · VIP CORONA $${prices.vip}/mes`}>
         <div className="card" style={{display:"grid",gap:10}}>
           <div>
-            <Label>Link de pago · MIEMBRO $19.99</Label>
+            <Label>{`Link de pago · MIEMBRO $${prices.miembro}`}</Label>
             <input className="input mono" style={{fontSize:12}} placeholder="https://buy.stripe.com/…" value={links.miembro} onChange={e=>setLinks({...links,miembro:e.target.value})}/>
           </div>
           <div>
-            <Label>Link de pago · VIP CORONA $39.99</Label>
+            <Label>{`Link de pago · VIP CORONA $${prices.vip}`}</Label>
             <input className="input mono" style={{fontSize:12}} placeholder="https://buy.stripe.com/…" value={links.vip} onChange={e=>setLinks({...links,vip:e.target.value})}/>
           </div>
           <div>
