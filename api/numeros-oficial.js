@@ -102,21 +102,26 @@ module.exports = async (req, res) => {
     // (La app usa POST para los números; GET es solo diagnóstico.)
     if (req.method === "GET") {
       const ny0 = await fetchNewYorkFree();
-      const codes = [...new Set(MAP.flatMap(m => [m.p3, m.p4]))];
-      const magayoCodes = key
-        ? await Promise.all(codes.map(async c => {
-            const g = await fetchGame(key, c);
-            return { code: c, ok: !!(g && g.value), value: g ? g.value : null, draw: g ? g.draw : null };
-          }))
-        : [];
+      // Probe just 2 codes and surface magayo's RAW response (error code + msg)
+      // so we know WHY it fails (bad key / quota / invalid game) — costs ~2 of
+      // the monthly request quota instead of scanning all 25.
+      let probes = [];
+      if (key) {
+        const probeCodes = ["us_fl_cash3_mid", "us_ny_numbers_mid"];
+        probes = await Promise.all(probeCodes.map(async c => {
+          try {
+            const rr = await fetch(`https://www.magayo.com/api/results.php?api_key=${encodeURIComponent(key)}&game=${encodeURIComponent(c)}`);
+            const body = await rr.text();
+            return { code: c, httpStatus: rr.status, body: body.slice(0, 300) };
+          } catch (e) { return { code: c, error: String((e && e.message) || e) }; }
+        }));
+      }
       res.setHeader("Cache-Control", "no-store");
       res.status(200).json({
         magayoConfigured: !!key,
+        keyLength: key ? key.length : 0,
         ny: { ok: ny0.length > 0, draws: ny0.length },
-        okCount: magayoCodes.filter(c => c.ok).length,
-        failCount: magayoCodes.filter(c => !c.ok).length,
-        badCodes: magayoCodes.filter(c => !c.ok).map(c => c.code),
-        magayoCodes,
+        probes,
         ts: Date.now(),
       });
       return;
