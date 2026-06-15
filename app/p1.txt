@@ -209,38 +209,49 @@ async function fetchLiveDraws(){
     if(Date.now()-cached.ts < LIVE_TTL_MIN*60*1000) return cached;
   }catch{}
 
-  // 1) FUENTE OFICIAL VERIFICABLE (magayo) — números reales de cada lotería
+  // 1) FUENTE OFICIAL VERIFICABLE (New York gratis + magayo) — números reales
+  let officialDraws=[], officialReal=[];
   try{
     const r=await fetch("/api/numeros-oficial",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
-    if(r.ok){
-      const d=await r.json();
-      if(d&&d.draws&&d.draws.length){
-        const out={ ts:Date.now(), draws:d.draws, source:"oficial", realBoards:d.realBoards||[] };
-        try{ await window.storage.set(cacheKey, JSON.stringify(out), true); }catch{}
-        return out;
-      }
-    }
+    if(r.ok){ const d=await r.json(); if(d&&Array.isArray(d.draws)){ officialDraws=d.draws; officialReal=d.realBoards||[]; } }
   }catch(e){}
 
-  // 2) RESPALDO: búsqueda web asistida por IA (aproximada) si la fuente oficial no responde
-  const data=await askClaude([{role:"user",content:
-    `Busca en la web los resultados oficiales más recientes, de hoy y de ayer, de: `+
-    `(a) Tennessee Lottery CASH 3 y CASH 4 sorteo MORNING, (b) Florida Lottery PICK 3 y PICK 4 (midday y evening), `+
-    `(c) Georgia Lottery CASH 3 y CASH 4 (midday, evening y night), (d) Illinois Lottery PICK 3 y PICK 4 (midday y evening) `+
-    `y (e) New York Lottery NUMBERS y WIN 4 (midday y evening). `+
-    `Responde SOLO JSON, sin texto extra:\n`+
-    `{"draws":[{"board":"labolita"|"florida"|"chicago"|"georgia"|"newyork","date":"YYYY-MM-DD","session":"Mañana"|"Mediodía"|"Tarde"|"Noche","pick3":"###","pick4":"####"}]}\n`+
-    `Mapa exacto:\n`+
-    `board "labolita": Tennessee morning=Mañana, Florida midday=Mediodía, Georgia evening=Tarde, Florida evening=Noche.\n`+
-    `board "florida": Florida midday=Mediodía, Florida evening=Noche.\n`+
-    `board "chicago": Illinois midday=Mediodía, Illinois evening=Noche.\n`+
-    `board "georgia": Georgia midday=Mediodía, Georgia evening=Tarde, Georgia night=Noche.\n`+
-    `board "newyork": New York midday=Mediodía, New York evening=Noche.\n`+
-    `pick3 = Cash 3 / Pick 3 / Numbers (3 dígitos), pick4 = Cash 4 / Pick 4 / Win 4 (4 dígitos) del mismo sorteo y misma sesión. Incluye solo sorteos ya publicados.`}],
-    { web:true, maxTokens:2200 });
-  const j=parseJsonLoose(textOf(data));
-  if(!j?.draws?.length) throw new Error("no-draws");
-  const out={ ts:Date.now(), draws:j.draws, source:"ia", realBoards:[...new Set(j.draws.map(d=>d.board))] };
+  // 2) RELLENO con búsqueda web IA (APROXIMADA) para los tableros que la fuente
+  //    oficial no cubre (p.ej. mientras magayo no esté disponible). Se etiqueta
+  //    aparte como "búsqueda web", nunca como dato oficial.
+  const AI_BOARDS=["labolita","florida","chicago","georgia"]; // newyork ya llega oficial gratis
+  const missing=AI_BOARDS.filter(b=>!officialReal.includes(b));
+  let aiDraws=[], aiBoards=[];
+  if(missing.length){
+    try{
+      const data=await askClaude([{role:"user",content:
+        `Busca en la web los resultados oficiales más recientes, de hoy y de ayer, de: `+
+        `(a) Tennessee Lottery CASH 3 y CASH 4 sorteo MORNING, (b) Florida Lottery PICK 3 y PICK 4 (midday y evening), `+
+        `(c) Georgia Lottery CASH 3 y CASH 4 (midday, evening y night), (d) Illinois Lottery PICK 3 y PICK 4 (midday y evening) `+
+        `y (e) New York Lottery NUMBERS y WIN 4 (midday y evening). `+
+        `Responde SOLO JSON, sin texto extra:\n`+
+        `{"draws":[{"board":"labolita"|"florida"|"chicago"|"georgia"|"newyork","date":"YYYY-MM-DD","session":"Mañana"|"Mediodía"|"Tarde"|"Noche","pick3":"###","pick4":"####"}]}\n`+
+        `Mapa exacto:\n`+
+        `board "labolita": Tennessee morning=Mañana, Florida midday=Mediodía, Georgia evening=Tarde, Florida evening=Noche.\n`+
+        `board "florida": Florida midday=Mediodía, Florida evening=Noche.\n`+
+        `board "chicago": Illinois midday=Mediodía, Illinois evening=Noche.\n`+
+        `board "georgia": Georgia midday=Mediodía, Georgia evening=Tarde, Georgia night=Noche.\n`+
+        `board "newyork": New York midday=Mediodía, New York evening=Noche.\n`+
+        `pick3 = Cash 3 / Pick 3 / Numbers (3 dígitos), pick4 = Cash 4 / Pick 4 / Win 4 (4 dígitos) del mismo sorteo y misma sesión. Incluye solo sorteos ya publicados.`}],
+        { web:true, maxTokens:2200 });
+      const j=parseJsonLoose(textOf(data));
+      if(j&&Array.isArray(j.draws)&&j.draws.length){
+        aiDraws=j.draws.filter(d=>missing.includes(d.board));
+        aiBoards=[...new Set(aiDraws.map(d=>d.board))];
+      }
+    }catch(e){}
+  }
+
+  // Merge oficial + IA, dedupe por board|date|session (lo oficial siempre gana).
+  const seen=new Set(officialDraws.map(d=>`${d.board}|${d.date}|${d.session}`));
+  const merged=officialDraws.concat(aiDraws.filter(d=>!seen.has(`${d.board}|${d.date}|${d.session}`)));
+  if(!merged.length) throw new Error("no-draws");
+  const out={ ts:Date.now(), draws:merged, source: officialReal.length?"oficial":"ia", realBoards:officialReal, aiBoards };
   try{ await window.storage.set(cacheKey, JSON.stringify(out), true); }catch{}
   return out;
 }
@@ -376,7 +387,7 @@ function TabHoy({lot,setLot}){
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.dim}}>
-          <span className="live-dot"/> {(isLive && (live?.realBoards||[]).includes(lot)) ? (live?.source==="ia" ? "EN VIVO · búsqueda web" : "EN VIVO · datos oficiales") : "DEMO · referencia"} · {fmtDate(today)}
+          <span className="live-dot"/> {(isLive && (live?.realBoards||[]).includes(lot)) ? "EN VIVO · datos oficiales" : (isLive && (live?.aiBoards||[]).includes(lot)) ? "EN VIVO · búsqueda web" : "DEMO · referencia"} · {fmtDate(today)}
         </div>
         {isLive&&(
           <button className="chip" onClick={load} disabled={lstate==="loading"}>
