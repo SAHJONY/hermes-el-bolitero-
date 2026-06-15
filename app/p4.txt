@@ -1,3 +1,5 @@
+
+/* ============================ MEMBERS GATE + ADMIN ============================ */
 /* Claves compartidas:
    members:codes  -> {"CODE":{label,active,created,uses}}
    admin:pin      -> pin del dueño (se crea la primera vez, solo tú)            */
@@ -36,7 +38,7 @@ async function deleteAccount(){
    La CONFIGURACIÓN (saldo inicial, bono, multiplicadores, on/off) la controla el
    dueño desde el panel 👑 → 🪙 Monedas y se guarda en el store compartido
    "coins:config" para que aplique a TODOS los usuarios.                          */
-const COINS_DEFAULTS={ enabled:true, start:1000, daily:100, payFijo:75, payCorrido:25, payParle:1000, payCandado:2000, payPlay4:5000 };
+const COINS_DEFAULTS={ enabled:true, start:1000, daily:100, payFijo:75, payCorrido:25, payParle:1000, payCandado:2000, payPlay4:5000, payQ1:60, payQ2:20, payQ3:10 };
 let _coinsCfg=null;
 async function getCoinsConfig(){
   if(_coinsCfg) return _coinsCfg;
@@ -129,6 +131,37 @@ async function getLeaderboard(){
   const wk=weekKey(); const lb=await sGet("leaderboard",true);
   if(!lb||lb.week!==wk) return {week:wk,players:{}};
   return lb;
+}
+
+/* ---------- MINI-JUEGOS DIARIOS (Hot Ball + Charada Challenge) ----------
+   Una jugada gratis por día de cada mini-juego, recompensa en monedas virtuales.
+   Estado local por dispositivo: minigames -> { date, hotball:{played,won}, charada:{played,won} } */
+const MINIGAME_REWARD={ hotball:200, charada:150 };
+async function getMiniState(){
+  const today=new Date().toISOString().slice(0,10);
+  let m=await sGet("minigames",false);
+  if(!m||m.date!==today){ m={date:today, hotball:{played:false}, charada:{played:false}}; await sSet("minigames",m,false); }
+  return m;
+}
+async function setMiniState(m){ await sSet("minigames",m,false); return m; }
+// "Hot Ball": el jugador adivina si un número estará entre los 5 más calientes del tablero.
+async function playHotBall(lotId, guess){
+  const m=await getMiniState(); if(m.hotball.played) return {already:true};
+  const st=buildStats(lotId); const hot=st.hot.slice(0,5).map(x=>x.n);
+  const won=hot.includes(parseInt(guess,10));
+  m.hotball={played:true, won, guess:parseInt(guess,10), hot};
+  await setMiniState(m);
+  if(won){ await addCoins(MINIGAME_REWARD.hotball); try{ await bumpMission("win1"); }catch{} }
+  return {won, hot, reward:won?MINIGAME_REWARD.hotball:0};
+}
+// "Charada Challenge": dan un símbolo, el jugador elige el número correcto entre opciones.
+async function playCharada(correctN, pickN){
+  const m=await getMiniState(); if(m.charada.played) return {already:true};
+  const won=parseInt(correctN,10)===parseInt(pickN,10);
+  m.charada={played:true, won};
+  await setMiniState(m);
+  if(won){ await addCoins(MINIGAME_REWARD.charada); }
+  return {won, reward:won?MINIGAME_REWARD.charada:0};
 }
 
 /* ---------- SUCURSALES estilo Monopoly (Banco Central → Sucursales) ----------
@@ -464,6 +497,9 @@ function MonedasPage(){
       payParle:Math.max(0,parseInt(cfg.payParle,10)||0),
       payCandado:Math.max(0,parseInt(cfg.payCandado,10)||0),
       payPlay4:Math.max(0,parseInt(cfg.payPlay4,10)||0),
+      payQ1:Math.max(0,parseInt(cfg.payQ1,10)||0),
+      payQ2:Math.max(0,parseInt(cfg.payQ2,10)||0),
+      payQ3:Math.max(0,parseInt(cfg.payQ3,10)||0),
     });
     setCfg(saved);
     setMsg("✔ Guardado. Aplica a todos los usuarios (saldo inicial y bono a cuentas nuevas; los multiplicadores, al instante).");
@@ -482,6 +518,9 @@ function MonedasPage(){
           {numField("payParle","Multiplicador del PARLÉ","Dos números acertados juntos (parlé). Paga $ este número por cada $1.","× lo jugado")}
           {numField("payCandado","Multiplicador del CANDADO","Los tres números del candado juntos. El premio mayor.","× lo jugado")}
           {numField("payPlay4","Multiplicador del PLAY 4 (4 dígitos)","Número directo de 4 dígitos (Pick 4 / Win 4). Paga $ este número por cada $1.","× lo jugado")}
+          {numField("payQ1","Quiniela · 1er premio","Si tu número de 2 cifras sale de PRIMERO (el premio mayor de la quiniela).","× lo jugado")}
+          {numField("payQ2","Quiniela · 2do premio","Si tu número sale de SEGUNDO.","× lo jugado")}
+          {numField("payQ3","Quiniela · 3er premio","Si tu número sale de TERCERO.","× lo jugado")}
           <div className="card" style={{background:T.raise,textAlign:"center",padding:"10px 12px"}}>
             <div style={{fontSize:11,color:T.dim}}>Ejemplo con $1 jugado</div>
             <div className="disp" style={{fontWeight:800,fontSize:18,color:T.teal}}>Fijo acertado ≈ ${ej.fijo}</div>
