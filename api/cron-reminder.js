@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
   if (req.method !== "GET" && req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
   if (!authorized(req)) { res.status(401).json({ error: "unauthorized" }); return; }
 
-  const app = process.env.APP_URL || "https://hermes-el-bolitero.vercel.app";
+  const app = process.env.APP_URL || "https://hermeselbolitero.com";
   const horario = SESSIONS.map(s => `• <b>${s.name}</b> — ${s.time}`).join("\n");
   const resultados = await realResultsLine();
   const texto =

@@ -125,6 +125,7 @@ function originAllowed(req) {
   try { host = new URL(origin).hostname; } catch { return false; }
   if (host === "localhost" || host === "127.0.0.1") return true;
   if (host.endsWith(".vercel.app")) return true;          // prod + preview deploys
+  if (host === "hermeselbolitero.com" || host === "www.hermeselbolitero.com") return true; // custom domain
   try {
     if (process.env.APP_URL && host === new URL(process.env.APP_URL).hostname) return true;
   } catch { /* ignore malformed APP_URL */ }

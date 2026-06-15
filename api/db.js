@@ -13,6 +13,7 @@ function originAllowed(req) {
   if (!o) return true;
   let h; try { h = new URL(o).hostname; } catch { return false; }
   if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")) return true;
+  if (h === "hermeselbolitero.com" || h === "www.hermeselbolitero.com") return true; // custom domain
   try { if (process.env.APP_URL && h === new URL(process.env.APP_URL).hostname) return true; } catch { /* ignore */ }
   return false;
 }
