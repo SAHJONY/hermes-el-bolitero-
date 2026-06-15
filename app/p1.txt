@@ -376,7 +376,7 @@ function TabHoy({lot,setLot}){
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.dim}}>
-          <span className="live-dot"/> {(isLive && (live?.realBoards||[]).includes(lot)) ? "EN VIVO · datos oficiales" : "DEMO · referencia"} · {fmtDate(today)}
+          <span className="live-dot"/> {(isLive && (live?.realBoards||[]).includes(lot)) ? (live?.source==="ia" ? "EN VIVO · búsqueda web" : "EN VIVO · datos oficiales") : "DEMO · referencia"} · {fmtDate(today)}
         </div>
         {isLive&&(
           <button className="chip" onClick={load} disabled={lstate==="loading"}>
