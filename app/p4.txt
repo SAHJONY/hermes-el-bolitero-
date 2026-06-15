@@ -38,7 +38,7 @@ async function deleteAccount(){
    La CONFIGURACIÓN (saldo inicial, bono, multiplicadores, on/off) la controla el
    dueño desde el panel 👑 → 🪙 Monedas y se guarda en el store compartido
    "coins:config" para que aplique a TODOS los usuarios.                          */
-const COINS_DEFAULTS={ enabled:true, start:1000, daily:100, payFijo:75, payCorrido:25, payParle:1000, payCandado:2000, payPlay4:5000, payQ1:60, payQ2:20, payQ3:10 };
+const COINS_DEFAULTS={ enabled:true, start:1000, daily:100, payFijo:75, payCorrido:25, payParle:1000, payCandado:2000, payPlay4:5000, payQ1:60, payQ2:20, payQ3:10, payCash3:500 };
 let _coinsCfg=null;
 async function getCoinsConfig(){
   if(_coinsCfg) return _coinsCfg;
@@ -500,6 +500,7 @@ function MonedasPage(){
       payQ1:Math.max(0,parseInt(cfg.payQ1,10)||0),
       payQ2:Math.max(0,parseInt(cfg.payQ2,10)||0),
       payQ3:Math.max(0,parseInt(cfg.payQ3,10)||0),
+      payCash3:Math.max(0,parseInt(cfg.payCash3,10)||0),
     });
     setCfg(saved);
     setMsg("✔ Guardado. Aplica a todos los usuarios (saldo inicial y bono a cuentas nuevas; los multiplicadores, al instante).");
@@ -521,6 +522,7 @@ function MonedasPage(){
           {numField("payQ1","Quiniela · 1er premio","Si tu número de 2 cifras sale de PRIMERO (el premio mayor de la quiniela).","× lo jugado")}
           {numField("payQ2","Quiniela · 2do premio","Si tu número sale de SEGUNDO.","× lo jugado")}
           {numField("payQ3","Quiniela · 3er premio","Si tu número sale de TERCERO.","× lo jugado")}
+          {numField("payCash3","Multiplicador del CASH 3 (3 dígitos)","Número directo de 3 dígitos (Cash 3 / Pick 3). Paga $ este número por cada $1.","× lo jugado")}
           <div className="card" style={{background:T.raise,textAlign:"center",padding:"10px 12px"}}>
             <div style={{fontSize:11,color:T.dim}}>Ejemplo con $1 jugado</div>
             <div className="disp" style={{fontWeight:800,fontSize:18,color:T.teal}}>Fijo acertado ≈ ${ej.fijo}</div>
