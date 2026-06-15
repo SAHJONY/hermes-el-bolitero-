@@ -32,6 +32,24 @@ function googleTranslateElementInit(){try{new google.translate.TranslateElement(
 <div id="booterr"></div>
 </div>
 <script>
+/* Fix Google Translate vs React: Google Translate wraps text in <font> tags;
+   when React re-renders (e.g. switching tabs) it tries to remove/insert DOM
+   nodes it didn't create and throws "removeChild"/"insertBefore" errors, which
+   breaks the page after translating. Make those DOM ops defensive so the
+   translation survives navigation between tabs. */
+(function(){
+  if(typeof Node!=="function"||!Node.prototype) return;
+  var rc=Node.prototype.removeChild;
+  Node.prototype.removeChild=function(child){
+    if(child&&child.parentNode!==this){ return child; }
+    return rc.apply(this,arguments);
+  };
+  var ib=Node.prototype.insertBefore;
+  Node.prototype.insertBefore=function(newNode,ref){
+    if(ref&&ref.parentNode!==this){ return newNode; }
+    return ib.apply(this,arguments);
+  };
+})();
 function bootErr(m){var e=document.getElementById("booterr"),b=document.getElementById("boot");if(b)b.style.display="none";e.style.display="block";e.textContent="No pude arrancar:\n\n"+m+"\n\nRefresca; si sigue, copia esto al administrador.";}
 window.addEventListener("error",function(e){bootErr(e.message||e.type)},true);
 window.__HB_PROD=true;
