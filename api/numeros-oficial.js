@@ -98,8 +98,9 @@ module.exports = async (req, res) => {
     const key = process.env.MAGAYO_API_KEY;
 
     // Diagnóstico para VERIFICAR/limpiar los códigos de magayo sin exponer la
-    // clave: GET /api/numeros-oficial?debug=1 → lista cada código y si trae datos.
-    if (req.method === "GET" && /[?&]debug=/.test(req.url || "")) {
+    // clave: GET /api/numeros-oficial → lista cada código y si trae datos.
+    // (La app usa POST para los números; GET es solo diagnóstico.)
+    if (req.method === "GET") {
       const ny0 = await fetchNewYorkFree();
       const codes = [...new Set(MAP.flatMap(m => [m.p3, m.p4]))];
       const magayoCodes = key
