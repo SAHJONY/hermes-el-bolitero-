@@ -6,6 +6,9 @@
 async function sGet(key,shared){ try{const r=await window.storage.get(key,shared); return r?JSON.parse(r.value):null;}catch{return null;} }
 async function sSet(key,val,shared){ try{await window.storage.set(key,JSON.stringify(val),shared); return true;}catch{return false;} }
 async function sDel(key,shared){ try{await window.storage["delete"](key,!!shared); return true;}catch{return false;} }
+// Llama una operación del cerebro/motor en /api/db (game.*, ticket.*). Devuelve
+// null si el almacén no está conectado (el llamador cae a la lógica local).
+async function dbOp(op,payload){ try{ const r=await fetch("/api/db",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({op:op},payload||{}))}); if(!r.ok) return null; const d=await r.json(); return (d&&d.configured===false)?null:d; }catch(e){ return null; } }
 
 /* ---------- Cuenta del cliente: Hermes activa con el pago y borra al vencer ---------- */
 const ACCOUNT_DAYS=30;

@@ -363,7 +363,6 @@ function TabTicket(){
       if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
     }
     const bet=num(monto);
-    if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } await recordWager(bet); }
     const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
       board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
       tipo:modo, play4:modo==="play4"?play4:"", cash3:modo==="cash3"?cash3:"",
@@ -372,7 +371,17 @@ function TabTicket(){
       qnum:modo==="quiniela"?qnum:"",
       fijo:(modo!=="bolita")?"":fijo, corridos:(modo!=="bolita")?[]:[c1,c2].filter(Boolean),
       monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
-    await save([t,...(tickets||[])].slice(0,30));
+    // Anti-trampa: el SERVIDOR descuenta el saldo y guarda el ticket. Fallback local si no hay store.
+    const _pid=await coinsAlias();
+    const _sv=await dbOp("ticket.create",{pid:_pid,ticket:t});
+    if(_sv){
+      if(_sv.ok===false){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; }
+      if(bet>0) await recordWager(bet);
+      await save(_sv.tickets);
+    } else {
+      if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } await recordWager(bet); }
+      await save([t,...(tickets||[])].slice(0,30));
+    }
     setFijo("");setC1("");setC2("");setPlay4("");setCash3("");setBox3("");setBox4("");setPair("");setCent("");setSb3v("");setSb4v("");setQnum("");setMonto("");
     try{ await bumpMission("play3"); }catch{}
     setMsg("🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.");
@@ -380,6 +389,16 @@ function TabTicket(){
   const comprobar=async()=>{
     if(checking) return; setChecking(true); setMsg("");
     try{
+      // Anti-trampa: el SERVIDOR calcula los premios y acredita el saldo. Fallback local si no hay store.
+      const _pid=await coinsAlias();
+      const sv=await dbOp("ticket.settle",{pid:_pid});
+      if(sv&&sv.ok){
+        await save(sv.tickets);
+        try{ await bumpMission("check"); if(sv.wins>0) await bumpMission("win1",sv.wins); const cc=await getCoins(); const al=await sGet("chat:alias",false); await pushScore(al||"Jugador",cc.xp||0); }catch{}
+        if(sv.wins>0) fireConfetti();
+        setMsg(sv.wins>0?("🎉 ¡¡GANASTE!! "+sv.wins+" ticket(s) · +"+(sv.credited||0).toLocaleString()+" 🪙 acreditados a tu saldo."):"Comprobado contra los tiros oficiales publicados.");
+        setChecking(false); return;
+      }
       const live=await fetchLiveDraws();
       let wins=0;
       let coinWin=0;
