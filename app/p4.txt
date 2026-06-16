@@ -209,6 +209,28 @@ async function recordWager(amount){
 async function setCentralCoins(coins){ const c=await getCentral(); c.coins=Math.max(0,Math.round(Number(coins)||0)); await sSet("bank:central",c,true); return c; }
 async function addCentralCoins(delta){ const c=await getCentral(); c.coins=Math.max(0,Math.round((c.coins||0)+(Number(delta)||0))); await sSet("bank:central",c,true); return c; }
 async function giveBranchCoins(code,delta){ const br=await getBranches(); const b=br[code]; if(b){ b.coins=Math.max(0,Math.round((b.coins||0)+(Number(delta)||0))); await sSet("branches",br,true);} return br; }
+// Fijar tu propio saldo (dueño) a cualquier número.
+async function setMyBalance(to){ const c=await getCoins(); c.bal=Math.max(0,Math.round(Number(to)||0)); await setCoins(c); return c.bal; }
+// Dar/quitar monedas a un miembro por su código. Se acumula como total y el
+// dispositivo del miembro lo aplica a su saldo local cuando abre la app.
+async function grantToMember(code,delta){ const k="grant:"+String(code||"").toUpperCase(); const g=(await sGet(k,true))||{total:0}; g.total=Math.round((g.total||0)+(Number(delta)||0)); g.ts=Date.now(); await sSet(k,g,true); return g; }
+async function applyGrants(){
+  try{
+    const sess=await sGet("session",false); const code=sess&&sess.code; if(!code) return 0;
+    const g=await sGet("grant:"+code,true); if(!g) return 0;
+    const claimed=Number(await sGet("grant:claimed",false))||0;
+    const delta=(Number(g.total)||0)-claimed; if(!delta) return 0;
+    const c=await getCoins(); c.bal=Math.max(0,Math.round((c.bal||0)+delta)); await setCoins(c);
+    await sSet("grant:claimed",g.total,false); return delta;
+  }catch(e){ return 0; }
+}
+// Resetear toda la economía compartida: bolsa central, sucursales y ranking.
+async function resetEconomy(){
+  await sSet("bank:central",{coins:0},true);
+  const br=await getBranches(); Object.keys(br).forEach(k=>{ br[k].coins=0; br[k].commission=0; br[k].plays=0; br[k].wagered=0; }); await sSet("branches",br,true);
+  try{ await sSet("leaderboard",{week:"",players:{}},true); }catch(e){}
+  return true;
+}
 
 
 /* ---------- Pagos: catálogo mundial (servicios + tarjetas prepago) ----------
@@ -796,6 +818,7 @@ function SucursalesPage(){
   const [name,setName]=useState("");
   const [pct,setPct]=useState(10);
   const [bag,setBag]=useState("");
+  const [mybal,setMybal]=useState("");
   const [msg,setMsg]=useState("");
   const load=async()=>{ const c=await getBankConfig(); setCfg(c); setPct(c.commissionPct); setCentral(await getCentral()); setBranches(await getBranches()); };
   useEffect(()=>{ load(); const i=setInterval(load,6000); return ()=>clearInterval(i); },[]);
@@ -831,6 +854,16 @@ function SucursalesPage(){
         <div className="card" style={{display:"flex",gap:8}}>
           <input className="input" placeholder="Nombre de la sucursal (ej: Sucursal de Pedro)" value={name} onChange={e=>setName(e.target.value)}/>
           <button className="btn primary" onClick={crear}>+ Sucursal</button>
+        </div>
+      </Section>
+      <Section title="Control total 👑" sub="Poderes del dueño — todo monedas virtuales, sin límites">
+        <div className="card" style={{display:"grid",gap:10,marginBottom:12}}>
+          <Label>Fijar MI saldo (dueño) 🪙</Label>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input className="input mono" inputMode="numeric" placeholder="cantidad" value={mybal} onChange={e=>setMybal(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:16,flex:1}}/>
+            <button className="btn primary" onClick={async()=>{ const v=await setMyBalance(parseInt(mybal,10)||0); setMybal(""); setMsg("Tu saldo quedó en "+v.toLocaleString()+" 🪙"); }}>Fijar mi saldo</button>
+          </div>
+          <button className="btn ghost" style={{color:T.coral}} onClick={async()=>{ if(window.confirm("¿RESETEAR toda la economía? Pone en cero la bolsa central, las sucursales y el ranking. No se puede deshacer.")){ await resetEconomy(); setMsg("Economía reseteada a cero 🧹"); load(); } }}>🧹 Resetear toda la economía</button>
         </div>
       </Section>
       <Section title={`Ranking de sucursales (${list.length})`} sub="Quién mueve más monedas — actualiza solo">
@@ -916,12 +949,14 @@ function TabAdmin(){
             <div key={c} className="card" style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
               <span className="mono" style={{fontWeight:700,letterSpacing:"0.12em",color:info.active?T.teal:T.dim}}>{c}</span>
               <span style={{fontSize:12,color:T.dim,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{info.label} · {info.uses||0} usos</span>
+              <button className="chip" style={{color:T.teal}} onClick={async()=>{ const n=parseInt(window.prompt("¿Cuántas monedas dar al miembro "+c+"? (negativo para quitar). Se aplican cuando el miembro abra la app."),10); if(!isNaN(n)){ await grantToMember(c,n); setSaved((n>=0?"+":"")+n.toLocaleString()+" 🪙 → "+c); } }}>💰</button>
               <button className="chip" onClick={()=>toggle(c)}>{info.active?"Activo":"Pausado"}</button>
               <button className="chip" style={{color:T.coral}} onClick={()=>remove(c)}>✕</button>
             </div>
           ))}
           {codes&&Object.keys(codes).length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no hay códigos. Crea el primero y compártelo junto al enlace de la app.</div>}
         </div>
+        {saved&&<div style={{color:T.teal,fontSize:12,textAlign:"center",marginTop:8}}>{saved}</div>}
       </Section>
       <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
         La app funciona en cualquier dispositivo — iPhone, Android, tablet o computadora — con el mismo enlace publicado + código.

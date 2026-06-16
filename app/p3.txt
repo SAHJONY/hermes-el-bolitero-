@@ -1039,7 +1039,7 @@ function CoinBalance({admin}){
     let alive=true;
     const tick=async()=>{ const cfg=await getCoinsConfig(); if(alive) setEnabled(cfg.enabled); const c=await getCoins(); if(alive){ setBal(c.bal); setRk(rankOf(c.xp||0)); setStreak(c.streak||0); }
       if(admin){ try{ const r=await fetch("/api/balance"); const d=await r.json(); if(alive&&d&&d.configured) setApp(d); }catch(e){} } };
-    (async()=>{ const b=await claimDailyBonus(); if(b.claimed){ setFlash("+"+(b.amount||0)+(b.jackpot?" 🎉":"")); setTimeout(()=>alive&&setFlash(""),3000); } await tick(); })();
+    (async()=>{ try{ const g=await applyGrants(); if(g&&alive){ setFlash((g>=0?"+":"")+g.toLocaleString()+" 🪙"); setTimeout(()=>alive&&setFlash(""),3500); } }catch(e){} const b=await claimDailyBonus(); if(b.claimed){ setFlash("+"+(b.amount||0)+(b.jackpot?" 🎉":"")); setTimeout(()=>alive&&setFlash(""),3000); } await tick(); })();
     const i=setInterval(tick,5000);
     return ()=>{ alive=false; clearInterval(i); };
   },[admin]);
