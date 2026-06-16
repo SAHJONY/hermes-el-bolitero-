@@ -28,10 +28,15 @@ function originAllowed(req) {
 
 const ns = (k) => "hb:" + String(k || "");
 
+// Strip stray non-printable/whitespace/quote chars that sneak into env values via
+// copy-paste (spaces, newlines, zero-width chars, surrounding quotes) — they break
+// fetch() with "Failed to parse URL".
+const cleanEnv = (v) => String(v || "").replace(/[^\x21-\x7E]/g, "").replace(/["']/g, "");
+
 // ---------- Supabase (PostgREST) backend ----------
 function supaCfg() {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+  const url = cleanEnv(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const key = cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY);
   return url && key ? { url: url.replace(/\/$/, ""), key } : null;
 }
 async function supa(method, path, { body, prefer } = {}) {
@@ -46,8 +51,8 @@ const eq = (k) => "k=eq." + encodeURIComponent(ns(k));
 
 // ---------- Redis (Upstash / Vercel KV) backend ----------
 function redisCfg() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const tok = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = cleanEnv(process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL);
+  const tok = cleanEnv(process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN);
   return url && tok ? { url: url.replace(/\/$/, ""), tok } : null;
 }
 async function redis(cmd) {
