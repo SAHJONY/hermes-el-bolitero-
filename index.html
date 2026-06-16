@@ -59,7 +59,9 @@ window.__HB_PROD=true;
 async function db(op,payload){try{var r=await fetch("/api/db",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({op:op},payload))});if(!r.ok)return null;var d=await r.json();if(!d||d.configured===false)return null;return d;}catch(e){return null;}}
 window.storage={
 get:async function(k,s){
-  if(s){var d=await db("get",{key:k});if(d){if(d.value===null||d.value===undefined)throw new Error("nf");try{localStorage.setItem(K(k,true),d.value);}catch(e){}return{key:k,value:d.value,shared:true};}}
+  if(s){var d=await db("get",{key:k});
+    if(d&&d.value!=null){try{localStorage.setItem(K(k,true),d.value);}catch(e){}return{key:k,value:d.value,shared:true};}
+    if(d){var lv=localStorage.getItem(K(k,true));if(lv!==null){try{await db("set",{key:k,value:lv});}catch(e){}return{key:k,value:lv,shared:true};}throw new Error("nf");}}
   var v=localStorage.getItem(K(k,!!s));if(v===null)throw new Error("nf");return{key:k,value:v,shared:!!s};},
 set:async function(k,v,s){
   if(s){await db("set",{key:k,value:v});}
