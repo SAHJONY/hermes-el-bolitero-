@@ -221,6 +221,11 @@ async function recordWager(amount){
   await sSet("branches",br,true);
   if(fee>0){ const c=await getCentral(); c.coins=(c.coins||0)+fee; await sSet("bank:central",c,true); }
 }
+// Banco Central GOD-MODE (dueño): acuña/ajusta la bolsa central y da/quita
+// monedas a cualquier sucursal — sin límite. 100% monedas virtuales.
+async function setCentralCoins(coins){ const c=await getCentral(); c.coins=Math.max(0,Math.round(Number(coins)||0)); await sSet("bank:central",c,true); return c; }
+async function addCentralCoins(delta){ const c=await getCentral(); c.coins=Math.max(0,Math.round((c.coins||0)+(Number(delta)||0))); await sSet("bank:central",c,true); return c; }
+async function giveBranchCoins(code,delta){ const br=await getBranches(); const b=br[code]; if(b){ b.coins=Math.max(0,Math.round((b.coins||0)+(Number(delta)||0))); await sSet("branches",br,true);} return br; }
 
 
 /* ---------- Pagos: catálogo mundial (servicios + tarjetas prepago) ----------
@@ -806,6 +811,7 @@ function SucursalesPage(){
   const [branches,setBranches]=useState(null);
   const [name,setName]=useState("");
   const [pct,setPct]=useState(10);
+  const [bag,setBag]=useState("");
   const [msg,setMsg]=useState("");
   const load=async()=>{ const c=await getBankConfig(); setCfg(c); setPct(c.commissionPct); setCentral(await getCentral()); setBranches(await getBranches()); };
   useEffect(()=>{ load(); const i=setInterval(load,6000); return ()=>clearInterval(i); },[]);
@@ -830,6 +836,14 @@ function SucursalesPage(){
             <button className="btn primary" style={{flex:1}} onClick={guardarPct}>Guardar %</button>
           </div>
         </div>
+        <div className="card" style={{display:"grid",gap:10,marginBottom:12,border:"1px solid rgba(255,184,56,.4)"}}>
+          <Label>Bolsa del Banco Central — control total 🏛️ (acuña sin límite)</Label>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input className="input mono" inputMode="numeric" placeholder="cantidad 🪙" value={bag} onChange={e=>setBag(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:16,flex:1}}/>
+            <button className="btn ghost" onClick={async()=>{ await addCentralCoins(parseInt(bag,10)||0); setBag(""); setMsg("Añadido a la bolsa central 🪙"); load(); }}>+ Añadir</button>
+            <button className="btn primary" onClick={async()=>{ await setCentralCoins(parseInt(bag,10)||0); setBag(""); setMsg("Bolsa central fijada 🏛️"); load(); }}>Fijar</button>
+          </div>
+        </div>
         <div className="card" style={{display:"flex",gap:8}}>
           <input className="input" placeholder="Nombre de la sucursal (ej: Sucursal de Pedro)" value={name} onChange={e=>setName(e.target.value)}/>
           <button className="btn primary" onClick={crear}>+ Sucursal</button>
@@ -852,6 +866,7 @@ function SucursalesPage(){
                 </div>
               </div>
               <div style={{display:"flex",gap:6,marginTop:10,justifyContent:"flex-end"}}>
+                <button className="chip" style={{color:T.teal}} onClick={async()=>{ const n=parseInt(window.prompt("¿Cuántas monedas dar a "+b.name+"? (negativo para quitar)"),10); if(!isNaN(n)){ await giveBranchCoins(code,n); setMsg((n>=0?"+":"")+n.toLocaleString()+" 🪙 → "+b.name); load(); } }}>💰 Dar</button>
                 <button className="chip" onClick={async()=>{ await setBranchActive(code,!b.active); load(); }}>{b.active?"Activa":"Pausada"}</button>
                 <button className="chip" style={{color:T.coral}} onClick={async()=>{ if(window.confirm("¿Eliminar la sucursal "+b.name+"?")){ await removeBranch(code); load(); } }}>✕</button>
               </div>
