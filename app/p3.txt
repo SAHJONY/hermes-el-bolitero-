@@ -199,6 +199,9 @@ function PlayerLeaderboard(){
   useEffect(()=>{(async()=>{
     const al=await sGet("chat:alias",false); setMe(al||"");
     try{ const c=await getCoins(); await pushScore(al||"Jugador",c.xp||0); }catch{}
+    // Ranking anti-trampa server-derivado (por capital real). Fallback al leaderboard local.
+    const sv=await dbOp("wallet.top",{limit:20});
+    if(sv&&Array.isArray(sv.top)&&sv.top.length){ setLb({players:Object.fromEntries(sv.top.map(p=>[p.alias,{name:p.alias,score:p.bal}]))}); return; }
     setLb(await getLeaderboard());
   })();},[]);
   if(!lb) return null;

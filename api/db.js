@@ -143,6 +143,18 @@ module.exports = async (req, res) => {
       const top = await game.leaderboard(store, Math.min(50, Number(b.limit) || 20));
       return res.status(200).json({ configured: true, top });
     }
+    // Ranking ANTI-TRAMPA: derivado de los saldos reales del servidor (wallet:<alias>).
+    if (op === "wallet.top") {
+      const keys = await store.list("wallet:");
+      const players = [];
+      for (const k of keys) {
+        const raw = await store.get(k);
+        if (!raw) continue;
+        try { const w = JSON.parse(raw); players.push({ alias: k.replace(/^wallet:/, ""), bal: Math.round(w.bal || 0), xp: Math.round(w.xp || 0) }); } catch { /* skip */ }
+      }
+      players.sort((a, b2) => b2.bal - a.bal);
+      return res.status(200).json({ configured: true, top: players.slice(0, Math.min(50, Number(b.limit) || 10)) });
+    }
 
     // ----- Ticket economy (server-authoritative: stake + payout anti-cheat) -----
     if (op === "ticket.create" || op === "ticket.settle") {
