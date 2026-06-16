@@ -1050,11 +1050,138 @@ const CHANGELOG=[
   ]},
   {v:"1.0",fecha:"lanzamiento",items:["🎱 Resultados, charada, estadísticas, foro y Hermes el agente"]},
 ];
+/* ============================ TAB: SUERTE 🍀 ============================ */
+const ZODIACO=[
+  {e:"♈",n:"Aries",f:"21 Mar – 19 Abr",nums:[1,9,19,47]},
+  {e:"♉",n:"Tauro",f:"20 Abr – 20 May",nums:[6,15,24,33]},
+  {e:"♊",n:"Géminis",f:"21 May – 20 Jun",nums:[5,14,23,50]},
+  {e:"♋",n:"Cáncer",f:"21 Jun – 22 Jul",nums:[2,7,20,70]},
+  {e:"♌",n:"Leo",f:"23 Jul – 22 Ago",nums:[8,17,35,80]},
+  {e:"♍",n:"Virgo",f:"23 Ago – 22 Sep",nums:[3,12,27,36]},
+  {e:"♎",n:"Libra",f:"23 Sep – 22 Oct",nums:[6,24,42,60]},
+  {e:"♏",n:"Escorpio",f:"23 Oct – 21 Nov",nums:[4,13,44,90]},
+  {e:"♐",n:"Sagitario",f:"22 Nov – 21 Dic",nums:[9,18,27,99]},
+  {e:"♑",n:"Capricornio",f:"22 Dic – 19 Ene",nums:[8,26,48,88]},
+  {e:"♒",n:"Acuario",f:"20 Ene – 18 Feb",nums:[11,22,33,77]},
+  {e:"♓",n:"Piscis",f:"19 Feb – 20 Mar",nums:[2,7,29,64]},
+];
+const COLORES=[
+  {n:"Rojo",c:"#E2342B",nums:[4,27,53]},{n:"Azul",c:"#2E78D2",nums:[1,38,70]},
+  {n:"Verde",c:"#2FA84F",nums:[6,25,60]},{n:"Amarillo",c:"#F4C430",nums:[8,17,50]},
+  {n:"Blanco",c:"#F4EFE4",nums:[2,10,64]},{n:"Negro",c:"#20262B",nums:[9,44,90]},
+  {n:"Rosado",c:"#E86AA6",nums:[3,33,77]},{n:"Morado",c:"#8E5BD0",nums:[11,22,48]},
+];
+const pad2=(n)=>String(((n%100)+100)%100).padStart(2,"0");
+const charadaN=(n)=>{ const x=((n%100)+100)%100; return charadaOf(x===0?100:x); };
+function companeros(n){
+  const nn=((n%100)+100)%100; const s=pad2(nn);
+  const espejo=parseInt(s.split("").reverse().join(""),10);
+  const term=nn%10, dec=Math.floor(nn/10)*10;
+  const terminales=[], decena=[];
+  for(let i=0;i<10;i++){ const v=i*10+term; if(v!==nn) terminales.push(v); }
+  for(let i=0;i<10;i++){ const v=dec+i; if(v!==nn) decena.push(v); }
+  return {espejo,terminales,decena};
+}
+function LuckyBalls({nums}){
+  return (
+    <div className="scroll-x" style={{marginTop:8}}>
+      {nums.map((x,i)=>(
+        <div key={i} style={{textAlign:"center",minWidth:56}}>
+          <div className="ball hot" style={{margin:"0 auto"}}>{pad2(x)}</div>
+          <div style={{fontSize:9,color:T.dim,marginTop:4,maxWidth:60,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{charadaN(x)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+function TabSuerte(){
+  const [comp,setComp]=useState("");
+  const [sign,setSign]=useState(null);
+  const [color,setColor]=useState(null);
+  const [voteN,setVoteN]=useState("");
+  const [votes,setVotes]=useState(null);
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{ setVotes(await sGet("trend:votes",true)||{}); })();},[]);
+  const c = /^\d{1,2}$/.test(comp) ? companeros(parseInt(comp,10)) : null;
+  const votar=async()=>{
+    if(!/^\d{1,2}$/.test(voteN)){ setMsg("Escribe un número de 2 cifras (00–99)."); return; }
+    const vk="trend:voted:"+dateKey(new Date());
+    if(await sGet(vk,false)){ setMsg("Ya votaste hoy 🌙 — vuelve mañana."); return; }
+    const nn=((parseInt(voteN,10)%100)+100)%100;
+    const v=await sGet("trend:votes",true)||{}; v[nn]=(v[nn]||0)+1;
+    await sSet("trend:votes",v,true); await sSet(vk,true,false);
+    setVotes(v); setVoteN(""); setMsg("¡Voto al "+pad2(nn)+" registrado! 🔥");
+  };
+  const top=votes?Object.entries(votes).map(([n,k])=>({n:parseInt(n,10),k})).sort((a,b)=>b.k-a.k).slice(0,8):[];
+  return (
+    <div className="fade-in">
+      <Section title="🔥 En Tendencia" sub="Vota tu número del día y mira los más votados por la comunidad">
+        <div className="card" style={{display:"grid",gap:10,marginBottom:10}}>
+          <div style={{display:"flex",gap:8}}>
+            <input className="input mono" inputMode="numeric" maxLength={2} placeholder="17" value={voteN} onChange={e=>setVoteN(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:22,fontWeight:700}}/>
+            <button className="btn primary" onClick={votar}>🔥 Votar</button>
+          </div>
+          {msg&&<div style={{fontSize:12,color:msg.includes("registrado")?T.teal:T.mango}}>{msg}</div>}
+        </div>
+        {top.length>0?(
+          <div className="scroll-x">
+            {top.map((x,i)=>(
+              <div key={x.n} style={{textAlign:"center",minWidth:58}}>
+                <div className={"ball"+(i<3?" hot":"")} style={{margin:"0 auto"}}>{pad2(x.n)}</div>
+                <div className="mono" style={{fontSize:10,color:T.mango,marginTop:4}}>{x.k} voto{x.k!==1?"s":""}</div>
+                <div style={{fontSize:9,color:T.dim,maxWidth:60,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{charadaN(x.n)}</div>
+              </div>
+            ))}
+          </div>
+        ):<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no hay votos. ¡Sé el primero!</div>}
+      </Section>
+      <Section title="🤝 Compañeros y corridos" sub="Escribe un número y mira su espejo, terminales y decena para armar tu parlé">
+        <div className="card" style={{display:"grid",gap:10}}>
+          <input className="input mono" inputMode="numeric" maxLength={2} placeholder="17" value={comp} onChange={e=>setComp(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:26,fontWeight:800}}/>
+          {c&&(<>
+            <div><Label>🪞 Espejo (volteado)</Label><LuckyBalls nums={[c.espejo]}/></div>
+            <div><Label>🎯 Terminales (mismo final)</Label><LuckyBalls nums={c.terminales}/></div>
+            <div><Label>🔟 Decena</Label><LuckyBalls nums={c.decena}/></div>
+          </>)}
+        </div>
+      </Section>
+      <Section title="♈ Tu signo, tu suerte" sub="Elige tu signo y Hermes te da tus números de la suerte">
+        <div className="card">
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {ZODIACO.map((z,i)=>(
+              <button key={z.n} className={"chip"+(sign===i?" on":"")} onClick={()=>setSign(i)}>{z.e} {z.n}</button>
+            ))}
+          </div>
+          {sign!==null&&(<div style={{marginTop:6}}>
+            <div style={{fontSize:11,color:T.dim,marginTop:6}}>{ZODIACO[sign].e} {ZODIACO[sign].n} · {ZODIACO[sign].f}</div>
+            <LuckyBalls nums={ZODIACO[sign].nums}/>
+          </div>)}
+        </div>
+      </Section>
+      <Section title="🎨 Bola de color" sub="La suerte de tu color favorito">
+        <div className="card">
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {COLORES.map((co,i)=>(
+              <button key={co.n} className={"chip"+(color===i?" on":"")} onClick={()=>setColor(i)} style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{width:14,height:14,borderRadius:"50%",background:co.c,border:"1px solid rgba(255,255,255,.3)",display:"inline-block"}}/>{co.n}
+              </button>
+            ))}
+          </div>
+          {color!==null&&<LuckyBalls nums={COLORES[color].nums}/>}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,textAlign:"center",marginTop:4,lineHeight:1.6}}>
+        Todo esto es tradición y diversión 🍀 — cada tiro es azar independiente y nada garantiza un resultado.
+      </div>
+    </div>
+  );
+}
 const TABS=[
   {id:"hoy",icon:"🎱",label:"Hoy"},
   {id:"hist",icon:"🗓️",label:"Historial"},
   {id:"stats",icon:"📊",label:"Stats"},
   {id:"charada",icon:"🌙",label:"Charada"},
+  {id:"suerte",icon:"🍀",label:"Suerte"},
   {id:"ia",icon:"⚡",label:"Hermes"},
   {id:"studio",icon:"🎨",label:"Studio"},
   {id:"ticket",icon:"🎟️",label:"Ticket"},
@@ -1131,6 +1258,7 @@ function MainApp({admin,onLock}){
         {tab==="hist"&&<TabHistorial lot={lot}/>}
         {tab==="stats"&&<TabStats lot={lot}/>}
         {tab==="charada"&&<TabCharada/>}
+        {tab==="suerte"&&<TabSuerte/>}
         {tab==="ia"&&(memberActive
           ? <TabIA lot={lot}/>
           : <div className="fade-in card" style={{textAlign:"center",padding:"28px 18px"}}>
