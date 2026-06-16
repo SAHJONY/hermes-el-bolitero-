@@ -54,8 +54,22 @@ async function setCoinsConfig(patch){
   return next;
 }
 async function coinsAlias(){ let a=await sGet("chat:alias",false); if(!a){ a="Cliente-"+Math.random().toString(36).slice(2,7).toUpperCase(); await sSet("chat:alias",a,false);} return a; }
-async function getCoins(){ const cfg=await getCoinsConfig(); const c=await sGet("coins",false); return (c&&typeof c.bal==="number")?{streak:0,bestStreak:0,xp:0,...c}:{bal:cfg.start,lastBonus:"",streak:0,bestStreak:0,xp:0}; }
-async function setCoins(c){ await sSet("coins",c,false); try{ const a=await coinsAlias(); await sSet("bal:"+a,{bal:c.bal,ts:Date.now()},true); }catch(e){} return c; }
+// Saldo SERVER-AUTHORITATIVE: vive en el almacén compartido (wallet:<alias> vía Supabase),
+// así es global entre dispositivos y el Banco Central lo ve/controla. Cae a localStorage si
+// el almacén no está conectado (sin romper). Migra una sola vez el viejo saldo local.
+async function getCoins(){
+  const cfg=await getCoinsConfig(); const a=await coinsAlias();
+  let c=await sGet("wallet:"+a,true);
+  if(!c){ const local=await sGet("coins",false); if(local&&typeof local.bal==="number") c=local; }
+  return (c&&typeof c.bal==="number")?{streak:0,bestStreak:0,xp:0,...c}:{bal:cfg.start,lastBonus:"",streak:0,bestStreak:0,xp:0};
+}
+async function setCoins(c){
+  const a=await coinsAlias();
+  await sSet("wallet:"+a,c,true);                              // saldo global (servidor)
+  try{ await sSet("coins",c,false); }catch(e){}                // espejo local (rápido/offline)
+  try{ await sSet("bal:"+a,{bal:c.bal,ts:Date.now()},true); }catch(e){} // índice de saldos para el panel
+  return c;
+}
 const STREAK_MULT=[0.5,0.75,1,1.5,2,3,10]; // día 1..7+ : el día 7 es jackpot ×10
 async function claimDailyBonus(){
   const cfg=await getCoinsConfig();
@@ -571,10 +585,9 @@ function MonedasPage(){
 
       {msg&&<div style={{color:T.teal,fontSize:12,textAlign:"center",marginBottom:10}}>{msg}</div>}
       <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
-        Honesto: la <b>configuración</b> (saldo inicial, bono, multiplicadores, on/off) se guarda en el
-        almacén compartido y aplica a todos. El <b>saldo</b> de cada cliente vive en su dispositivo
-        (el saldo inicial y el bono nuevos aplican a cuentas nuevas o que aún no han reclamado el bono de hoy).
-        Para control central del saldo de cada cliente hace falta conectar la base de datos.
+        La <b>configuración</b> (saldo inicial, bono, multiplicadores, on/off) se guarda en el
+        almacén compartido y aplica a todos. El <b>saldo</b> de cada cliente ahora vive en el
+        servidor (Supabase) por alias — es global entre dispositivos y bajo control del Banco Central.
         Recuerda: las monedas son de entretenimiento, no dinero real ni pago de premios.
       </div>
     </div>
