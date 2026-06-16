@@ -1094,7 +1094,30 @@ function LuckyBalls({nums}){
     </div>
   );
 }
-function TabSuerte(){
+// Pronósticos tradicionales sobre el historial de referencia (resultFor).
+// Diversión — no predicen nada (cada tiro es azar independiente).
+function buildSuerteForecasts(lot){
+  const lottery=LOTTERIES.find(l=>l.id===lot); if(!lottery) return null;
+  const sessions=lottery.sessions, today=new Date();
+  const acc=(days,arr,withCorr)=>{ days.forEach(d=>{ const dk=dateKey(d); sessions.forEach(s=>{ const r=resultFor(lot,dk,s); arr[parseInt(r.fijo2,10)]++; if(withCorr) r.corridos.forEach(c=>arr[parseInt(c,10)]++); }); }); };
+  // Más tiran este mes
+  const monthDays=[]; for(let d=new Date(today.getFullYear(),today.getMonth(),1); d<=today; d.setDate(d.getDate()+1)) monthDays.push(new Date(d));
+  const fMonth=new Array(100).fill(0); acc(monthDays,fMonth,true);
+  const masTiran=Array.from({length:100},(_,n)=>({n,f:fMonth[n]})).sort((a,b)=>b.f-a.f).slice(0,5).map(x=>x.n);
+  // Técnico: mezcla 30 días (peso 2) + 120 días
+  const f30=new Array(100).fill(0), f120=new Array(100).fill(0);
+  acc(pastDays(30),f30,false); acc(pastDays(120),f120,false);
+  const tecnico=Array.from({length:100},(_,n)=>({n,s:f30[n]*2+f120[n]})).sort((a,b)=>b.s-a.s).slice(0,3).map(x=>x.n);
+  // Piramidal: del tiro de ayer (última sesión)
+  const y=new Date(today); y.setDate(today.getDate()-1);
+  const r=resultFor(lot,dateKey(y),sessions[sessions.length-1]);
+  const p=String(r.fijo3).padStart(3,"0").split("").map(Number);
+  const row2=[(p[0]+p[1])%10,(p[1]+p[2])%10];
+  const piramidal=[row2[0]*10+row2[1], p[0]*10+p[1], p[1]*10+p[2]];
+  return { masTiran, tecnico, piramidal, ayer:String(r.fijo3).padStart(3,"0"), board:lottery.short.replace(" 🔴","") };
+}
+function TabSuerte({lot}){
+  const fc=useMemo(()=>buildSuerteForecasts(lot),[lot]);
   const [comp,setComp]=useState("");
   const [sign,setSign]=useState(null);
   const [color,setColor]=useState(null);
@@ -1135,6 +1158,13 @@ function TabSuerte(){
           </div>
         ):<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no hay votos. ¡Sé el primero!</div>}
       </Section>
+      {fc&&<Section title={`🔮 Pronóstico de Hermes · ${fc.board}`} sub="Métodos tradicionales sobre el historial — pura diversión, no predicen nada">
+        <div className="card" style={{display:"grid",gap:12}}>
+          <div><Label>📈 Técnico (probabilidad histórica)</Label><LuckyBalls nums={fc.tecnico}/></div>
+          <div><Label>🔺 Piramidal (según el tiro de ayer · {fc.ayer})</Label><LuckyBalls nums={fc.piramidal}/></div>
+          <div><Label>📅 Más tiran este mes</Label><LuckyBalls nums={fc.masTiran}/></div>
+        </div>
+      </Section>}
       <Section title="🤝 Compañeros y corridos" sub="Escribe un número y mira su espejo, terminales y decena para armar tu parlé">
         <div className="card" style={{display:"grid",gap:10}}>
           <input className="input mono" inputMode="numeric" maxLength={2} placeholder="17" value={comp} onChange={e=>setComp(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:26,fontWeight:800}}/>
@@ -1258,7 +1288,7 @@ function MainApp({admin,onLock}){
         {tab==="hist"&&<TabHistorial lot={lot}/>}
         {tab==="stats"&&<TabStats lot={lot}/>}
         {tab==="charada"&&<TabCharada/>}
-        {tab==="suerte"&&<TabSuerte/>}
+        {tab==="suerte"&&<TabSuerte lot={lot}/>}
         {tab==="ia"&&(memberActive
           ? <TabIA lot={lot}/>
           : <div className="fade-in card" style={{textAlign:"center",padding:"28px 18px"}}>
