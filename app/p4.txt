@@ -637,42 +637,63 @@ function AlertasAdmin(){
   );
 }
 
-function PagosPage(){
-  const [links,setLinks]=useState({miembro:"",vip:"",paypal:"",cashtag:""});
-  const [prices,setPrices]=useState({miembro:"19.99",vip:"39.99"});
+function PlansManager(){
+  const [list,setList]=useState(null);
   const [msg,setMsg]=useState("");
-  const [pmsg,setPmsg]=useState("");
   useEffect(()=>{(async()=>{
-    const l=await sGet("pay:links",true); if(l) setLinks(x=>({...x,...l}));
-    const pr=await sGet("pay:prices",true); if(pr) setPrices(x=>({...x,...pr}));
+    let l=await sGet("plans:list",true);
+    if(!Array.isArray(l)||!l.length){
+      const pr=await sGet("pay:prices",true)||{};
+      const lk=await sGet("pay:links",true)||{};
+      l=PLANES.map(p=>({id:p.id,nombre:p.nombre,monto:(pr[p.id]||p.monto),per:p.per||"/mes",gold:!!p.gold,feats:p.feats.slice(),stripe:lk[p.id]||""}));
+    }
+    setList(l.map(p=>({...p,feats:Array.isArray(p.feats)?p.feats:String(p.feats||"").split("\n")})));
   })();},[]);
-  const save=async()=>{ setMsg((await sSet("pay:links",links,true))?"Links de pago publicados — ya aparecen en la página de planes. ✔":"No se pudo guardar."); };
-  const savePrices=async()=>{ setPmsg((await sSet("pay:prices",{miembro:prices.miembro||"19.99",vip:prices.vip||"39.99"},true))?"Precios actualizados — ya aparecen en la página de planes. ✔":"No se pudo guardar."); };
+  if(!list) return null;
+  const up=(i,patch)=>setList(list.map((p,j)=>j===i?{...p,...patch}:p));
+  const add=()=>setList([...list,{id:"plan"+Date.now().toString(36),nombre:"NUEVO PLAN",monto:"9.99",per:"/mes",gold:false,feats:["Beneficio 1","Beneficio 2"],stripe:""}]);
+  const remove=(i)=>{ if(window.confirm("¿Borrar este plan?")) setList(list.filter((_,j)=>j!==i)); };
+  const save=async()=>{
+    const clean=list.map(p=>({ id:p.id, nombre:(p.nombre||"PLAN").trim(), monto:String(p.monto||"0").replace(/[^0-9.]/g,"")||"0", per:p.per||"/mes", gold:!!p.gold, feats:(Array.isArray(p.feats)?p.feats:String(p.feats).split("\n")).map(s=>s.trim()).filter(Boolean), stripe:(p.stripe||"").trim() }));
+    setMsg((await sSet("plans:list",clean,true))?"Planes guardados — ya aparecen en la página de planes. ✔":"No se pudo guardar.");
+    setList(clean.map(p=>({...p})));
+  };
+  return (
+    <Section title="Planes / Tiers 🏷️" sub="Crea, edita o borra tus planes — se actualizan al instante para todos">
+      <div style={{display:"grid",gap:12}}>
+        {list.map((p,i)=>(
+          <div key={p.id} className="card" style={{display:"grid",gap:8,border:p.gold?"1.5px solid #FFD978":`1px solid ${T.line}`}}>
+            <div style={{display:"flex",gap:8}}>
+              <input className="input" placeholder="Nombre del plan" value={p.nombre} onChange={e=>up(i,{nombre:e.target.value})} style={{flex:2,minWidth:0}}/>
+              <input className="input mono" inputMode="decimal" placeholder="9.99" value={p.monto} onChange={e=>up(i,{monto:e.target.value.replace(/[^0-9.]/g,"")})} style={{flex:1,textAlign:"center",minWidth:0}}/>
+              <input className="input mono" placeholder="/mes" value={p.per} onChange={e=>up(i,{per:e.target.value})} style={{width:64}}/>
+            </div>
+            <textarea className="input" rows={4} placeholder="Un beneficio por línea" value={Array.isArray(p.feats)?p.feats.join("\n"):p.feats} onChange={e=>up(i,{feats:e.target.value.split("\n")})} style={{resize:"none",fontSize:13}}/>
+            <input className="input mono" style={{fontSize:12}} placeholder="Link Stripe (opcional) · https://buy.stripe.com/…" value={p.stripe} onChange={e=>up(i,{stripe:e.target.value})}/>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <button className={"chip"+(p.gold?" on":"")} onClick={()=>up(i,{gold:!p.gold})} style={p.gold?{background:T.mango,color:"#3A2604",fontWeight:700}:{}}>👑 Destacado</button>
+              <button className="chip" style={{marginLeft:"auto",color:T.coral}} onClick={()=>remove(i)}>🗑️ Borrar</button>
+            </div>
+          </div>
+        ))}
+        <button className="btn ghost" onClick={add}>➕ Añadir plan</button>
+        <button className="btn primary" onClick={save}>💾 Guardar planes</button>
+        {msg&&<div style={{color:T.teal,fontSize:12}}>{msg}</div>}
+      </div>
+    </Section>
+  );
+}
+function PagosPage(){
+  const [links,setLinks]=useState({paypal:"",cashtag:""});
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{ const l=await sGet("pay:links",true); if(l) setLinks(x=>({...x,...l})); })();},[]);
+  const save=async()=>{ setMsg((await sSet("pay:links",links,true))?"Pago global guardado. ✔":"No se pudo guardar."); };
   return (
     <div>
       <PayMethodsManager/>
-      <Section title="Precios de los planes 💵" sub="Cámbialos cuando quieras — se actualizan al instante en la página de planes">
+      <PlansManager/>
+      <Section title="Pago global · PayPal y Cash App" sub="Se aplican a todos los planes; el monto se añade solo a cada link">
         <div className="card" style={{display:"grid",gap:10}}>
-          <div style={{display:"flex",gap:10}}>
-            <div style={{flex:1}}><Label>MIEMBRO · $/mes</Label>
-              <input className="input mono" inputMode="decimal" placeholder="19.99" value={prices.miembro} onChange={e=>setPrices({...prices,miembro:e.target.value.replace(/[^0-9.]/g,"")})} style={{textAlign:"center",fontSize:18}}/></div>
-            <div style={{flex:1}}><Label>VIP CORONA · $/mes</Label>
-              <input className="input mono" inputMode="decimal" placeholder="39.99" value={prices.vip} onChange={e=>setPrices({...prices,vip:e.target.value.replace(/[^0-9.]/g,"")})} style={{textAlign:"center",fontSize:18}}/></div>
-          </div>
-          <button className="btn primary" onClick={savePrices}>💵 Guardar precios</button>
-          {pmsg&&<div style={{color:T.teal,fontSize:12}}>{pmsg}</div>}
-        </div>
-      </Section>
-      <Section title="Links de pago" sub={`MIEMBRO $${prices.miembro}/mes · VIP CORONA $${prices.vip}/mes`}>
-        <div className="card" style={{display:"grid",gap:10}}>
-          <div>
-            <Label>{`Link de pago · MIEMBRO $${prices.miembro}`}</Label>
-            <input className="input mono" style={{fontSize:12}} placeholder="https://buy.stripe.com/…" value={links.miembro} onChange={e=>setLinks({...links,miembro:e.target.value})}/>
-          </div>
-          <div>
-            <Label>{`Link de pago · VIP CORONA $${prices.vip}`}</Label>
-            <input className="input mono" style={{fontSize:12}} placeholder="https://buy.stripe.com/…" value={links.vip} onChange={e=>setLinks({...links,vip:e.target.value})}/>
-          </div>
           <div>
             <Label>PayPal.Me (link o usuario)</Label>
             <input className="input mono" style={{fontSize:12}} placeholder="https://paypal.me/TuUsuario" value={links.paypal} onChange={e=>setLinks({...links,paypal:e.target.value.startsWith("http")||!e.target.value?e.target.value:"https://paypal.me/"+e.target.value})}/>
@@ -686,10 +707,9 @@ function PagosPage(){
         </div>
       </Section>
       <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
-        Tres vías de cobro: <b>Stripe</b> (tarjeta, cobro recurrente automático cada mes — la mejor para suscripciones),
-        <b> PayPal.Me</b> y <b>Cash App</b> (el monto $19.99/$39.99 se añade solo al link; son pagos manuales,
-        así que verifica el comprobante cada mes antes de renovar el código). Tras el pago, envía el código desde 🎟️ Miembros
-        (etiqueta "VIP" a los de corona). Con el backend, un webhook de Stripe puede automatizarlo todo.
+        Gestiona tus planes arriba (añade, edita o borra tiers). El <b>Link Stripe</b> de cada plan es opcional
+        (tarjeta con cobro recurrente). <b>PayPal.Me</b> y <b>Cash App</b> son globales: el monto de cada plan se
+        añade solo al link. Son pagos manuales, así que verifica el comprobante antes de renovar el código desde 🎟️ Miembros.
       </div>
     </div>
   );

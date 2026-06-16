@@ -1212,10 +1212,13 @@ const PLANES=[
   ]},
 ];
 function Planes({payLinks,onBack}){
+  const [list,setList]=useState(null);
   const [prices,setPrices]=useState(null);
-  useEffect(()=>{(async()=>{ setPrices(await sGet("pay:prices",true)); })();},[]);
-  // El dueño controla los precios desde 👑 → 💳 Pagos; si no, usa los de fábrica.
-  const plans=PLANES.map(p=>{ const monto=(prices&&prices[p.id])||p.monto; return {...p, monto, precio:"$"+monto}; });
+  useEffect(()=>{(async()=>{ setList(await sGet("plans:list",true)); setPrices(await sGet("pay:prices",true)); })();},[]);
+  // El dueño gestiona los planes desde 👑 → 💳 Pagos (lista custom); si no hay
+  // lista, usa los de fábrica con el precio editable como respaldo.
+  const base=(Array.isArray(list)&&list.length)?list:PLANES.map(p=>({...p,monto:(prices&&prices[p.id])||p.monto}));
+  const plans=base.map(p=>({...p, precio:"$"+p.monto, feats:Array.isArray(p.feats)?p.feats:String(p.feats||"").split("\n").filter(Boolean)}));
   return (
     <div className="bol-app" style={{minHeight:"100vh",padding:"24px 16px 40px"}}>
       <style>{FONT_CSS}</style>
@@ -1243,7 +1246,7 @@ function Planes({payLinks,onBack}){
                 ))}
               </ul>
               {(()=>{
-                const stripe=payLinks?.[p.id];
+                const stripe=p.stripe||payLinks?.[p.id];
                 const pp=payLinks?.paypal? (payLinks.paypal.replace(/\/+$/,"")+"/"+p.monto+"USD") : null;
                 const ca=payLinks?.cashtag? ("https://cash.app/$"+payLinks.cashtag.replace(/^\$/,"")+"/"+p.monto) : null;
                 const goldStyle=p.gold?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604"}:{};
