@@ -304,40 +304,79 @@ async function getActivePayMethods(){
   return all.filter(m=> am ? !!am[m.id] : PAY_DEFAULT_ACTIVE.includes(m.id));
 }
 
+/* ---------- Seguridad del acceso (Opción A): PIN propio por cliente, código
+   amarrado al dispositivo, PIN de admin cifrado (hash) y límite de intentos.
+   Privado: NO se piden email ni teléfono. ---------- */
+async function hbHash(s){
+  try{ const b=await crypto.subtle.digest("SHA-256", new TextEncoder().encode("hb1:"+String(s))); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+  catch(e){ let h=2166136261>>>0; const t="hb1:"+String(s); for(let i=0;i<t.length;i++){ h^=t.charCodeAt(i); h=Math.imul(h,16777619); } return "f"+(h>>>0).toString(16); }
+}
+async function getDeviceId(){ let d=await sGet("device:id",false); if(!d){ d="dev-"+Math.random().toString(36).slice(2,10)+Date.now().toString(36); await sSet("device:id",d,false);} return d; }
+async function authLockedSecs(){ const l=await sGet("auth:lock",false); return (l&&l.until&&Date.now()<l.until)?Math.ceil((l.until-Date.now())/1000):0; }
+async function authFail(){ const l=(await sGet("auth:lock",false))||{fails:0}; l.fails=(l.fails||0)+1; if(l.fails>=5){ l.until=Date.now()+60000; l.fails=0; } await sSet("auth:lock",l,false); }
+async function authReset(){ await sDel("auth:lock",false); }
+
 function Gate({onEnter}){
-  const [stage,setStage]=useState("loading"); // loading | code | newadmin | adminpin | planes
+  const [stage,setStage]=useState("loading"); // loading|code|setpin|unlock|newadmin|adminpin|planes
   const [val,setVal]=useState("");
+  const [val2,setVal2]=useState("");
   const [err,setErr]=useState("");
   const [payLinks,setPayLinks]=useState(null);
   useEffect(()=>{(async()=>{
     const sess=await sGet("session",false);
-    if(sess?.ok){ onEnter(sess.admin===true); return; }
+    if(sess?.ok){
+      if(sess.admin===true){ onEnter(true); return; }
+      const mp=await sGet("member:pin",false);
+      if(mp&&mp.hash){ setStage("unlock"); return; }   // bloqueo con PIN propio
+      onEnter(false); return;
+    }
     setPayLinks(await sGet("pay:links",true));
     const pin=await sGet("admin:pin",true);
     setStage(pin?"code":"newadmin");
   })();},[]);
+  const guard=async()=>{ const s=await authLockedSecs(); if(s){ setErr("Demasiados intentos. Espera "+s+"s."); return false; } return true; };
   const enterMember=async()=>{
-    setErr("");
+    setErr(""); if(!(await guard())) return;
+    const code=val.trim().toUpperCase();
     const codes=await sGet("members:codes",true)||{};
-    const c=codes[val.trim().toUpperCase()];
-    if(c&&c.active){
-      c.uses=(c.uses||0)+1; await sSet("members:codes",codes,true);
-      await sSet("session",{ok:true,admin:false,code:val.trim().toUpperCase()},false);
-      onEnter(false);
-    } else setErr("Código inválido o desactivado. Pídele acceso al administrador.");
+    const c=codes[code];
+    if(!c||!c.active){ await authFail(); setErr("Código inválido o desactivado. Pídele acceso al administrador."); return; }
+    const dev=await getDeviceId();
+    if(c.boundTo && c.boundTo!==dev){ setErr("Este código ya está en uso en otro dispositivo. Pide al administrador que lo desvincule 🔓."); return; }
+    if(!c.boundTo) c.boundTo=dev;
+    c.uses=(c.uses||0)+1; await sSet("members:codes",codes,true);
+    await sSet("session",{ok:true,admin:false,code},false); await authReset();
+    const mp=await sGet("member:pin",false);
+    if(mp&&mp.hash){ onEnter(false); } else { setVal(""); setVal2(""); setStage("setpin"); }
+  };
+  const setMemberPin=async()=>{
+    setErr("");
+    if(!/^\d{4,6}$/.test(val.trim())){ setErr("Tu PIN debe ser de 4 a 6 dígitos."); return; }
+    if(val.trim()!==val2.trim()){ setErr("Los PIN no coinciden."); return; }
+    await sSet("member:pin",{hash:await hbHash(val.trim()),created:Date.now()},false);
+    onEnter(false);
+  };
+  const unlockMember=async()=>{
+    setErr(""); if(!(await guard())) return;
+    const mp=await sGet("member:pin",false);
+    if(mp&&mp.hash===await hbHash(val.trim())){ await authReset(); onEnter(false); }
+    else { await authFail(); setErr("PIN incorrecto."); }
   };
   const enterAdmin=async()=>{
-    setErr("");
+    setErr(""); if(!(await guard())) return;
     const pin=await sGet("admin:pin",true);
-    if(pin&&pin.pin===val.trim()){ await sSet("session",{ok:true,admin:true},false); onEnter(true); }
-    else setErr("PIN incorrecto.");
+    const ok=pin && ((pin.hash&&pin.hash===await hbHash(val.trim())) || (pin.pin&&pin.pin===val.trim()));
+    if(ok){
+      if(pin.pin&&!pin.hash){ await sSet("admin:pin",{hash:await hbHash(val.trim()),created:pin.created||Date.now()},true); } // migrar legado a hash
+      await sSet("session",{ok:true,admin:true},false); await authReset(); onEnter(true);
+    } else { await authFail(); setErr("PIN incorrecto."); }
   };
   const createAdmin=async()=>{
     setErr("");
     if(val.trim().length<4){ setErr("Usa un PIN de al menos 4 dígitos."); return; }
     const exists=await sGet("admin:pin",true);
     if(exists){ setErr("Ya existe un administrador. Entra con tu PIN."); setStage("adminpin"); setVal(""); return; }
-    await sSet("admin:pin",{pin:val.trim(),created:Date.now()},true);
+    await sSet("admin:pin",{hash:await hbHash(val.trim()),created:Date.now()},true);
     await sSet("members:codes",{},true);
     await sSet("session",{ok:true,admin:true},false);
     onEnter(true);
@@ -357,8 +396,22 @@ function Gate({onEnter}){
         <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Escribe tu código de acceso.</p>
         <input className="input" placeholder="CÓDIGO" value={val} onChange={e=>setVal(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&enterMember()} style={{textTransform:"uppercase",letterSpacing:"0.15em",textAlign:"center",fontFamily:"IBM Plex Mono"}}/>
         <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={enterMember}>Entrar</button>
-        <button className="btn ghost" style={{width:"100%",marginTop:10}} onClick={()=>setStage("planes")}>Ver planes · desde $19.99/mes</button>
+        <button className="btn ghost" style={{width:"100%",marginTop:10}} onClick={()=>setStage("planes")}>Ver planes · desde $0</button>
         <button className="chip" style={{marginTop:14}} onClick={()=>{setStage("adminpin");setVal("");setErr("");}}>👑 Soy el administrador</button>
+      </>)}
+      {stage==="setpin"&&(<>
+        <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Crea tu PIN privado 🔒</div>
+        <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Solo tú lo sabes. Lo usarás para entrar — sin email ni teléfono, 100% privado.</p>
+        <input className="input" type="password" inputMode="numeric" maxLength={6} placeholder="PIN (4–6 dígitos)" value={val} onChange={e=>setVal(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",letterSpacing:"0.3em",fontSize:20}}/>
+        <input className="input" type="password" inputMode="numeric" maxLength={6} placeholder="Repite tu PIN" value={val2} onChange={e=>setVal2(e.target.value.replace(/\D/g,""))} onKeyDown={e=>e.key==="Enter"&&setMemberPin()} style={{textAlign:"center",letterSpacing:"0.3em",fontSize:20,marginTop:10}}/>
+        <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={setMemberPin}>Guardar y entrar</button>
+      </>)}
+      {stage==="unlock"&&(<>
+        <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Tu PIN 🔒</div>
+        <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Escribe tu PIN privado para entrar.</p>
+        <input className="input" type="password" inputMode="numeric" maxLength={6} placeholder="PIN" value={val} onChange={e=>setVal(e.target.value.replace(/\D/g,""))} onKeyDown={e=>e.key==="Enter"&&unlockMember()} style={{textAlign:"center",letterSpacing:"0.3em",fontSize:20}}/>
+        <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={unlockMember}>Entrar</button>
+        <button className="chip" style={{marginTop:14}} onClick={async()=>{ await sDel("session",false); await sDel("member:pin",false); setStage("code"); setVal(""); setErr(""); }}>Usar otro código</button>
       </>)}
       {stage==="adminpin"&&(<>
         <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Acceso admin 👑</div>
@@ -931,6 +984,7 @@ function TabAdmin(){
   };
   const toggle=async(c)=>{ const next={...codes,[c]:{...codes[c],active:!codes[c].active}}; await sSet("members:codes",next,true); setCodes(next); };
   const remove=async(c)=>{ const next={...codes}; delete next[c]; await sSet("members:codes",next,true); setCodes(next); };
+  const unbind=async(c)=>{ const next={...codes,[c]:{...codes[c],boundTo:""}}; await sSet("members:codes",next,true); setCodes(next); setSaved("Código "+c+" desvinculado — ya puede usarse en otro dispositivo."); };
   const changePin=async()=>{ if(pinNew.trim().length<4) return; await sSet("admin:pin",{pin:pinNew.trim(),created:Date.now()},true); setPinNew(""); setSaved("PIN actualizado."); };
   return (
     <div className="fade-in">
@@ -964,8 +1018,9 @@ function TabAdmin(){
           {codes&&Object.entries(codes).map(([c,info])=>(
             <div key={c} className="card" style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
               <span className="mono" style={{fontWeight:700,letterSpacing:"0.12em",color:info.active?T.teal:T.dim}}>{c}</span>
-              <span style={{fontSize:12,color:T.dim,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{info.label} · {info.uses||0} usos</span>
+              <span style={{fontSize:12,color:T.dim,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{info.label} · {info.uses||0} usos{info.boundTo?" · 🔒":""}</span>
               <button className="chip" style={{color:T.teal}} onClick={async()=>{ const n=parseInt(window.prompt("¿Cuántas monedas dar al miembro "+c+"? (negativo para quitar). Se aplican cuando el miembro abra la app."),10); if(!isNaN(n)){ await grantToMember(c,n); setSaved((n>=0?"+":"")+n.toLocaleString()+" 🪙 → "+c); } }}>💰</button>
+              {info.boundTo&&<button className="chip" title="Desvincular dispositivo" onClick={()=>unbind(c)}>🔓</button>}
               <button className="chip" onClick={()=>toggle(c)}>{info.active?"Activo":"Pausado"}</button>
               <button className="chip" style={{color:T.coral}} onClick={()=>remove(c)}>✕</button>
             </div>
