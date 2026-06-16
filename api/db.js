@@ -10,10 +10,9 @@
 //   UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
 //
 // Generic ops: get/set/del/list/ping.
-// Game ops (server-authoritative economy, see lib/game.js): game.state,
-//   game.play, game.top.
+// Game ops (server-authoritative, anti-cheat economy): wallet.top (ranking by
+//   real capital), ticket.create + ticket.settle (see lib/payouts.js).
 const { readBody } = require("../lib/notify");
-const game = require("../lib/game");
 const { buildResults } = require("../lib/results");
 const { settleAll, PAYOUT_DEFAULTS, num } = require("../lib/payouts");
 
@@ -126,23 +125,6 @@ module.exports = async (req, res) => {
     if (op === "list") return res.status(200).json({ configured: true, keys: await store.list(b.prefix || "") });
     if (op === "ping") return res.status(200).json({ configured: true, backend: be });
 
-    // ----- Game engine ops (server-authoritative virtual economy) -----
-    if (op === "game.state") {
-      const pid = String(b.pid || "").slice(0, 80);
-      if (!pid) return res.status(400).json({ error: "missing_pid" });
-      const player = await game.state(store, { pid, alias: b.alias }, await getDraws());
-      return res.status(200).json({ configured: true, rules: game.RULES, player });
-    }
-    if (op === "game.play") {
-      const pid = String(b.pid || "").slice(0, 80);
-      if (!pid) return res.status(400).json({ error: "missing_pid" });
-      const r = await game.play(store, { pid, alias: b.alias, board: b.board, session: b.session, number: b.number, stake: b.stake });
-      return res.status(r.ok ? 200 : 400).json({ configured: true, ...r });
-    }
-    if (op === "game.top") {
-      const top = await game.leaderboard(store, Math.min(50, Number(b.limit) || 20));
-      return res.status(200).json({ configured: true, top });
-    }
     // Ranking ANTI-TRAMPA: derivado de los saldos reales del servidor (wallet:<alias>).
     if (op === "wallet.top") {
       const keys = await store.list("wallet:");
