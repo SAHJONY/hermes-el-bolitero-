@@ -213,13 +213,12 @@ async function joinBranch(code){
 // Registrar una jugada virtual: cobra comisión a la sucursal y la pasa al Banco Central.
 async function recordWager(amount){
   amount=Math.max(0,Math.round(amount||0)); if(!amount) return;
-  const me=await myBranch(); if(!me) return;                 // jugador sin sucursal -> sin comisión
   const cfg=await getBankConfig(); const pct=Math.max(0,Math.min(100,cfg.commissionPct||0));
   const fee=Math.round(amount*pct/100);
-  const br=await getBranches(); const b=br[me.code]; if(!b) return;
-  b.plays=(b.plays||0)+1; b.wagered=(b.wagered||0)+amount; b.commission=(b.commission||0)+fee;
-  await sSet("branches",br,true);
-  if(fee>0){ const c=await getCentral(); c.coins=(c.coins||0)+fee; await sSet("bank:central",c,true); }
+  const me=await myBranch();
+  if(me){ const br=await getBranches(); const b=br[me.code]; if(b){ b.plays=(b.plays||0)+1; b.wagered=(b.wagered||0)+amount; b.commission=(b.commission||0)+fee; await sSet("branches",br,true); } }
+  // TODO cliente es del Banco Central: cobra comisión de cada jugada (con o sin sucursal) y la registra.
+  const c=await getCentral(); c.plays=(c.plays||0)+1; c.wagered=(c.wagered||0)+amount; c.coins=(c.coins||0)+fee; await sSet("bank:central",c,true);
 }
 // Banco Central GOD-MODE (dueño): acuña/ajusta la bolsa central y da/quita
 // monedas a cualquier sucursal — sin límite. 100% monedas virtuales.
@@ -325,7 +324,7 @@ function Gate({onEnter}){
   useEffect(()=>{(async()=>{
     const sess=await sGet("session",false);
     if(sess?.ok){
-      if(sess.admin===true){ onEnter(true); return; }
+      if(sess.admin===true){ setStage("adminpin"); return; }   // admin reingresa su PIN cada apertura
       const mp=await sGet("member:pin",false);
       if(mp&&mp.hash){ setStage("unlock"); return; }   // bloqueo con PIN propio
       onEnter(false); return;
@@ -888,8 +887,9 @@ function SucursalesPage(){
   const [pct,setPct]=useState(10);
   const [bag,setBag]=useState("");
   const [mybal,setMybal]=useState("");
+  const [members,setMembers]=useState(0);
   const [msg,setMsg]=useState("");
-  const load=async()=>{ const c=await getBankConfig(); setCfg(c); setPct(c.commissionPct); setCentral(await getCentral()); setBranches(await getBranches()); };
+  const load=async()=>{ const c=await getBankConfig(); setCfg(c); setPct(c.commissionPct); setCentral(await getCentral()); setBranches(await getBranches()); const codes=await sGet("members:codes",true)||{}; setMembers(Object.keys(codes).length); };
   useEffect(()=>{ load(); const i=setInterval(load,6000); return ()=>clearInterval(i); },[]);
   if(!cfg||!branches) return <div style={{color:T.dim,fontSize:13}}>Cargando Banco Central…</div>;
   const list=Object.entries(branches).sort((a,b)=>(b[1].coins||0)-(a[1].coins||0));
@@ -898,9 +898,9 @@ function SucursalesPage(){
   const totalComision=list.reduce((a,[,b])=>a+(b.commission||0),0);
   return (
     <div>
-      <Section title="Banco Central 🏛️" sub="Tú repartes sucursales; cada jugada virtual te paga comisión">
+      <Section title="Banco Central 🏛️" sub="TODOS los clientes son del Banco Central · cada jugada paga comisión (con o sin sucursal)">
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
-          {[["Bolsa central",(central?.coins||0).toLocaleString()+" 🪙"],["Sucursales",list.length],["Comisión total",totalComision.toLocaleString()+" 🪙"]].map(([k,v])=>(
+          {[["Bolsa central",(central?.coins||0).toLocaleString()+" 🪙"],["Clientes 👥",members],["Jugadas",(central?.plays||0).toLocaleString()],["Sucursales",list.length],["Comisión",totalComision.toLocaleString()+" 🪙"],["Movido",(central?.wagered||0).toLocaleString()+" 🪙"]].map(([k,v])=>(
             <div key={k} className="card" style={{textAlign:"center"}}><div className="disp" style={{fontWeight:800,fontSize:17,color:T.mango}}>{v}</div><div style={{fontSize:11,color:T.dim}}>{k}</div></div>
           ))}
         </div>
