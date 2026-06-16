@@ -15,6 +15,7 @@
 const { readBody } = require("../lib/notify");
 const game = require("../lib/game");
 const { buildResults } = require("../lib/results");
+const { settleAll, PAYOUT_DEFAULTS, num } = require("../lib/payouts");
 
 function originAllowed(req) {
   const o = req.headers && (req.headers.origin || req.headers.Origin);
@@ -141,6 +142,48 @@ module.exports = async (req, res) => {
     if (op === "game.top") {
       const top = await game.leaderboard(store, Math.min(50, Number(b.limit) || 20));
       return res.status(200).json({ configured: true, top });
+    }
+
+    // ----- Ticket economy (server-authoritative: stake + payout anti-cheat) -----
+    if (op === "ticket.create" || op === "ticket.settle") {
+      const pid = String(b.pid || "").slice(0, 80);
+      if (!pid) return res.status(400).json({ error: "missing_pid" });
+      const parse = (s) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
+      const cfg = parse(await store.get("coins:config")) || {};
+      const start = Number.isFinite(cfg.start) ? cfg.start : 1000;
+      const P = {
+        fijo: cfg.payFijo ?? PAYOUT_DEFAULTS.fijo, corrido: cfg.payCorrido ?? PAYOUT_DEFAULTS.corrido,
+        parle: cfg.payParle ?? PAYOUT_DEFAULTS.parle, candado: cfg.payCandado ?? PAYOUT_DEFAULTS.candado,
+        play4: cfg.payPlay4 ?? PAYOUT_DEFAULTS.play4, cash3: cfg.payCash3 ?? PAYOUT_DEFAULTS.cash3,
+        box3: cfg.payBox3 ?? PAYOUT_DEFAULTS.box3, box4: cfg.payBox4 ?? PAYOUT_DEFAULTS.box4,
+        pair: cfg.payPair ?? PAYOUT_DEFAULTS.pair, centena: cfg.payCentena ?? PAYOUT_DEFAULTS.centena,
+        q1: cfg.payQ1 ?? PAYOUT_DEFAULTS.q1, q2: cfg.payQ2 ?? PAYOUT_DEFAULTS.q2, q3: cfg.payQ3 ?? PAYOUT_DEFAULTS.q3,
+      };
+      const wkey = "wallet:" + pid, tkey = "tickets:" + pid;
+      const getWallet = async () => parse(await store.get(wkey)) || { bal: start, streak: 0, bestStreak: 0, xp: 0 };
+      const saveWallet = async (w) => { await store.set(wkey, JSON.stringify(w)); await store.set("bal:" + pid, JSON.stringify({ bal: w.bal, ts: Date.now() })); };
+
+      if (op === "ticket.create") {
+        const ticket = b.ticket || {};
+        const stake = num(ticket.monto);
+        const w = await getWallet();
+        if (stake > 0 && w.bal < stake) return res.status(200).json({ configured: true, ok: false, error: "insufficient_coins", wallet: w });
+        if (stake > 0) w.bal -= stake;
+        const t = { ...ticket, status: "pendiente", premio: null, ganancia: 0, coinPaid: false, ts: Date.now() };
+        const list = parse(await store.get(tkey)) || [];
+        const next = [t, ...list].slice(0, 30);
+        await store.set(tkey, JSON.stringify(next));
+        await saveWallet(w);
+        return res.status(200).json({ configured: true, ok: true, ticket: t, wallet: w, tickets: next });
+      }
+      // ticket.settle
+      const list = parse(await store.get(tkey)) || [];
+      const draws = await getDraws();
+      const r = settleAll(list, draws, P);
+      await store.set(tkey, JSON.stringify(r.tickets));
+      const w = await getWallet();
+      if (r.credited > 0) { w.bal += r.credited; w.xp = (w.xp || 0) + r.credited; await saveWallet(w); }
+      return res.status(200).json({ configured: true, ok: true, tickets: r.tickets, credited: r.credited, wins: r.wins, wallet: w });
     }
 
     res.status(400).json({ error: "bad_op" });
