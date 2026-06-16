@@ -999,7 +999,7 @@ function TabPago(){
 }
 
 /* ============================ SHELL ============================ */
-const APP_VERSION="2.1";
+const APP_VERSION="3.0";
 const CHANGELOG=[
   {v:"2.1",fecha:"15 jun 2026",items:[
     "🎟️ Menú de jugadas completo: Cash 3, Cash 3 Box y Play 4 Box (cualquier orden), Pareja delantera/trasera",
@@ -1011,7 +1011,7 @@ const CHANGELOG=[
     "📣 Canal oficial de Telegram en Alertas",
     "⚡ Motor NVIDIA NIM añadido al cerebro de Hermes",
     "💳 Pagos con PayPal y Cash App junto a tarjeta",
-    "🔴 5 tableros con señal en vivo y 4 tiros diarios",
+    "🔴 7 tableros con datos oficiales y varios tiros diarios",
   ]},
   {v:"1.0",fecha:"lanzamiento",items:["🎱 Resultados, charada, estadísticas, foro y Hermes el agente"]},
 ];
@@ -1198,7 +1198,7 @@ function Logo({size=40}){
 const PLANES=[
   {id:"miembro",nombre:"MIEMBRO",precio:"$19.99",monto:"19.99",per:"/mes",gold:false,feats:[
     "Señal EN VIVO · 4 tiros diarios",
-    "Tableros Florida y Chicago en vivo",
+    "10 formas de jugar: Bolita, Cash 3, Play 4, Quiniela y más",
     "Estadísticas: calientes, fríos y atrasados",
     "Charada 1–100 + intérprete de sueños IA",
     "Foro de la comunidad",
