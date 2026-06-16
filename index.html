@@ -12,19 +12,45 @@ html,body{margin:0;background:#0B141A;color:#F4EFE4;font-family:system-ui,sans-s
 #boot .ball{width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff,#cfd9dd 70%);animation:b 1s ease-in-out infinite alternate}
 @keyframes b{from{transform:translateY(0)}to{transform:translateY(-14px)}}
 #booterr{display:none;padding:22px;color:#FF8A8A;white-space:pre-wrap;font-size:13px}
-/* worldwide translate widget — neutralize Google's banner, keep our layout */
+/* Native, branded language picker. The translation engine works invisibly
+   underneath (hidden #xlate + googtrans cookie); the user only sees OUR pill. */
 .goog-te-banner-frame,.goog-te-gadget-icon,.skiptranslate iframe{display:none!important}
 body{top:0!important}
-#xlate{position:fixed;top:8px;right:10px;z-index:99999;background:rgba(19,34,43,.92);border:1px solid rgba(244,239,228,.18);border-radius:999px;padding:3px 8px;font-size:12px;backdrop-filter:blur(8px)}
-#xlate .goog-te-gadget{color:#8AA0AB;font-size:0}
-#xlate .goog-te-gadget .goog-te-combo{color:#F4EFE4;background:transparent;border:none;font-family:system-ui,sans-serif;font-size:12px;padding:2px}
-#xlate .goog-te-combo option{color:#111}
+#xlate{position:absolute;left:-9999px;top:-9999px;height:0;overflow:hidden}
+#hbLang{position:fixed;top:8px;right:10px;z-index:99999;background:rgba(19,34,43,.92);border:1px solid rgba(244,239,228,.18);border-radius:999px;padding:5px 10px;font-size:12px;color:#F4EFE4;font-family:system-ui,sans-serif;backdrop-filter:blur(8px);cursor:pointer}
+#hbLang option{color:#111;background:#fff}
 </style>
 </head>
 <body>
-<div id="xlate" title="🌐 Idioma / Language"></div>
+<select id="hbLang" title="🌐 Idioma / Language" aria-label="Idioma / Language">
+<option value="es">🌐 Español</option>
+<option value="en">🇺🇸 English</option>
+<option value="ht">🇭🇹 Kreyòl</option>
+<option value="pt">🇧🇷 Português</option>
+<option value="fr">🇫🇷 Français</option>
+<option value="it">🇮🇹 Italiano</option>
+<option value="de">🇩🇪 Deutsch</option>
+<option value="zh-CN">🇨🇳 中文</option>
+<option value="ru">🇷🇺 Русский</option>
+<option value="ar">🇸🇦 العربية</option>
+</select>
+<div id="xlate"></div>
 <script>
 function googleTranslateElementInit(){try{new google.translate.TranslateElement({pageLanguage:"es",autoDisplay:false},"xlate");}catch(e){}}
+(function(){
+  function curLang(){ var m=document.cookie.match(/googtrans=\/[a-z-]+\/([a-zA-Z-]+)/); return m?m[1]:"es"; }
+  function setLang(lang){
+    if(!lang||lang==="es"){ document.cookie="googtrans=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT"; }
+    else { document.cookie="googtrans=/es/"+lang+";path=/;max-age=31536000"; }
+    location.reload();
+  }
+  function init(){
+    var sel=document.getElementById("hbLang"); if(!sel) return;
+    try{ sel.value=curLang(); }catch(e){}
+    sel.addEventListener("change",function(){ setLang(this.value); });
+  }
+  if(document.readyState!=="loading") init(); else document.addEventListener("DOMContentLoaded",init);
+})();
 </script>
 <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 <div id="root">
