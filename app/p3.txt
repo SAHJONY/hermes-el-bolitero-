@@ -1196,19 +1196,32 @@ function Logo({size=40}){
 
 /* ============================ PLANES ============================ */
 const PLANES=[
-  {id:"miembro",nombre:"MIEMBRO",precio:"$19.99",monto:"19.99",per:"/mes",gold:false,feats:[
-    "Señal EN VIVO · 4 tiros diarios",
-    "10 formas de jugar: Bolita, Cash 3, Play 4, Quiniela y más",
-    "Estadísticas: calientes, fríos y atrasados",
-    "Charada 1–100 + intérprete de sueños IA",
+  {id:"gratis",nombre:"GRATIS",precio:"$0",monto:"0",per:"",gold:false,feats:[
+    "Resultados del día en vivo",
+    "Charada 1–100",
+    "Estadísticas básicas",
     "Foro de la comunidad",
   ]},
-  {id:"vip",nombre:"VIP CORONA 👑",precio:"$39.99",monto:"39.99",per:"/mes",gold:true,feats:[
+  {id:"miembro",nombre:"MIEMBRO",precio:"$7.99",monto:"7.99",per:"/mes",gold:false,feats:[
+    "Todo lo Gratis",
+    "Hermes — tu agente IA personal",
+    "10 formas de jugar: Bolita, Cash 3, Play 4, Quiniela y más",
+    "Charada + intérprete de sueños IA",
+    "Alertas básicas de resultados",
+  ]},
+  {id:"vip",nombre:"VIP CORONA 👑",precio:"$19.99",monto:"19.99",per:"/mes",gold:true,feats:[
     "Todo lo de Miembro",
     "Hermes ilimitado — tu agente personal",
     "Estudio de arte IA de tu número",
-    "Alerta por llamada y email cuando cae el tiro",
+    "Alerta por llamada, email y Telegram",
     "Acceso prioritario a nuevas funciones",
+  ]},
+  {id:"sucursal",nombre:"SUCURSAL · BANCA 🏦",precio:"$49.99",monto:"49.99",per:"/mes",gold:false,feats:[
+    "Todo lo de VIP Corona",
+    "Tu propia sucursal en el Banco Central",
+    "Reparte monedas a tus jugadores",
+    "Ganas comisión de cada jugada virtual",
+    "Apareces en el ranking de bancas 🏛️",
   ]},
 ];
 function Planes({payLinks,onBack}){
@@ -1246,6 +1259,11 @@ function Planes({payLinks,onBack}){
                 ))}
               </ul>
               {(()=>{
+                if(Number(p.monto)===0) return (
+                  <div className="card" style={{textAlign:"center",fontSize:13,color:T.teal,background:T.bg,fontWeight:700}}>
+                    🎉 Plan gratuito — pídele tu código gratis al administrador y entra ya.
+                  </div>
+                );
                 const stripe=p.stripe||payLinks?.[p.id];
                 const pp=payLinks?.paypal? (payLinks.paypal.replace(/\/+$/,"")+"/"+p.monto+"USD") : null;
                 const ca=payLinks?.cashtag? ("https://cash.app/$"+payLinks.cashtag.replace(/^\$/,"")+"/"+p.monto) : null;
