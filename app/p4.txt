@@ -380,10 +380,13 @@ function Gate({onEnter}){
     await sSet("session",{ok:true,admin:true},false);
     onEnter(true);
   };
+  // Acceso de admin OCULTO: toca el logo 5 veces seguidas (rápido) para revelar el PIN.
+  const tapRef=useRef({n:0,t:0});
+  const tapLogo=()=>{ const now=Date.now(); const r=tapRef.current; r.n=(now-r.t<1500)?r.n+1:1; r.t=now; if(r.n>=5){ r.n=0; setStage("adminpin"); setVal(""); setErr(""); } };
   if(stage==="loading") return <GateShell><div style={{color:T.dim}}>Cargando…</div></GateShell>;
   if(stage==="planes") return <Planes payLinks={payLinks} onBack={()=>setStage("code")}/>;
   return (
-    <GateShell>
+    <GateShell onLogo={tapLogo}>
       {stage==="newadmin"&&(<>
         <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Bienvenido, dueño 👑</div>
         <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Eres el primero en entrar. Crea tu PIN de administrador — solo tú controlarás quién accede.</p>
@@ -396,7 +399,6 @@ function Gate({onEnter}){
         <input className="input" placeholder="CÓDIGO" value={val} onChange={e=>setVal(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&enterMember()} style={{textTransform:"uppercase",letterSpacing:"0.15em",textAlign:"center",fontFamily:"IBM Plex Mono"}}/>
         <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={enterMember}>Entrar</button>
         <button className="btn ghost" style={{width:"100%",marginTop:10}} onClick={()=>setStage("planes")}>Ver planes · desde $0</button>
-        <button className="chip" style={{marginTop:14}} onClick={()=>{setStage("adminpin");setVal("");setErr("");}}>👑 Soy el administrador</button>
       </>)}
       {stage==="setpin"&&(<>
         <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Crea tu PIN privado 🔒</div>
@@ -422,11 +424,11 @@ function Gate({onEnter}){
     </GateShell>
   );
 }
-const GateShell=({children})=>(
+const GateShell=({children,onLogo})=>(
   <div className="bol-app" style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
     <style>{FONT_CSS}</style>
     <div className="card fade-in" style={{width:"100%",maxWidth:360,textAlign:"center",padding:"28px 22px"}}>
-      <div style={{display:"flex",justifyContent:"center",marginBottom:14}}><Logo size={72}/></div>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:14,cursor:"pointer"}} onClick={onLogo}><Logo size={72}/></div>
       <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><Wordmark size={1.2} center/></div>
       <a href="https://www.hermeselbolitero.com" target="_blank" rel="noreferrer" style={{display:"block",textAlign:"center",marginBottom:18,fontSize:12,letterSpacing:"0.16em",color:T.mango,textDecoration:"none",fontWeight:700}}>www.hermeselbolitero.com</a>
       {children}
