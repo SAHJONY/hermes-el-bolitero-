@@ -1,13 +1,13 @@
-// /api/numeros-oficial — Resultados OFICIALES y verificables.
-// Combina DOS fuentes oficiales y las normaliza al formato bolitero
-// { draws:[{board,date,session,pick3,pick4,quiniela?}], realBoards, source }:
+// /api/numeros-oficial — Resultados OFICIALES y verificables vía magayo Lottery Data API.
+// Variable en Vercel: MAGAYO_API_KEY (tu clave de magayo.com/lottery-feeds/lottery-data-api)
+// Devuelve: { draws:[{board,date,session,pick3,pick4,quiniela}], realBoards, source, ts, cached }
 //
-//   1) New York  → GRATIS, sin clave (data.ny.gov: Daily Numbers + Win 4).
-//   2) magayo    → requiere MAGAYO_API_KEY (cubre FL, GA, IL, TX, NY, PR, RD…).
-//
-// Importante: ya NO falla con 500 cuando falta la clave de magayo — devuelve al
-// menos los números reales y gratis de New York, y el resto cae a demo/IA en el
-// cliente. Pon MAGAYO_API_KEY en Vercel para activar todos los demás tableros.
+// CACHÉ DE 30 MINUTOS: para no agotar tu plan de magayo. Los resultados se guardan en
+// tu mismo almacén (/api/db). Si llega otra visita dentro de 30 min, se sirve lo guardado
+// SIN llamar a magayo. Así magayo se consulta máximo ~48 veces al día, no por cada usuario.
+
+const CACHE_KEY = "cache:numeros-oficial";
+const CACHE_MIN = 30; // minutos de frescura
 
 const MAP = [
   // board "labolita": 4 tiros armados desde sorteos oficiales reales
@@ -25,7 +25,7 @@ const MAP = [
   { board:"georgia",  session:"Mediodía", p3:"us_ga_cash3_mid", p4:"us_ga_cash4_mid" },
   { board:"georgia",  session:"Tarde",    p3:"us_ga_cash3_eve", p4:"us_ga_cash4_eve" },
   { board:"georgia",  session:"Noche",    p3:"us_ga_cash3_night", p4:"us_ga_cash4_night" },
-  // New York (también lo cubre el feed gratis; magayo queda como respaldo)
+  // New York
   { board:"newyork",  session:"Mediodía", p3:"us_ny_numbers_mid", p4:"us_ny_win4_mid" },
   { board:"newyork",  session:"Noche",    p3:"us_ny_numbers_eve", p4:"us_ny_win4_eve" },
   // Puerto Rico (Lotería Electrónica) — Pega 3 + Pega 4, mediodía y noche
@@ -35,44 +35,48 @@ const MAP = [
   { board:"rd", session:"Noche",    p3:"do_pega3", p4:"do_pega3" },
 ];
 
-const dkey = (d) => `${d.board}|${d.date}|${d.session}`;
-
-// 1) New York Daily Numbers + Win 4 — datos oficiales abiertos, GRATIS, sin clave.
-async function fetchNewYorkFree() {
-  try {
-    const url = "https://data.ny.gov/resource/hsys-3def.json?$limit=6&$order=draw_date%20DESC";
-    const r = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!r.ok) return [];
-    const rows = await r.json();
-    const p3 = (v) => String(v).padStart(3, "0").slice(-3);
-    const p4 = (v) => String(v).padStart(4, "0").slice(-4);
-    const out = [];
-    for (const row of rows || []) {
-      const date = String(row.draw_date || "").slice(0, 10);
-      if (!date) continue;
-      if (row.midday_daily) out.push({ board:"newyork", date, session:"Mediodía", pick3:p3(row.midday_daily), pick4:p4(row.midday_win_4||""), quiniela:[p3(row.midday_daily).slice(-2)] });
-      if (row.evening_daily) out.push({ board:"newyork", date, session:"Noche", pick3:p3(row.evening_daily), pick4:p4(row.evening_win_4||""), quiniela:[p3(row.evening_daily).slice(-2)] });
-    }
-    return out;
-  } catch { return []; }
-}
-
-// 2) magayo — un juego a la vez. results: premios separados por coma (1ro,2do,3ro).
 async function fetchGame(key, game){
   try{
-    const r = await fetch(`https://www.magayo.com/api/results.php?api_key=${encodeURIComponent(key)}&game=${encodeURIComponent(game)}`);
+    const r = await fetch(`https://www.magayo.com/api/results.php?api_key=${key}&game=${game}`);
     const d = await r.json();
     if(d.error && d.error !== 0) return null;
+    // results: top prize first, comma-separated. Pick3="123", Pick4="1234".
+    // Para quinielas con varios premios vienen "p1,p2,p3" (1ro,2do,3ro).
     const parts = String(d.results||"").split(",").map(x=>x.trim()).filter(Boolean);
     return { draw: d.draw, value: parts[0]||"", positions: parts };
   }catch(e){ return null; }
 }
 
-async function fetchMagayo(key){
+// ---- Caché vía tu propio /api/db (mismo almacén que ya usas) ----
+function selfBase(req){
+  const proto = (req.headers["x-forwarded-proto"]||"https").split(",")[0];
+  const host  = req.headers["x-forwarded-host"] || req.headers.host;
+  return `${proto}://${host}`;
+}
+async function cacheGet(req){
+  try{
+    const r = await fetch(selfBase(req)+"/api/db",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({op:"get",key:CACHE_KEY,shared:true})});
+    const d = await r.json().catch(()=>({}));
+    const v = d && (d.value!==undefined ? d.value : d.result);
+    if(!v) return null;
+    return typeof v === "string" ? JSON.parse(v) : v;
+  }catch(e){ return null; }
+}
+async function cacheSet(req,payload){
+  try{
+    await fetch(selfBase(req)+"/api/db",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({op:"set",key:CACHE_KEY,shared:true,value:JSON.stringify(payload)})});
+  }catch(e){}
+}
+
+async function buildFresh(key){
+  // de-duplicate the game codes we need, fetch each once
   const codes = new Set();
   MAP.forEach(m => { codes.add(m.p3); codes.add(m.p4); });
   const cache = {};
   await Promise.all([...codes].map(async g => { cache[g] = await fetchGame(key, g); }));
+
   const draws = [];
   for (const m of MAP) {
     const a = cache[m.p3], b = cache[m.p4];
@@ -86,71 +90,46 @@ async function fetchMagayo(key){
       session: m.session,
       pick3: a.value.padStart(3,"0").slice(-3),
       pick4: b.value.padStart(4,"0").slice(-4),
-      quiniela,
+      quiniela, // [1ro,2do,3ro] de 2 cifras cuando el feed los entrega
     });
   }
-  return draws;
+  const realBoards = Array.from(new Set(draws.map(d => d.board)));
+  return { draws, realBoards, source: "magayo-official", ts: Date.now() };
 }
 
 module.exports = async (req, res) => {
-  if (req.method !== "POST" && req.method !== "GET") { res.status(405).json({ error: "POST or GET only" }); return; }
+  if (req.method !== "POST") { res.status(405).json({ error: "POST only" }); return; }
+  const key = process.env.MAGAYO_API_KEY;
+  if (!key) { res.status(500).json({ error: "no-magayo-key" }); return; }
+
+  // Permite forzar refresco desde el panel del dueño: { force:true }
+  let force = false;
+  try{ force = !!(req.body && (typeof req.body==="object"? req.body.force : JSON.parse(req.body||"{}").force)); }catch(e){}
+
   try {
-    const key = process.env.MAGAYO_API_KEY;
-
-    // Diagnóstico para VERIFICAR/limpiar los códigos de magayo sin exponer la
-    // clave: GET /api/numeros-oficial → lista cada código y si trae datos.
-    // (La app usa POST para los números; GET es solo diagnóstico.)
-    if (req.method === "GET") {
-      const ny0 = await fetchNewYorkFree();
-      // Probe just 2 codes and surface magayo's RAW response (error code + msg)
-      // so we know WHY it fails (bad key / quota / invalid game) — costs ~2 of
-      // the monthly request quota instead of scanning all 25.
-      let probes = [];
-      if (key) {
-        const probeCodes = ["us_fl_cash3_mid", "us_ny_numbers_mid"];
-        probes = await Promise.all(probeCodes.map(async c => {
-          try {
-            const rr = await fetch(`https://www.magayo.com/api/results.php?api_key=${encodeURIComponent(key)}&game=${encodeURIComponent(c)}`);
-            const body = await rr.text();
-            return { code: c, httpStatus: rr.status, body: body.slice(0, 300) };
-          } catch (e) { return { code: c, error: String((e && e.message) || e) }; }
-        }));
+    // 1) Intentar servir desde caché si está fresco (< 30 min) y no se forzó refresco
+    if(!force){
+      const cached = await cacheGet(req);
+      if(cached && cached.ts && (Date.now()-cached.ts) < CACHE_MIN*60*1000 && Array.isArray(cached.draws) && cached.draws.length){
+        res.status(200).json({ ...cached, cached:true, ageMin: Math.round((Date.now()-cached.ts)/60000) });
+        return;
       }
-      res.setHeader("Cache-Control", "no-store");
-      res.status(200).json({
-        magayoConfigured: !!key,
-        keyLength: key ? key.length : 0,
-        ny: { ok: ny0.length > 0, draws: ny0.length },
-        probes,
-        ts: Date.now(),
-      });
-      return;
     }
-
-    // New York es gratis y siempre se intenta; magayo solo si hay clave.
-    const [ny, magayo] = await Promise.all([
-      fetchNewYorkFree(),
-      key ? fetchMagayo(key).catch(() => []) : Promise.resolve([]),
-    ]);
-
-    // Merge: NY (gratis, autoritativo para newyork) tiene prioridad; magayo
-    // rellena el resto. Dedupe por board|date|session.
-    const byKey = new Map();
-    for (const d of magayo) byKey.set(dkey(d), d);
-    for (const d of ny) byKey.set(dkey(d), d); // NY pisa a magayo en newyork
-    const draws = [...byKey.values()];
-
-    const realBoards = Array.from(new Set(draws.map(d => d.board)));
-    const sources = [ny.length && "ny-open-data", magayo.length && "magayo"].filter(Boolean);
-    res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=600");
-    res.status(200).json({
-      draws,
-      realBoards,
-      source: sources.join("+") || "none",
-      magayoConfigured: !!key,
-      ts: Date.now(),
-    });
+    // 2) Caché viejo o vacío → llamar a magayo una sola vez y guardar
+    const fresh = await buildFresh(key);
+    if(fresh.draws.length){ await cacheSet(req, fresh); }
+    else {
+      // Si magayo no devolvió nada (límite/red), servir el último caché aunque esté viejo.
+      const stale = await cacheGet(req);
+      if(stale && Array.isArray(stale.draws) && stale.draws.length){
+        res.status(200).json({ ...stale, cached:true, stale:true, ageMin: Math.round((Date.now()-(stale.ts||0))/60000) });
+        return;
+      }
+    }
+    res.status(200).json({ ...fresh, cached:false });
   } catch (e) {
-    res.status(500).json({ error: "numeros_oficial_failed", detail: String((e && e.message) || e) });
+    // Último recurso: intentar caché viejo
+    try{ const stale = await cacheGet(req); if(stale && stale.draws){ res.status(200).json({ ...stale, cached:true, stale:true }); return; } }catch(e2){}
+    res.status(500).json({ error: "numeros_oficial_failed", detail: String(e) });
   }
 };
