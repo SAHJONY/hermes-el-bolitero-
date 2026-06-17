@@ -80,7 +80,7 @@ function TabAlertas(){
       const tel=f.tel.trim().replace(/[^\d+]/g,"");
       try{
         setEstado("✔ Inscrito. Hermes te está llamando para darte la bienvenida… 📞");
-        const r=await fetch("/api/call-result",{method:"POST",headers:{"Content-Type":"application/json"},
+        const r=await fetch("/api/broadcast?ch=call",{method:"POST",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({tipo:"welcome",phone:tel,nombre:f.nombre.trim()})});
         const d=await r.json().catch(()=>({}));
         if(d&&d.ok) setEstado("✔ ¡Bienvenido! Hermes te está llamando ahora. 📞 Cuando caiga tu número, te avisa.");

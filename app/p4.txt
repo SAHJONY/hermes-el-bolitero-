@@ -773,7 +773,7 @@ function AlertasAdmin(){
       {msg&&<div style={{color:T.teal,fontSize:12,marginBottom:10}}>{msg}</div>}
       <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
         El botón 📣 Enviar push llega a la pantalla del celular aunque la app esté cerrada. Para llamadas, correo y Telegram tu backend llama a
-        <b> /api/call-result</b>, <b>/api/email-result</b> y <b>/api/telegram-result</b> cuando cae el número.
+        <b> /api/broadcast?ch=call</b>, <b>?ch=email</b> y <b>?ch=telegram</b> cuando cae el número.
       </div>
     </div>
   );
