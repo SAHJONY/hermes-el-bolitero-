@@ -37,7 +37,7 @@ async function deleteAccount(){
 /* ---------- Monedas virtuales (entretenimiento) + saldo en tiempo real ----------
    Saldo de juego en MONEDAS virtuales (no dinero real). Se guarda por cuenta y
    se refleja al instante; se replica al store compartido (bal:<alias>) para el
-   seguimiento global del saldo de la app vía /api/balance.
+   seguimiento global del saldo de la app vía /api/db (op:"balance").
    La CONFIGURACIÓN (saldo inicial, bono, multiplicadores, on/off) la controla el
    dueño desde el panel 👑 → 🪙 Monedas y se guarda en el store compartido
    "coins:config" para que aplique a TODOS los usuarios.                          */
@@ -702,7 +702,7 @@ function AlertasAdmin(){
     if(!pushSecret.trim()){ setPushResult({ok:false,error:"Necesitas el RESULTS_API_SECRET de Vercel para enviar push."}); return; }
     setPushLoading(true); setPushResult(null);
     try{
-      const r=await fetch("/api/push-send",{method:"POST",headers:{"Content-Type":"application/json","x-results-secret":pushSecret.trim()},
+      const r=await fetch("/api/push?action=send",{method:"POST",headers:{"Content-Type":"application/json","x-results-secret":pushSecret.trim()},
         body:JSON.stringify({title:pushMsg.title||"HERMES EL BOLITERO",body:pushMsg.body,url:pushMsg.url||"https://www.hermeselbolitero.com",tag:"hb-manual"})});
       const d=await r.json().catch(()=>({}));
       setPushResult(d);

@@ -130,6 +130,19 @@ module.exports = async (req, res) => {
     if (op === "list") return res.status(200).json({ configured: true, keys: await store.list(b.prefix || "") });
     if (op === "ping") return res.status(200).json({ configured: true, backend: be });
 
+    // ----- App-wide virtual-coin total (folded in from /api/balance) -----
+    // Sums wallet:* balances for the admin economy dashboard. Never throws.
+    if (op === "balance") {
+      const keys = await store.list("wallet:");
+      let total = 0;
+      for (const k of keys) {
+        const raw = await store.get(k);
+        if (!raw) continue;
+        try { total += JSON.parse(raw).bal || 0; } catch { /* skip */ }
+      }
+      return res.status(200).json({ configured: true, accounts: keys.length, totalCoins: Math.round(total), ts: Date.now() });
+    }
+
     // Ranking ANTI-TRAMPA: derivado de los saldos reales del servidor (wallet:<alias>).
     if (op === "wallet.top") {
       const keys = await store.list("wallet:");
