@@ -1,9 +1,63 @@
+/* VAPID public key — safe to expose in client code; only the private key (Vercel env) is secret */
+var VAPID_PUB="BKZAI9M64qbMQxXmn3BNUBFAwpcmbecS_g16PeshSUOV3j8yVf3t_p0NZDONctwpVpbg6znKl6OkfZ7fWaA-NJs";
+
+function usePushSubscription(){
+  const [status,setStatus]=useState("idle"); // idle|checking|subscribed|denied|unsupported
+  const [loading,setLoading]=useState(false);
+
+  useEffect(()=>{(async()=>{
+    setStatus("checking");
+    if(!("serviceWorker" in navigator)||!("PushManager" in window)){ setStatus("unsupported"); return; }
+    try{
+      const reg=await navigator.serviceWorker.register("/sw.js");
+      const existing=await reg.pushManager.getSubscription();
+      setStatus(existing?"subscribed":"idle");
+    }catch{ setStatus("idle"); }
+  })();},[]);
+
+  const subscribe=async()=>{
+    if(loading) return;
+    setLoading(true);
+    try{
+      if(!("serviceWorker" in navigator)||!("PushManager" in window)){ setStatus("unsupported"); return; }
+      const perm=await Notification.requestPermission();
+      if(perm!=="granted"){ setStatus("denied"); return; }
+      const reg=await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(VAPID_PUB)});
+      await fetch("/api/push-subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({subscription:sub.toJSON()})});
+      setStatus("subscribed");
+    }catch(e){ console.error("push subscribe",e); setStatus("idle"); }
+    finally{ setLoading(false); }
+  };
+
+  const unsubscribe=async()=>{
+    setLoading(true);
+    try{
+      const reg=await navigator.serviceWorker.getRegistration("/sw.js");
+      if(reg){ const sub=await reg.pushManager.getSubscription(); if(sub){ await fetch("/api/push-subscribe",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:sub.endpoint})}); await sub.unsubscribe(); } }
+      setStatus("idle");
+    }catch(e){ console.error("push unsubscribe",e); }
+    finally{ setLoading(false); }
+  };
+
+  return {status,loading,subscribe,unsubscribe};
+}
+
+function urlBase64ToUint8Array(b64){
+  const pad=b64.length%4===0?"":("====").slice(0,4-b64.length%4);
+  const raw=atob((b64+pad).replace(/-/g,"+").replace(/_/g,"/"));
+  return new Uint8Array([...raw].map(c=>c.charCodeAt(0)));
+}
+
 function TabAlertas(){
   const TIROS=["Mañana","Mediodía","Tarde","Noche"];
   const [f,setF]=useState({nombre:"",tel:"",email:"",voz:true,mail:true,tg:true,tiros:{Mañana:false,"Mediodía":true,Tarde:false,Noche:true},activo:true});
   const [estado,setEstado]=useState("");
   const [yaInscrito,setYa]=useState(false);
   const [tgLink,setTgLink]=useState("");
+  const push=usePushSubscription();
+
   useEffect(()=>{(async()=>{
     const mine=await sGet("alerta:mine",false);
     if(mine){ setF(x=>({...x,...mine.data})); setYa(true); }
@@ -22,7 +76,6 @@ function TabAlertas(){
     const eraNuevo=!yaInscrito;
     setYa(true);
     setEstado(ok?"✔ Inscrito. Cuando caiga el número, Hermes te avisa.":"No se pudo guardar — intenta de nuevo.");
-    // Llamada de bienvenida: solo en la primera inscripción, si pidió llamada.
     if(ok && eraNuevo && f.voz && f.tel.trim()){
       const tel=f.tel.trim().replace(/[^\d+]/g,"");
       try{
@@ -41,8 +94,43 @@ function TabAlertas(){
     try{ await window.storage.delete("alerta:mine"); }catch{}
     setYa(false); setEstado("Te diste de baja de las alertas.");
   };
+
+  const pushLabel=push.status==="subscribed"?"📱 Notificaciones activas en este dispositivo":
+    push.status==="denied"?"🚫 Notificaciones bloqueadas — actívalas en ajustes del navegador":
+    push.status==="unsupported"?"⚠️ Tu navegador no soporta notificaciones push":
+    push.status==="checking"?"…":
+    "📱 Activar notificaciones en este dispositivo";
+  const pushColor=push.status==="subscribed"?T.teal:push.status==="denied"?T.coral:T.gold;
+
   return (
     <div className="fade-in">
+      {/* Web Push — instant device notifications */}
+      {push.status!=="unsupported"&&(
+        <div className="card" style={{marginBottom:12,display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{fontWeight:700,fontSize:14,color:T.gold}}>📲 Notificaciones instantáneas</div>
+          <div style={{fontSize:12,color:T.dim,lineHeight:1.5}}>
+            Recibe el número en la pantalla de tu celular o PC en el momento que Hermes lo canta — sin abrir la app.
+          </div>
+          {push.status==="subscribed"?(
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <div style={{fontSize:13,color:T.teal,fontWeight:600}}>✔ Notificaciones activas en este dispositivo</div>
+              <button className="btn ghost" disabled={push.loading} onClick={push.unsubscribe} style={{fontSize:12}}>
+                {push.loading?"…":"Desactivar notificaciones"}
+              </button>
+            </div>
+          ):(
+            <button className="btn primary" disabled={push.loading||push.status==="denied"||push.status==="checking"} onClick={push.subscribe}>
+              {push.loading?"Activando…":push.status==="denied"?"🚫 Bloqueado — activa en ajustes":"🔔 Activar notificaciones del celular"}
+            </button>
+          )}
+          {push.status==="denied"&&(
+            <div style={{fontSize:11,color:T.coral}}>
+              Bloqueaste los permisos. Ve a Ajustes del navegador → Notificaciones → Permitir para este sitio.
+            </div>
+          )}
+        </div>
+      )}
+
       <Section title="Alertas de Hermes 🔔" sub="Cuando caiga el número, Hermes te llama, te escribe al correo o lo canta en el grupo de Telegram">
         <div className="card" style={{display:"grid",gap:10}}>
           <input className="input" placeholder="Tu nombre" value={f.nombre} onChange={e=>setF({...f,nombre:e.target.value})}/>

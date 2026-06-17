@@ -682,6 +682,11 @@ function AlertasAdmin(){
   const [subs,setSubs]=useState(null);
   const [msg,setMsg]=useState("");
   const [tg,setTg]=useState("");
+  const [pushMsg,setPushMsg]=useState({title:"HERMES EL BOLITERO",body:"",url:"https://www.hermeselbolitero.com"});
+  const [pushSecret,setPushSecret]=useState("");
+  const [pushResult,setPushResult]=useState(null);
+  const [pushLoading,setPushLoading]=useState(false);
+
   useEffect(()=>{(async()=>{ const t=await sGet("canal:telegram",true); if(t) setTg(t); })();},[]);
   const saveTg=async()=>{ setMsg((await sSet("canal:telegram",tg.trim(),true))?"Link de Telegram publicado en Alertas de los miembros. OK":"No se pudo guardar."); };
   const load=async()=>setSubs(await sGet("alertas:subs",true)||{});
@@ -691,9 +696,51 @@ function AlertasAdmin(){
     const rows=Object.values(subs||{}).map(s=>`${s.nombre||"—"}, ${s.tel||"—"}, ${s.email||"—"}, [${Object.entries(s.tiros||{}).filter(([,v])=>v).map(([k])=>k).join(" ")}], ${s.voz?"voz":""}${s.voz&&s.mail?"+":""}${s.mail?"email":""}`).join("\n");
     try{ await navigator.clipboard.writeText(rows); setMsg("Lista copiada — pégala en tu backend o en una hoja."); }catch{ setMsg("No se pudo copiar automáticamente."); }
   };
+
+  const sendPush=async()=>{
+    if(!pushMsg.body.trim()){ setPushResult({ok:false,error:"Escribe el mensaje antes de enviar."}); return; }
+    if(!pushSecret.trim()){ setPushResult({ok:false,error:"Necesitas el RESULTS_API_SECRET de Vercel para enviar push."}); return; }
+    setPushLoading(true); setPushResult(null);
+    try{
+      const r=await fetch("/api/push-send",{method:"POST",headers:{"Content-Type":"application/json","x-results-secret":pushSecret.trim()},
+        body:JSON.stringify({title:pushMsg.title||"HERMES EL BOLITERO",body:pushMsg.body,url:pushMsg.url||"https://www.hermeselbolitero.com",tag:"hb-manual"})});
+      const d=await r.json().catch(()=>({}));
+      setPushResult(d);
+    }catch(e){ setPushResult({ok:false,error:String(e.message||e)}); }
+    finally{ setPushLoading(false); }
+  };
+
   const n=subs?Object.keys(subs).length:0;
   return (
     <div>
+      {/* ── Push Broadcast ── */}
+      <Section title="📲 Enviar notificación push" sub="Llega a la pantalla de TODOS los dispositivos suscritos — sin que abran la app">
+        <div className="card" style={{display:"grid",gap:10}}>
+          <input className="input" placeholder="Título (ej: ¡Cayó el número de la tarde!)" value={pushMsg.title}
+            onChange={e=>setPushMsg({...pushMsg,title:e.target.value})}/>
+          <textarea className="input" rows={3} placeholder="Mensaje corto — el número, la jugada, el aviso…"
+            style={{resize:"vertical",fontFamily:"inherit"}} value={pushMsg.body}
+            onChange={e=>setPushMsg({...pushMsg,body:e.target.value})}/>
+          <input className="input mono" placeholder="URL de destino (opcional)" value={pushMsg.url}
+            onChange={e=>setPushMsg({...pushMsg,url:e.target.value})}/>
+          <input className="input mono" type="password" placeholder="RESULTS_API_SECRET (solo tú lo sabes)"
+            value={pushSecret} onChange={e=>setPushSecret(e.target.value)}/>
+          <button className="btn primary" disabled={pushLoading} onClick={sendPush}>
+            {pushLoading?"Enviando…":"📣 Enviar push a todos los dispositivos"}
+          </button>
+          {pushResult&&(
+            <div style={{fontSize:12,color:pushResult.ok?T.teal:T.coral,lineHeight:1.5}}>
+              {pushResult.ok
+                ?`✔ Enviado: ${pushResult.sent} de ${pushResult.total} dispositivos${pushResult.removed>0?" · "+pushResult.removed+" expirados eliminados":""}`
+                :`✕ ${pushResult.error||JSON.stringify(pushResult)}`}
+            </div>
+          )}
+          <div style={{fontSize:11,color:T.dim}}>
+            Los suscriptores activos aparecen con 📱 activo en Alertas. El secret vive en Vercel → Environment Variables → RESULTS_API_SECRET.
+          </div>
+        </div>
+      </Section>
+
       <Section title="Canal oficial · Telegram" sub="El grupo HERMES EL BOLITERO donde se cantan los números">
         <div className="card" style={{display:"flex",gap:8}}>
           <input className="input mono" style={{fontSize:12}} placeholder="https://t.me/+TuGrupoInvite" value={tg} onChange={e=>setTg(e.target.value)}/>
@@ -725,10 +772,8 @@ function AlertasAdmin(){
       </Section>
       {msg&&<div style={{color:T.teal,fontSize:12,marginBottom:10}}>{msg}</div>}
       <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
-        Tu backend lee esta lista y dispara <b>/api/call-result</b> (voz), <b>/api/email-result</b>
-        (desde hermeselbolitero@outlook.com) y <b>/api/telegram-result</b> (canta el número en el grupo)
-        cuando se publica cada tiro. En Vercel: un Cron Job cada 5 min que compara el último
-        resultado con el último avisado y llama a los inscritos del tiro correspondiente.
+        El botón 📣 Enviar push llega a la pantalla del celular aunque la app esté cerrada. Para llamadas, correo y Telegram tu backend llama a
+        <b> /api/call-result</b>, <b>/api/email-result</b> y <b>/api/telegram-result</b> cuando cae el número.
       </div>
     </div>
   );
