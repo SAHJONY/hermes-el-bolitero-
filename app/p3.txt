@@ -50,7 +50,24 @@ function usePushSubscription(){
     finally{ setLoading(false); }
   };
 
-  return {status,loading,subscribe,unsubscribe};
+  // Diagnóstico: dispara una notificación LOCAL (sin servidor). Si esta SÍ se ve,
+  // el dispositivo/permiso están bien y el problema sería el envío; si NO se ve,
+  // el bloqueo está en el sistema operativo (Ajustes → Notificaciones / No molestar).
+  const testLocal=async()=>{
+    try{
+      if(Notification.permission!=="granted"){ const p=await Notification.requestPermission(); if(p!=="granted"){ setStatus("denied"); return {ok:false,reason:"perm"}; } }
+      const reg=await navigator.serviceWorker.getRegistration("/sw.js")||await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      await reg.showNotification("HERMES EL BOLITERO 🎰",{
+        body:"¡Prueba local! Si ves esto, tu dispositivo está listo.",
+        icon:"/icon-192.png",badge:"/icon-192.png",tag:"hb-test",renotify:true,
+        data:{url:"https://www.hermeselbolitero.com"}
+      });
+      return {ok:true};
+    }catch(e){ console.error("test local",e); return {ok:false,reason:String(e&&e.message||e)}; }
+  };
+
+  return {status,loading,subscribe,unsubscribe,testLocal};
 }
 
 function urlBase64ToUint8Array(b64){
@@ -65,6 +82,7 @@ function TabAlertas(){
   const [estado,setEstado]=useState("");
   const [yaInscrito,setYa]=useState(false);
   const [tgLink,setTgLink]=useState("");
+  const [testMsg,setTestMsg]=useState("");
   const push=usePushSubscription();
 
   useEffect(()=>{(async()=>{
@@ -130,9 +148,15 @@ function TabAlertas(){
           ):push.status==="subscribed"?(
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
               <div style={{fontSize:13,color:T.teal,fontWeight:600}}>✔ Notificaciones activas en este dispositivo</div>
+              <button className="btn primary" style={{fontSize:13}} onClick={async()=>{
+                const r=await push.testLocal();
+                if(r.ok) setTestMsg("📨 Envié una notificación de prueba. Minimiza la app o mira la barra de notificaciones del sistema. Si NO aparece, el bloqueo está en Ajustes del Sistema → Notificaciones (o 'No molestar').");
+                else setTestMsg("No se pudo mostrar ("+(r.reason||"error")+"). Revisa los permisos del navegador.");
+              }}>🔔 Probarme a mí mismo ahora</button>
               <button className="btn ghost" disabled={push.loading} onClick={push.unsubscribe} style={{fontSize:12}}>
                 {push.loading?"…":"Desactivar notificaciones"}
               </button>
+              {testMsg&&<div style={{fontSize:11,color:T.gold,lineHeight:1.5}}>{testMsg}</div>}
             </div>
           ):(
             <button className="btn primary" disabled={push.loading||push.status==="denied"||push.status==="checking"} onClick={push.subscribe}>
