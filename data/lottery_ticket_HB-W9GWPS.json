@@ -1,0 +1,15 @@
+{
+  "ticket_id": "HB-W9GWPS",
+  "game": "La Bolita – Noche",
+  "draw_date": "2026-06-17",
+  "selected_numbers": ["16","45","89","01","38","98"],
+  "stake_usd": 5.00,
+  "potential_prize_usd": 625.00,
+  "coin_costs": {
+    "Fijo": 375,
+    "Corridos (2)": 250,
+    "Parlé": 5625,
+    "Candado": 10625
+  },
+  "alerts_enabled": true
+}
