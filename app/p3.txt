@@ -1682,15 +1682,16 @@ const PLANES=[
     "Foro de la comunidad",
     "Con anuncios",
   ]},
-  {id:"miembro",nombre:"MIEMBRO",precio:"$7.99",monto:"7.99",per:"/mes",gold:false,feats:[
+  {id:"miembro",nombre:"MIEMBRO",precio:"$3.99",monto:"3.99",per:"/mes",gold:false,feats:[
     "Todo lo Gratis",
     "✨ SIN anuncios",
     "Hermes — tu agente IA personal",
     "10 formas de jugar: Bolita, Cash 3, Play 4, Quiniela y más",
     "Charada + intérprete de sueños IA",
     "Alertas básicas de resultados",
+    "💛 O $29.99/año — ahorra 37%",
   ]},
-  {id:"vip",nombre:"VIP CORONA 👑",precio:"$19.99",monto:"19.99",per:"/mes",gold:true,feats:[
+  {id:"vip",nombre:"VIP CORONA 👑",precio:"$9.99",monto:"9.99",per:"/mes",gold:true,feats:[
     "Todo lo de Miembro",
     "Hermes ilimitado — tu agente personal",
     "Estudio de arte IA de tu número",
