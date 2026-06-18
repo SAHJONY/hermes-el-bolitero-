@@ -752,6 +752,45 @@ function MonedasPage(){
   );
 }
 
+function AnunciosAdmin(){
+  const [cfg,setCfg]=useState(null);
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{ setCfg((await sGet("ads:config",true))||{on:true,client:"",slot:""}); })();},[]);
+  const save=async()=>{ await sSet("ads:config",cfg,true); setMsg("Guardado ✔ — aplica a todos los usuarios gratis."); setTimeout(()=>setMsg(""),3000); };
+  if(!cfg) return <div className="card" style={{color:T.dim}}>Cargando…</div>;
+  const set=(k,v)=>setCfg({...cfg,[k]:v});
+  return (
+    <div>
+      <Section title="Anuncios 📢" sub="Los usuarios GRATIS ven anuncios; los Miembros y pagos NO. Tú controlas todo aquí.">
+        <div className="card" style={{display:"grid",gap:12}}>
+          <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+            <input type="checkbox" checked={cfg.on!==false} onChange={e=>set("on",e.target.checked)} style={{width:18,height:18}}/>
+            <span style={{fontWeight:700}}>Mostrar anuncios a los usuarios gratis</span>
+          </label>
+          <div>
+            <Label>Google AdSense — Client ID</Label>
+            <input className="input mono" placeholder="ca-pub-XXXXXXXXXXXXXXXX" value={cfg.client||""} onChange={e=>set("client",e.target.value.trim())}/>
+          </div>
+          <div>
+            <Label>AdSense — Slot ID</Label>
+            <input className="input mono" placeholder="1234567890" value={cfg.slot||""} onChange={e=>set("slot",e.target.value.trim())}/>
+          </div>
+          <button className="btn primary" onClick={save}>Guardar configuración</button>
+          {msg&&<div style={{fontSize:12,color:T.teal}}>{msg}</div>}
+        </div>
+      </Section>
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
+        <b>¿Cómo activar dinero por anuncios?</b><br/>
+        1. Crea una cuenta gratis en <b>google.com/adsense</b> y agrega tu sitio <b>hermeselbolitero.com</b>.<br/>
+        2. Cuando Google te apruebe, crea un bloque de anuncio "Display" y copia el <b>Client ID</b> (ca-pub-…) y el <b>Slot ID</b>.<br/>
+        3. Pégalos arriba y guarda. Los usuarios gratis empezarán a ver anuncios reales y tú ganas por cada vista.<br/><br/>
+        Mientras no pongas tu código, los usuarios gratis ven <b>avisos de la casa</b> (sube a Miembro / únete a Telegram) — nunca pantallas vacías.
+        Los <b>Miembros, VIP y Bancas nunca ven anuncios</b>.
+      </div>
+    </div>
+  );
+}
+
 function AlertasAdmin(){
   const [subs,setSubs]=useState(null);
   const [msg,setMsg]=useState("");
@@ -1117,7 +1156,7 @@ function TabAdmin(){
         </div>
       </div>
       <div className="scroll-x" style={{marginBottom:14}}>
-        {[["miembros","🎟️ Miembros"],["finanzas","💰 Finanzas"],["monedas","🪙 Monedas y premios"],["sucursales","🏦 Sucursales"],["alertas","🔔 Alertas"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
+        {[["miembros","🎟️ Miembros"],["finanzas","💰 Finanzas"],["monedas","🪙 Monedas y premios"],["sucursales","🏦 Sucursales"],["alertas","🔔 Alertas"],["anuncios","📢 Anuncios"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
           <button key={id} className={"chip"+(view===id?" on":"")} onClick={()=>setView(id)}>{lab}</button>
         ))}
       </div>
@@ -1126,6 +1165,7 @@ function TabAdmin(){
       {view==="monedas"&&<MonedasPage/>}
       {view==="sucursales"&&<SucursalesPage/>}
       {view==="pagos"&&<PagosPage/>}
+      {view==="anuncios"&&<AnunciosAdmin/>}
       {view==="alertas"&&<AlertasAdmin/>}
       {view==="miembros"&&(<>
       <Section title="Códigos de miembros" sub="Crea, desactiva o elimina el acceso — solo tú lo controlas">

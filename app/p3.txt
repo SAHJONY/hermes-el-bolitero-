@@ -1350,6 +1350,67 @@ function InstallButton(){
   return <button className="chip" onClick={install} title="Instalar app" style={{borderColor:"rgba(255,184,56,.45)",color:T.mango,fontWeight:700}}>📲 Instalar</button>;
 }
 
+/* ===== Anuncios — gratis CON anuncios, pagos SIN. Soporta Google AdSense
+   (cuando el dueño pega su código) y, mientras tanto, "avisos de la casa". ===== */
+const HOUSE_ADS=[
+  {emoji:"🚫🔕", title:"Disfruta sin anuncios", text:"Hazte Miembro y quita toda la publicidad + Hermes ilimitado.", cta:"Ver planes", act:"upgrade"},
+  {emoji:"📣", title:"Canal oficial · Telegram", text:"Únete al grupo donde se cantan los números en vivo.", cta:"Unirme", act:"tg"},
+  {emoji:"🤝", title:"Invita y gana monedas", text:"Comparte tu enlace — cada amigo que entra te da 🪙.", cta:"Compartir", act:"invite"},
+];
+function AdSlot({onUpgrade}){
+  const [cfg,setCfg]=useState(null);
+  const [tg,setTg]=useState("");
+  const [link,setLink]=useState("");
+  const [idx]=useState(()=>Math.floor(Math.random()*HOUSE_ADS.length));
+  useEffect(()=>{(async()=>{
+    setCfg((await sGet("ads:config",true))||{});
+    const t=await sGet("canal:telegram",true); if(t) setTg(t);
+    const sess=await sGet("session",false); if(sess&&sess.code) setLink("https://www.hermeselbolitero.com/?ref="+encodeURIComponent(sess.code));
+  })();},[]);
+  useEffect(()=>{
+    if(cfg&&cfg.client&&cfg.slot){
+      try{
+        if(!document.querySelector("script[data-hb-ads]")){
+          const s=document.createElement("script"); s.async=true; s.setAttribute("data-hb-ads","1");
+          s.src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client="+encodeURIComponent(cfg.client);
+          s.crossOrigin="anonymous"; document.head.appendChild(s);
+        }
+        (window.adsbygoogle=window.adsbygoogle||[]).push({});
+      }catch(e){}
+    }
+  },[cfg]);
+  if(!cfg||cfg.on===false) return null;
+  // Anuncio real de AdSense (cuando hay código configurado)
+  if(cfg.client&&cfg.slot){
+    return (
+      <div className="card" style={{padding:8,marginBottom:12,textAlign:"center",overflow:"hidden"}}>
+        <ins className="adsbygoogle" style={{display:"block"}} data-ad-client={cfg.client} data-ad-slot={cfg.slot} data-ad-format="auto" data-full-width-responsive="true"></ins>
+        <div style={{fontSize:9,color:T.dim,marginTop:4,letterSpacing:".1em"}}>PUBLICIDAD</div>
+      </div>
+    );
+  }
+  // Aviso de la casa (mientras no haya código de anuncios)
+  const ad=HOUSE_ADS[idx];
+  const act=async()=>{
+    if(ad.act==="upgrade"&&onUpgrade) onUpgrade();
+    else if(ad.act==="tg"&&tg) window.open(tg,"_blank");
+    else if(ad.act==="invite"){
+      const txt="🎰 HERMES EL BOLITERO — entra gratis con mi enlace:\n"+link;
+      try{ if(navigator.share) await navigator.share({text:txt}); else await navigator.clipboard.writeText(txt); }catch(e){}
+    }
+  };
+  return (
+    <div className="card" style={{marginBottom:12,display:"flex",alignItems:"center",gap:12,border:"1px dashed rgba(255,184,56,.35)"}}>
+      <div style={{fontSize:26}}>{ad.emoji}</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:700,fontSize:14}}>{ad.title}</div>
+        <div style={{fontSize:12,color:T.dim,lineHeight:1.4}}>{ad.text}</div>
+      </div>
+      <button className="chip" style={{whiteSpace:"nowrap",borderColor:"rgba(255,184,56,.5)",color:T.mango,fontWeight:700}} onClick={act}>{ad.cta}</button>
+    </div>
+  );
+}
+
 /* ===== Invitar y ganar — motor de crecimiento de persona a persona ===== */
 function InviteCard(){
   const [link,setLink]=useState("");
@@ -1478,6 +1539,7 @@ function MainApp({admin,onLock}){
             </div>
           )}
         </div>
+        {!memberActive&&<AdSlot onUpgrade={()=>goTab("pago")}/>}
         {tab==="hoy"&&!admin&&<InviteCard/>}
         {tab==="hoy"&&<TabHoy lot={lot} setLot={setLot}/>}
         {tab==="hist"&&<TabHistorial lot={lot}/>}
@@ -1618,9 +1680,11 @@ const PLANES=[
     "Charada 1–100",
     "Estadísticas básicas",
     "Foro de la comunidad",
+    "Con anuncios",
   ]},
   {id:"miembro",nombre:"MIEMBRO",precio:"$7.99",monto:"7.99",per:"/mes",gold:false,feats:[
     "Todo lo Gratis",
+    "✨ SIN anuncios",
     "Hermes — tu agente IA personal",
     "10 formas de jugar: Bolita, Cash 3, Play 4, Quiniela y más",
     "Charada + intérprete de sueños IA",
