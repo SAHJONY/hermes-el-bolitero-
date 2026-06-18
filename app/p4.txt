@@ -348,6 +348,35 @@ function Gate({onEnter}){
     const mp=await sGet("member:pin",false);
     if(mp&&mp.hash){ onEnter(false); } else { setVal(""); setVal2(""); setStage("setpin"); }
   };
+  // Alta GRATIS automática — sin que el dueño intervenga. La app se comparte
+  // de persona a persona: el nuevo usuario se crea su propia cuenta gratis,
+  // se amarra a su dispositivo y, si vino por el enlace de otro miembro (?ref=),
+  // premia a quien lo invitó. Crecimiento 100% autónomo.
+  const signupFree=async()=>{
+    setErr(""); if(!(await guard())) return;
+    const dev=await getDeviceId();
+    const codes=await sGet("members:codes",true)||{};
+    // Si este dispositivo ya tiene una cuenta, reúsala (no duplica)
+    let code=Object.keys(codes).find(k=>codes[k]&&codes[k].boundTo===dev);
+    if(!code){
+      do{ code="HB"+Math.random().toString(36).slice(2,7).toUpperCase(); }while(codes[code]);
+      let ref=""; try{ ref=(new URLSearchParams(location.search).get("ref")||"").toUpperCase().trim(); }catch(e){}
+      if(ref===code) ref="";
+      codes[code]={active:true,plan:"gratis",self:true,boundTo:dev,uses:1,ref,created:Date.now()};
+      await sSet("members:codes",codes,true);
+      // Premio de referido: a quien invitó (si su código existe y está activo)
+      if(ref && codes[ref] && codes[ref].active){
+        try{
+          const bonus=Number(await sGet("ref:bonus",true)); const amt=isNaN(bonus)?100:bonus;
+          if(amt>0) await grantToMember(ref,amt);
+          const rl=(await sGet("ref:list:"+ref,true))||[]; rl.push({code,ts:Date.now()}); await sSet("ref:list:"+ref,rl,true);
+        }catch(e){}
+      }
+    }
+    await sSet("session",{ok:true,admin:false,code},false); await authReset();
+    const mp=await sGet("member:pin",false);
+    if(mp&&mp.hash){ onEnter(false); } else { setVal(""); setVal2(""); setStage("setpin"); }
+  };
   const setMemberPin=async()=>{
     setErr("");
     if(!/^\d{4,6}$/.test(val.trim())){ setErr("Tu PIN debe ser de 4 a 6 dígitos."); return; }
@@ -394,11 +423,15 @@ function Gate({onEnter}){
         <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={createAdmin}>Crear y entrar</button>
       </>)}
       {stage==="code"&&(<>
-        <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Solo miembros 🎟️</div>
-        <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Escribe tu código de acceso.</p>
+        <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Bienvenido a la bolita 🎰</div>
+        <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Entra gratis al instante — o escribe tu código si ya tienes uno.</p>
+        <button className="btn primary" style={{width:"100%",marginBottom:14,background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",fontWeight:800}} onClick={signupFree}>✨ Crear cuenta gratis y entrar</button>
+        <div style={{display:"flex",alignItems:"center",gap:10,margin:"4px 0 12px",color:T.dim,fontSize:11}}>
+          <div style={{flex:1,height:1,background:"rgba(244,239,228,.14)"}}/>¿ya tienes código?<div style={{flex:1,height:1,background:"rgba(244,239,228,.14)"}}/>
+        </div>
         <input className="input" placeholder="CÓDIGO" value={val} onChange={e=>setVal(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&enterMember()} style={{textTransform:"uppercase",letterSpacing:"0.15em",textAlign:"center",fontFamily:"IBM Plex Mono"}}/>
-        <button className="btn primary" style={{width:"100%",marginTop:10}} onClick={enterMember}>Entrar</button>
-        <button className="btn ghost" style={{width:"100%",marginTop:10}} onClick={()=>setStage("planes")}>Ver planes · desde $0</button>
+        <button className="btn ghost" style={{width:"100%",marginTop:10}} onClick={enterMember}>Entrar con código</button>
+        <button className="chip" style={{marginTop:14}} onClick={()=>setStage("planes")}>Ver planes premium · desde $0</button>
       </>)}
       {stage==="setpin"&&(<>
         <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Crea tu PIN privado 🔒</div>

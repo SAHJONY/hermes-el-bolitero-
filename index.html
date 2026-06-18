@@ -27,6 +27,12 @@ html,body{margin:0;background:#0B141A;color:#F4EFE4;font-family:system-ui,sans-s
 <div id="booterr"></div>
 </div>
 <script>
+/* PWA install: capture the browser's install prompt so the React app can
+   show a branded "Instalar app" button (Android/Chrome/Edge). iOS Safari
+   doesn't fire this — there the app guides "Add to Home Screen" manually. */
+window.__hbInstall=null;
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__hbInstall=e;window.dispatchEvent(new Event("hb-can-install"));});
+window.addEventListener("appinstalled",function(){window.__hbInstall=null;window.dispatchEvent(new Event("hb-installed"));});
 function bootErr(m){var e=document.getElementById("booterr"),b=document.getElementById("boot");if(b)b.style.display="none";e.style.display="block";e.textContent="No pude arrancar:\n\n"+m+"\n\nRefresca; si sigue, copia esto al administrador.";}
 window.addEventListener("error",function(e){bootErr(e.message||e.type)},true);
 window.__HB_PROD=true;

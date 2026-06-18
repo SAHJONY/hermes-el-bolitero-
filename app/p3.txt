@@ -1334,6 +1334,63 @@ function TabSuerte({lot}){
     </div>
   );
 }
+/* ===== Botón "Instalar app" (Android/Chrome). En iPhone no aplica: Safari
+   no expone el prompt; allí la app guía "Añadir a pantalla de inicio". ===== */
+function InstallButton(){
+  const [can,setCan]=useState(!!(typeof window!=="undefined"&&window.__hbInstall));
+  useEffect(()=>{
+    const on=()=>setCan(true); const off=()=>setCan(false);
+    window.addEventListener("hb-can-install",on); window.addEventListener("hb-installed",off);
+    const standalone=window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+    if(standalone) setCan(false);
+    return ()=>{ window.removeEventListener("hb-can-install",on); window.removeEventListener("hb-installed",off); };
+  },[]);
+  if(!can) return null;
+  const install=async()=>{ const e=window.__hbInstall; if(!e) return; e.prompt(); try{ await e.userChoice; }catch(err){} window.__hbInstall=null; setCan(false); };
+  return <button className="chip" onClick={install} title="Instalar app" style={{borderColor:"rgba(255,184,56,.45)",color:T.mango,fontWeight:700}}>📲 Instalar</button>;
+}
+
+/* ===== Invitar y ganar — motor de crecimiento de persona a persona ===== */
+function InviteCard(){
+  const [link,setLink]=useState("");
+  const [code,setCode]=useState("");
+  const [invited,setInvited]=useState(0);
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{
+    const sess=await sGet("session",false); const c=sess&&sess.code; if(!c) return;
+    setCode(c);
+    setLink("https://www.hermeselbolitero.com/?ref="+encodeURIComponent(c));
+    try{ const rl=await sGet("ref:list:"+c,true); setInvited(Array.isArray(rl)?rl.length:0); }catch(e){}
+  })();},[]);
+  const texto=()=>"🎰 HERMES EL BOLITERO — la bolita cubana con sabor, resultados en vivo y Hermes tu IA. Entra GRATIS con mi enlace:\n"+link;
+  const compartir=async()=>{
+    const t=texto();
+    try{
+      if(navigator.share){ await navigator.share({title:"HERMES EL BOLITERO",text:t}); }
+      else { await navigator.clipboard.writeText(t); setMsg("Enlace copiado ✔ — pégalo en WhatsApp"); setTimeout(()=>setMsg(""),3000); }
+    }catch(e){}
+  };
+  const copiar=async()=>{ try{ await navigator.clipboard.writeText(link); setMsg("Enlace copiado ✔"); setTimeout(()=>setMsg(""),2500); }catch(e){} };
+  if(!link) return null;
+  return (
+    <div className="card fade-in" style={{marginBottom:12,border:"1px solid rgba(255,184,56,.3)",background:"linear-gradient(180deg,rgba(255,184,56,.10),"+T.surface+" 60%)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+        <div className="disp" style={{fontWeight:800,fontSize:15,color:T.mango}}>📲 Invita y gana 🪙</div>
+        {invited>0&&<span className="chip" style={{cursor:"default",fontSize:11}}>{invited} invitado{invited>1?"s":""} ✔</span>}
+      </div>
+      <div style={{fontSize:12,color:T.dim,lineHeight:1.5,marginBottom:10}}>
+        Comparte tu enlace. Cada amigo que entre con él gana monedas para ti — la bolita se riega sola. 🔥
+      </div>
+      <div className="card mono" style={{background:T.bg,fontSize:11,padding:"8px 10px",wordBreak:"break-all",marginBottom:10}}>{link}</div>
+      <div style={{display:"flex",gap:8}}>
+        <button className="btn primary" style={{flex:2,background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",fontWeight:800}} onClick={compartir}>📤 Compartir mi enlace</button>
+        <button className="btn ghost" style={{flex:1}} onClick={copiar}>Copiar</button>
+      </div>
+      {msg&&<div style={{fontSize:11,color:T.teal,marginTop:8,textAlign:"center"}}>{msg}</div>}
+    </div>
+  );
+}
+
 const TABS=[
   {id:"hoy",icon:"🎱",label:"Hoy"},
   {id:"hist",icon:"🗓️",label:"Historial"},
@@ -1393,6 +1450,7 @@ function MainApp({admin,onLock}){
             <Wordmark size={0.74}/>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <InstallButton/>
             <CoinBalance admin={admin}/>
             <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?"👑 Admin":"🔒 Salir"}</button>
           </div>
@@ -1412,6 +1470,7 @@ function MainApp({admin,onLock}){
             </div>
           )}
         </div>
+        {tab==="hoy"&&!admin&&<InviteCard/>}
         {tab==="hoy"&&<TabHoy lot={lot} setLot={setLot}/>}
         {tab==="hist"&&<TabHistorial lot={lot}/>}
         {tab==="stats"&&<TabStats lot={lot}/>}
@@ -1581,9 +1640,9 @@ function Planes({payLinks,onBack}){
               </ul>
               {(()=>{
                 if(Number(p.monto)===0) return (
-                  <div className="card" style={{textAlign:"center",fontSize:13,color:T.teal,background:T.bg,fontWeight:700}}>
-                    🎉 Plan gratuito — pídele tu código gratis al administrador y entra ya.
-                  </div>
+                  <button className="btn primary" onClick={onBack} style={{width:"100%",background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",fontWeight:800}}>
+                    ✨ Entrar gratis ahora
+                  </button>
                 );
                 const stripe=p.stripe||payLinks?.[p.id];
                 const pp=payLinks?.paypal? (payLinks.paypal.replace(/\/+$/,"")+"/"+p.monto+"USD") : null;
