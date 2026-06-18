@@ -1682,23 +1682,22 @@ const PLANES=[
     "Foro de la comunidad",
     "Con anuncios",
   ]},
-  {id:"miembro",nombre:"MIEMBRO",precio:"$3.99",monto:"3.99",per:"/mes",gold:false,feats:[
+  {id:"miembro",nombre:"MIEMBRO",precio:"$3.99",monto:"3.99",anual:"29.99",per:"/mes",gold:false,feats:[
     "Todo lo Gratis",
     "✨ SIN anuncios",
     "Hermes — tu agente IA personal",
     "10 formas de jugar: Bolita, Cash 3, Play 4, Quiniela y más",
     "Charada + intérprete de sueños IA",
     "Alertas básicas de resultados",
-    "💛 O $29.99/año — ahorra 37%",
   ]},
-  {id:"vip",nombre:"VIP CORONA 👑",precio:"$9.99",monto:"9.99",per:"/mes",gold:true,feats:[
+  {id:"vip",nombre:"VIP CORONA 👑",precio:"$9.99",monto:"9.99",anual:"79.99",per:"/mes",gold:true,feats:[
     "Todo lo de Miembro",
     "Hermes ilimitado — tu agente personal",
     "Estudio de arte IA de tu número",
     "Alerta por llamada, email y Telegram",
     "Acceso prioritario a nuevas funciones",
   ]},
-  {id:"sucursal",nombre:"SUCURSAL · BANCA 🏦",precio:"$49.99",monto:"49.99",per:"/mes",gold:false,feats:[
+  {id:"sucursal",nombre:"SUCURSAL · BANCA 🏦",precio:"$49.99",monto:"49.99",anual:"499.99",per:"/mes",gold:false,feats:[
     "Todo lo de VIP Corona",
     "Tu propia sucursal en el Banco Central",
     "Reparte monedas a tus jugadores",
@@ -1709,18 +1708,37 @@ const PLANES=[
 function Planes({payLinks,onBack}){
   const [list,setList]=useState(null);
   const [prices,setPrices]=useState(null);
+  const [period,setPeriod]=useState("mes"); // mes | anual
   useEffect(()=>{(async()=>{ setList(await sGet("plans:list",true)); setPrices(await sGet("pay:prices",true)); })();},[]);
   // El dueño gestiona los planes desde 👑 → 💳 Pagos (lista custom); si no hay
   // lista, usa los de fábrica con el precio editable como respaldo.
   const base=(Array.isArray(list)&&list.length)?list:PLANES.map(p=>({...p,monto:(prices&&prices[p.id])||p.monto}));
-  const plans=base.map(p=>({...p, precio:"$"+p.monto, feats:Array.isArray(p.feats)?p.feats:String(p.feats||"").split("\n").filter(Boolean)}));
+  const anual=period==="anual";
+  const plans=base.map(p=>{
+    const free=Number(p.monto)===0;
+    // Precio anual: usa el definido; si no hay, ~10 meses (2 gratis).
+    const annualAmt=p.anual||(p.monto?(Math.round(Number(p.monto)*10*100)/100).toFixed(2):p.monto);
+    const amt=(!free&&anual)?annualAmt:p.monto;
+    const ahorro=(!free&&anual&&Number(p.monto)>0)?Math.round((1-(Number(annualAmt)/(Number(p.monto)*12)))*100):0;
+    return {...p, monto:amt, per:free?"":(anual?"/año":"/mes"),
+      precio:"$"+amt, feats:Array.isArray(p.feats)?p.feats:String(p.feats||"").split("\n").filter(Boolean), ahorro};
+  });
   return (
     <div className="bol-app" style={{minHeight:"100vh",padding:"24px 16px 40px"}}>
       <style>{FONT_CSS}</style>
       <div style={{maxWidth:520,margin:"0 auto"}}>
         <button className="chip" onClick={onBack} style={{marginBottom:16}}>← Volver</button>
         <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><Wordmark size={1} center/></div>
-        <div style={{textAlign:"center",fontSize:13,color:T.dim,marginBottom:20}}>Elige tu plan y recibe tu código de acceso.</div>
+        <div style={{textAlign:"center",fontSize:13,color:T.dim,marginBottom:16}}>Elige tu plan y recibe tu código de acceso.</div>
+        {/* Selector Mensual / Anual */}
+        <div style={{display:"flex",justifyContent:"center",marginBottom:20}}>
+          <div style={{display:"inline-flex",background:T.surface,border:`1px solid ${T.line}`,borderRadius:999,padding:4}}>
+            <button onClick={()=>setPeriod("mes")} className="disp" style={{border:"none",cursor:"pointer",borderRadius:999,padding:"7px 16px",fontWeight:700,fontSize:13,
+              background:!anual?"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)":"transparent",color:!anual?"#3A2604":T.dim}}>Mensual</button>
+            <button onClick={()=>setPeriod("anual")} className="disp" style={{border:"none",cursor:"pointer",borderRadius:999,padding:"7px 16px",fontWeight:700,fontSize:13,
+              background:anual?"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)":"transparent",color:anual?"#3A2604":T.dim}}>Anual 🎁</button>
+          </div>
+        </div>
         <div style={{display:"grid",gap:14}}>
           {plans.map(p=>(
             <div key={p.id} className="card" style={p.gold?{
@@ -1733,6 +1751,7 @@ function Planes({payLinks,onBack}){
                 <div className="disp" style={{fontWeight:800,fontSize:18,color:p.gold?"#FFD978":T.ink}}>{p.nombre}</div>
                 <div><span className="disp" style={{fontWeight:800,fontSize:30,color:p.gold?T.mango:T.ink}}>{p.precio}</span><span style={{fontSize:12,color:T.dim}}>{p.per}</span></div>
               </div>
+              {p.ahorro>0&&<div style={{textAlign:"right",fontSize:11,color:T.teal,fontWeight:700,marginTop:2}}>🎁 Ahorras {p.ahorro}% vs mensual</div>}
               <ul style={{margin:"12px 0 14px",padding:0,listStyle:"none",display:"grid",gap:7}}>
                 {p.feats.map((f,i)=>(
                   <li key={i} style={{fontSize:13,display:"flex",gap:8}}>
@@ -1757,7 +1776,7 @@ function Planes({payLinks,onBack}){
                 );
                 return (
                   <div style={{display:"grid",gap:8}}>
-                    {stripe&&<a href={stripe} target="_blank" rel="noreferrer" className="btn primary" style={{display:"block",textAlign:"center",textDecoration:"none",...goldStyle}}>💳 Tarjeta · {p.precio}/mes</a>}
+                    {stripe&&<a href={stripe} target="_blank" rel="noreferrer" className="btn primary" style={{display:"block",textAlign:"center",textDecoration:"none",...goldStyle}}>💳 Tarjeta · {p.precio}{p.per}</a>}
                     <div style={{display:"flex",gap:8}}>
                       {pp&&<a href={pp} target="_blank" rel="noreferrer" className="btn ghost" style={{flex:1,textAlign:"center",textDecoration:"none",borderColor:"#3B7BBF",color:"#7FB4E8"}}>PayPal</a>}
                       {ca&&<a href={ca} target="_blank" rel="noreferrer" className="btn ghost" style={{flex:1,textAlign:"center",textDecoration:"none",borderColor:"#00C244",color:"#3FE873"}}>Cash App</a>}
