@@ -13,8 +13,13 @@
 <meta name="apple-mobile-web-app-title" content="Bolitero"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <style>
-html,body{margin:0;background:#0B141A;color:#F4EFE4;font-family:system-ui,sans-serif}
-#root{min-height:100vh}
+/* Bloquea el desplazamiento/gesto HORIZONTAL en móvil: en iPhone/Android,
+   deslizar de lado movía toda la página (overscroll / swipe-atrás) y la app
+   "desaparecía". Permitimos solo scroll vertical y cortamos el desborde lateral. */
+html,body{margin:0;background:#0B141A;color:#F4EFE4;font-family:system-ui,sans-serif;
+  width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior-x:none;
+  -webkit-text-size-adjust:100%}
+#root{min-height:100vh;width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior:none}
 #boot{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px}
 #boot .ball{width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff,#cfd9dd 70%);animation:b 1s ease-in-out infinite alternate}
 @keyframes b{from{transform:translateY(0)}to{transform:translateY(-14px)}}
