@@ -640,6 +640,49 @@ function EnvPage(){
 }
 
 /* ---------- Panel del dueño: control 100% de monedas y premios ---------- */
+// Editor de packs de monedas (social casino). El dueño define cantidad, precio y bono.
+function CoinPacksManager(){
+  const [packs,setPacks]=useState(null);
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{ const p=await sGet("coins:packs",true); setPacks(Array.isArray(p)&&p.length?p:COIN_PACKS_DEFAULT.map(x=>({...x}))); })();},[]);
+  if(!packs) return null;
+  const upd=(i,k,v)=>{ const n=packs.slice(); n[i]={...n[i],[k]:v}; setPacks(n); };
+  const add=()=>setPacks([...packs,{id:"p"+Math.random().toString(36).slice(2,6),label:"Nuevo pack",coins:10000,price:"2.99",bonus:0}]);
+  const del=(i)=>setPacks(packs.filter((_,j)=>j!==i));
+  const save=async()=>{ const clean=packs.map(p=>({...p,coins:Math.max(0,parseInt(p.coins,10)||0),price:String(p.price).replace(/[^\d.]/g,"")||"0.99",bonus:Math.max(0,parseInt(p.bonus,10)||0)})); await sSet("coins:packs",clean,true); setPacks(clean); setMsg("✔ Packs publicados — los ven todos en la pestaña 🎮 Juega."); setTimeout(()=>setMsg(""),3500); };
+  return (
+    <Section title="Packs de monedas en venta 🪙💵" sub="Define qué packs compran los clientes. Las monedas son fichas de diversión, sin valor real.">
+      <div style={{display:"grid",gap:10}}>
+        {packs.map((p,i)=>(
+          <div key={i} className="card" style={{display:"grid",gap:8}}>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <input className="input" style={{flex:1}} placeholder="Nombre" value={p.label} onChange={e=>upd(i,"label",e.target.value)}/>
+              <button className="chip" style={{color:T.coral}} onClick={()=>del(i)}>✕</button>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:1}}><Label>Monedas</Label><input className="input mono" inputMode="numeric" value={p.coins} onChange={e=>upd(i,"coins",e.target.value.replace(/\D/g,""))}/></div>
+              <div style={{flex:1}}><Label>Precio $</Label><input className="input mono" inputMode="decimal" value={p.price} onChange={e=>upd(i,"price",e.target.value.replace(/[^\d.]/g,""))}/></div>
+              <div style={{flex:1}}><Label>Bono %</Label><input className="input mono" inputMode="numeric" value={p.bonus} onChange={e=>upd(i,"bonus",e.target.value.replace(/\D/g,""))}/></div>
+            </div>
+            <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,cursor:"pointer"}}>
+              <input type="checkbox" checked={!!p.popular} onChange={e=>upd(i,"popular",e.target.checked)}/> Marcar como ★ POPULAR
+            </label>
+          </div>
+        ))}
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn ghost" style={{flex:1}} onClick={add}>+ Añadir pack</button>
+          <button className="btn primary" style={{flex:1}} onClick={save}>💾 Publicar packs</button>
+        </div>
+        {msg&&<div style={{fontSize:12,color:T.teal}}>{msg}</div>}
+      </div>
+      <div style={{fontSize:11,color:T.dim,lineHeight:1.7,marginTop:10}}>
+        El cliente paga por <b>PayPal/Cash App</b> (configúralos en 💳 Pagos) y te manda el comprobante con su código.
+        Tú le acreditas las monedas al instante desde <b>🎟️ Miembros → 💰</b>. Recuerda: las monedas <b>no son dinero</b> ni se canjean.
+      </div>
+    </Section>
+  );
+}
+
 function MonedasPage(){
   const [cfg,setCfg]=useState(null);
   const [msg,setMsg]=useState("");
@@ -729,6 +772,8 @@ function MonedasPage(){
           <button className="btn primary" onClick={guardar}>💾 Guardar premios y monedas</button>
         </div>
       </Section>
+
+      <CoinPacksManager/>
 
       <Section title="Tu saldo (este dispositivo)" sub={`Tienes ${myBal?.toLocaleString?.()||myBal} 🪙`}>
         <div className="card" style={{display:"flex",gap:8,alignItems:"flex-end"}}>

@@ -353,6 +353,63 @@ function PlayerLeaderboard(){
 }
 
 /* ============================ TAB: JUEGA (mini-juegos diarios) ============================ */
+/* ===== Store de monedas (social casino) — fichas de DIVERSIÓN, sin valor real,
+   NO canjeables por dinero. Packs configurables por el dueño. ===== */
+const COIN_PACKS_DEFAULT=[
+  {id:"p1",label:"Puñado",coins:5000,price:"0.99",bonus:0},
+  {id:"p2",label:"Montón",coins:30000,price:"4.99",bonus:10},
+  {id:"p3",label:"Cofre 🎁",coins:75000,price:"9.99",bonus:20,popular:true},
+  {id:"p4",label:"Bóveda",coins:200000,price:"19.99",bonus:30},
+  {id:"p5",label:"El Banco 🏦",coins:600000,price:"49.99",bonus:40},
+];
+function CoinStore(){
+  const [packs,setPacks]=useState(null);
+  const [links,setLinks]=useState(null);
+  const [code,setCode]=useState("");
+  const [picked,setPicked]=useState(null);
+  useEffect(()=>{(async()=>{
+    const p=await sGet("coins:packs",true); setPacks(Array.isArray(p)&&p.length?p:COIN_PACKS_DEFAULT);
+    setLinks((await sGet("pay:links",true))||{});
+    const sess=await sGet("session",false); if(sess&&sess.code) setCode(sess.code);
+  })();},[]);
+  if(!packs) return null;
+  const fmt=(n)=>Number(n).toLocaleString();
+  const total=(p)=>Math.round(Number(p.coins)*(1+(Number(p.bonus)||0)/100));
+  return (
+    <Section title="Compra monedas 🪙" sub="Fichas de diversión para seguir jugando. No son dinero — entretenimiento puro.">
+      <div style={{display:"grid",gap:10}}>
+        {packs.map(p=>{
+          const pp=links&&links.paypal?(links.paypal.replace(/\/+$/,"")+"/"+p.price+"USD"):null;
+          const ca=links&&links.cashtag?("https://cash.app/$"+String(links.cashtag).replace(/^\$/,"")+"/"+p.price):null;
+          const sel=picked===p.id;
+          return (
+            <div key={p.id} className="card" style={p.popular?{border:"1.5px solid #FFD978",background:`linear-gradient(180deg,rgba(255,184,56,.12),${T.surface} 60%)`}:{}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div className="disp" style={{fontWeight:800,fontSize:16}}>{p.label}{p.popular&&<span style={{fontSize:10,color:"#FFD978",marginLeft:6}}>★ POPULAR</span>}</div>
+                  <div style={{fontSize:13,color:T.gold,fontWeight:700,marginTop:2}}>🪙 {fmt(total(p))}{Number(p.bonus)>0&&<span style={{fontSize:11,color:T.teal,marginLeft:6}}>+{p.bonus}% bono</span>}</div>
+                </div>
+                <button className="btn primary" style={{padding:"8px 14px",...(p.popular?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",fontWeight:800}:{})}} onClick={()=>setPicked(sel?null:p.id)}>${p.price}</button>
+              </div>
+              {sel&&(
+                <div style={{marginTop:12,display:"grid",gap:8}}>
+                  {(!pp&&!ca)&&<div style={{fontSize:12,color:T.dim,textAlign:"center"}}>El administrador aún no publicó los métodos de pago.</div>}
+                  {pp&&<a href={pp} target="_blank" rel="noreferrer" className="btn ghost" style={{textAlign:"center",textDecoration:"none",borderColor:"#3B7BBF",color:"#7FB4E8"}}>Pagar ${p.price} con PayPal</a>}
+                  {ca&&<a href={ca} target="_blank" rel="noreferrer" className="btn ghost" style={{textAlign:"center",textDecoration:"none",borderColor:"#00C244",color:"#3FE873"}}>Pagar ${p.price} con Cash App</a>}
+                  {(pp||ca)&&<div style={{fontSize:11,color:T.dim,textAlign:"center",lineHeight:1.5}}>Tras pagar, manda tu comprobante {code?<>y tu código <b className="mono">{code}</b> </>:null}al administrador. Te acreditan las 🪙 al instante.</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{fontSize:10,color:T.dim,lineHeight:1.6,marginTop:12,padding:"10px 12px",background:T.bg,borderRadius:10,border:`1px solid ${T.line}`}}>
+        ⚖️ <b>Aviso:</b> Las monedas son <b>fichas de entretenimiento sin valor monetario real</b>. No se pueden cambiar, retirar ni canjear por dinero ni premios. Comprar monedas es opcional — también las ganas gratis cada día. Esta app es informativa y de diversión, <b>no es una casa de apuestas</b>.
+      </div>
+    </Section>
+  );
+}
+
 function TabJuega({lot}){
   const [mini,setMini]=useState(null);
   const [hbGuess,setHbGuess]=useState("");
@@ -386,6 +443,7 @@ function TabJuega({lot}){
   const hbDone=mini?.hotball?.played; const chDone=mini?.charada?.played;
   return (
     <div className="fade-in">
+      <CoinStore/>
       <Section title="Juega y gana monedas 🪙" sub="Mini-juegos diarios — una tirada gratis de cada uno por día">
         {/* HOT BALL */}
         <div className="card" style={{marginBottom:14}}>
