@@ -316,10 +316,13 @@ async function authFail(){ const l=(await sGet("auth:lock",false))||{fails:0}; l
 async function authReset(){ await sDel("auth:lock",false); }
 
 function Gate({onEnter}){
-  const [stage,setStage]=useState("loading"); // loading|code|setpin|unlock|newadmin|adminpin|planes
+  const [stage,setStage]=useState("loading"); // loading|code|register|setpin|unlock|newadmin|adminpin|planes
   const [val,setVal]=useState("");
   const [val2,setVal2]=useState("");
   const [err,setErr]=useState("");
+  const [nombre,setNombre]=useState("");
+  const [tel,setTel]=useState("");
+  const [curCode,setCurCode]=useState("");
   const [payLinks,setPayLinks]=useState(null);
   useEffect(()=>{(async()=>{
     const sess=await sGet("session",false);
@@ -334,6 +337,16 @@ function Gate({onEnter}){
     setStage(pin?"code":"newadmin");
   })();},[]);
   const guard=async()=>{ const s=await authLockedSecs(); if(s){ setErr("Demasiados intentos. Espera "+s+"s."); return false; } return true; };
+  // Normaliza el teléfono a formato +<dígitos> (asume +1 EE.UU. si son 10 dígitos).
+  const normTel=(s)=>{ let d=String(s||"").replace(/[^\d]/g,""); if(!d) return ""; if(d.length===10) d="1"+d; return "+"+d; };
+  // Tras autenticar: si al código le falta teléfono, pide registro; si no, PIN o entrar.
+  const afterAuth=async(code)=>{
+    const codes=await sGet("members:codes",true)||{};
+    const c=codes[code]||{};
+    if(!c.tel){ setCurCode(code); setNombre(c.nombre||""); setTel(""); setStage("register"); return; }
+    const mp=await sGet("member:pin",false);
+    if(mp&&mp.hash){ onEnter(false); } else { setVal(""); setVal2(""); setStage("setpin"); }
+  };
   const enterMember=async()=>{
     setErr(""); if(!(await guard())) return;
     const code=val.trim().toUpperCase();
@@ -345,6 +358,27 @@ function Gate({onEnter}){
     if(!c.boundTo) c.boundTo=dev;
     c.uses=(c.uses||0)+1; await sSet("members:codes",codes,true);
     await sSet("session",{ok:true,admin:false,code},false); await authReset();
+    await afterAuth(code);
+  };
+  // Guarda nombre+teléfono en el código y registra al miembro en alertas (llamadas
+  // + notificaciones) automáticamente — sin que el dueño tenga que hacer nada.
+  const saveRegister=async()=>{
+    setErr("");
+    const t=normTel(tel);
+    if(!/^\+\d{8,15}$/.test(t)){ setErr("Pon un teléfono válido con código de área (ej. 786 555 1234)."); return; }
+    if(!nombre.trim()){ setErr("Escribe tu nombre."); return; }
+    const code=curCode||((await sGet("session",false))||{}).code;
+    const codes=await sGet("members:codes",true)||{};
+    if(codes[code]){ codes[code].nombre=nombre.trim().slice(0,60); codes[code].tel=t; await sSet("members:codes",codes,true); }
+    // Alta automática en la lista de alertas (a quien Hermes llama/escribe)
+    try{
+      const subs=await sGet("alertas:subs",true)||{};
+      const id="m_"+code;
+      const data={nombre:nombre.trim().slice(0,60),tel:t,email:"",voz:true,mail:false,tg:true,
+        tiros:{Mañana:false,"Mediodía":true,Tarde:false,Noche:true},code,ts:Date.now()};
+      subs[id]=data; await sSet("alertas:subs",subs,true);
+      await sSet("alerta:mine",{id,data},false);
+    }catch(e){}
     const mp=await sGet("member:pin",false);
     if(mp&&mp.hash){ onEnter(false); } else { setVal(""); setVal2(""); setStage("setpin"); }
   };
@@ -374,8 +408,7 @@ function Gate({onEnter}){
       }
     }
     await sSet("session",{ok:true,admin:false,code},false); await authReset();
-    const mp=await sGet("member:pin",false);
-    if(mp&&mp.hash){ onEnter(false); } else { setVal(""); setVal2(""); setStage("setpin"); }
+    await afterAuth(code);
   };
   const setMemberPin=async()=>{
     setErr("");
@@ -432,6 +465,14 @@ function Gate({onEnter}){
         <input className="input" placeholder="CÓDIGO" value={val} onChange={e=>setVal(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&enterMember()} style={{textTransform:"uppercase",letterSpacing:"0.15em",textAlign:"center",fontFamily:"IBM Plex Mono"}}/>
         <button className="btn ghost" style={{width:"100%",marginTop:10}} onClick={enterMember}>Entrar con código</button>
         <button className="chip" style={{marginTop:14}} onClick={()=>setStage("planes")}>Ver planes premium · desde $0</button>
+      </>)}
+      {stage==="register"&&(<>
+        <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Casi listo 🎉</div>
+        <p style={{fontSize:13,color:T.dim,margin:"0 0 14px"}}>Tu nombre y teléfono para que <b>Hermes te avise y te llame</b> cuando caiga tu número. Queda todo configurado al instante.</p>
+        <input className="input" placeholder="Tu nombre" value={nombre} onChange={e=>setNombre(e.target.value)} style={{marginBottom:10}}/>
+        <input className="input mono" inputMode="tel" placeholder="Teléfono (ej. 786 555 1234)" value={tel} onChange={e=>setTel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveRegister()}/>
+        <button className="btn primary" style={{width:"100%",marginTop:12,background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",fontWeight:800}} onClick={saveRegister}>Continuar →</button>
+        <div style={{fontSize:11,color:T.dim,marginTop:12,lineHeight:1.5}}>🔒 Tu número es privado, solo Hermes lo usa para avisarte. Nunca para apuestas.</div>
       </>)}
       {stage==="setpin"&&(<>
         <div className="disp" style={{fontWeight:800,fontSize:20,marginBottom:6}}>Crea tu PIN privado 🔒</div>

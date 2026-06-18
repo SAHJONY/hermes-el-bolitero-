@@ -1432,14 +1432,22 @@ function CoinBalance({admin}){
   );
 }
 
+// Las 5 pestañas más usadas viven en la barra; el resto en "Más" (estándar de
+// las mejores apps: navegación limpia, sin 12 íconos apretados).
+const PRIMARY_TABS=["hoy","ticket","ia","suerte","alertas"];
 function MainApp({admin,onLock}){
   const [tab,setTab]=useState("hoy");
   const [lot,setLot]=useState("labolita");
   const [showNews,setShowNews]=useState(false);
+  const [showMore,setShowMore]=useState(false);
   const [acct,setAcct]=useState(null);
   useEffect(()=>{(async()=>{ setAcct(await enforceAccount()); })();},[tab]);
   const memberActive=admin||accountActive(acct);
   const tabs=admin?[...TABS,{id:"admin",icon:"👑",label:"Admin"}]:TABS;
+  const primary=tabs.filter(t=>PRIMARY_TABS.includes(t.id));
+  const moreTabs=tabs.filter(t=>!PRIMARY_TABS.includes(t.id));
+  const inMore=moreTabs.some(t=>t.id===tab);
+  const goTab=(id)=>{ setTab(id); setShowMore(false); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){} };
   return (
     <div className="bol-app">
       <style>{FONT_CSS}</style>
@@ -1496,17 +1504,46 @@ function MainApp({admin,onLock}){
           ni garantiza resultados. Si el juego deja de ser un juego, busca ayuda: 1-800-GAMBLER.
         </footer>
       </div>
-      <nav style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(11,20,26,.92)",backdropFilter:"blur(12px)",borderTop:`1px solid ${T.line}`}}>
-        <div style={{maxWidth:520,margin:"0 auto",display:"flex"}}>
-          {tabs.map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{
-              flex:1,background:"none",border:"none",cursor:"pointer",padding:"10px 0 14px",
+      {/* Hoja "Más" — el resto de secciones, en una cuadrícula cómoda */}
+      {showMore&&(
+        <div onClick={()=>setShowMore(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:60,display:"flex",alignItems:"flex-end"}}>
+          <div onClick={e=>e.stopPropagation()} className="fade-in" style={{width:"100%",maxWidth:520,margin:"0 auto",background:T.surface,borderTopLeftRadius:20,borderTopRightRadius:20,borderTop:`1px solid ${T.line}`,padding:"14px 16px calc(20px + env(safe-area-inset-bottom))"}}>
+            <div style={{width:40,height:4,background:T.line,borderRadius:99,margin:"0 auto 14px"}}/>
+            <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:12}}>Todo en HERMES</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+              {moreTabs.map(t=>(
+                <button key={t.id} onClick={()=>goTab(t.id)} style={{
+                  background:tab===t.id?"rgba(255,184,56,.14)":T.bg,border:`1px solid ${tab===t.id?T.mango:T.line}`,
+                  borderRadius:14,cursor:"pointer",padding:"14px 4px",color:tab===t.id?T.mango:T.ink,fontFamily:"inherit"
+                }}>
+                  <div style={t.id==="admin"?{fontSize:24,filter:"drop-shadow(0 0 6px rgba(255,184,56,.8))"}:{fontSize:24}}>{t.icon}</div>
+                  <div style={{fontSize:11,fontWeight:600,marginTop:5}}>{t.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(11,20,26,.92)",backdropFilter:"blur(12px)",borderTop:`1px solid ${T.line}`,zIndex:50}}>
+        <div style={{maxWidth:520,margin:"0 auto",display:"flex",paddingBottom:"env(safe-area-inset-bottom)"}}>
+          {primary.map(t=>(
+            <button key={t.id} onClick={()=>goTab(t.id)} style={{
+              flex:1,background:"none",border:"none",cursor:"pointer",padding:"10px 0 12px",
               color:tab===t.id?T.mango:T.dim,fontFamily:"inherit"
             }}>
-              <div style={t.id==="admin"?{fontSize:18,filter:"drop-shadow(0 0 6px rgba(255,184,56,.8)) saturate(1.4)"}:{fontSize:18}}>{t.icon}</div>
-              <div style={{fontSize:9,fontWeight:600,marginTop:2}}>{t.label}</div>
+              <div style={{fontSize:20}}>{t.icon}</div>
+              <div style={{fontSize:10,fontWeight:600,marginTop:3}}>{t.label}</div>
+              {tab===t.id&&<div style={{width:18,height:3,background:T.mango,borderRadius:99,margin:"4px auto 0"}}/>}
             </button>
           ))}
+          <button onClick={()=>setShowMore(s=>!s)} style={{
+            flex:1,background:"none",border:"none",cursor:"pointer",padding:"10px 0 12px",
+            color:(inMore||showMore)?T.mango:T.dim,fontFamily:"inherit"
+          }}>
+            <div style={{fontSize:20,filter:admin?"drop-shadow(0 0 6px rgba(255,184,56,.6))":"none"}}>{showMore?"✕":"⋯"}</div>
+            <div style={{fontSize:10,fontWeight:600,marginTop:3}}>Más</div>
+            {inMore&&!showMore&&<div style={{width:18,height:3,background:T.mango,borderRadius:99,margin:"4px auto 0"}}/>}
+          </button>
         </div>
       </nav>
     </div>
