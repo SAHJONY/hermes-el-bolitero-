@@ -82,6 +82,12 @@ const I18N = {
     "foot.disc":"HERMES EL BOLITERO es una app informativa y de entretenimiento. No vende boletos, no acepta apuestas ni garantiza resultados. Si el juego deja de ser un juego, busca ayuda: 1-800-GAMBLER.",
     "ruleta.title":"🎡 Ruleta Cubana","ruleta.sub":"Gira gratis una vez al día y llévate monedas. ¡La suerte está en La Habana!",
     "ruleta.spin":"GIRAR","ruleta.spinning":"Girando…","ruleta.come_back":"Vuelve mañana para otro giro gratis.","ruleta.won":"¡Ganaste","ruleta.nada":"¡Suerte para la próxima! El sol te tocó pero sin premio.",
+    "juega.title":"Juega y gana monedas 🪙","juega.sub":"Mini-juegos diarios — una tirada gratis de cada uno por día",
+    "juega.hot_title":"🔥 La Bola Caliente","juega.hot_desc":"Adivina un número (00–99) que esté entre los 5 más calientes de {board}. Si aciertas, ganas {n} 🪙.",
+    "juega.play":"Jugar","juega.hot_won":"¡Acertaste! +200 🪙 🎉","juega.hot_hot":"Hoy no salió. Las calientes fueron:","juega.again":"Vuelve mañana para otra tirada.",
+    "juega.ch_title":"🌙 Reto de la Charada","juega.ch_q":"¿Qué número es \"{symbol}\" en la charada? Acierta y gana {n} 🪙.",
+    "juega.ch_won":"¡Correcto! +150 🪙 🎉","juega.ch_wrong":"No era. La respuesta correcta es","juega.ch_again":"Vuelve mañana para otro reto.",
+    "juega.foot":"Mini-juegos de entretenimiento con monedas virtuales. No es dinero real ni apuestas.",
   },
   en:{
     "hdr.exit":"🔒 Exit","hdr.admin":"👑 Admin","hdr.update":"⚡ Hermes Daily Update",
@@ -92,6 +98,12 @@ const I18N = {
     "foot.disc":"HERMES EL BOLITERO is an information & entertainment app. It does not sell tickets, take bets or guarantee results. If gambling stops being a game, get help: 1-800-GAMBLER.",
     "ruleta.title":"🎡 Cuban Roulette","ruleta.sub":"One free spin a day for coins. Luck lives in Havana!",
     "ruleta.spin":"SPIN","ruleta.spinning":"Spinning…","ruleta.come_back":"Come back tomorrow for another free spin.","ruleta.won":"You won","ruleta.nada":"Better luck next time! The sun touched you, no prize.",
+    "juega.title":"Play & win coins 🪙","juega.sub":"Daily mini-games — one free try of each per day",
+    "juega.hot_title":"🔥 The Hot Ball","juega.hot_desc":"Guess a number (00–99) among the 5 hottest of {board}. Get it right and win {n} 🪙.",
+    "juega.play":"Play","juega.hot_won":"You nailed it! +200 🪙 🎉","juega.hot_hot":"No luck today. The hot ones were:","juega.again":"Come back tomorrow for another try.",
+    "juega.ch_title":"🌙 Charada Challenge","juega.ch_q":"Which number is \"{symbol}\" in the charada? Get it right and win {n} 🪙.",
+    "juega.ch_won":"Correct! +150 🪙 🎉","juega.ch_wrong":"Not quite. The correct answer is","juega.ch_again":"Come back tomorrow for another challenge.",
+    "juega.foot":"Entertainment mini-games with virtual coins. Not real money or betting.",
   },
 };
 let _lang = (()=>{ try{ return localStorage.getItem("hb:lang")||"es"; }catch(e){ return "es"; } })();
@@ -99,6 +111,8 @@ const _langSubs = new Set();
 function getLang(){ return _lang; }
 function setLang(l){ _lang=(l==="en"?"en":"es"); try{ localStorage.setItem("hb:lang",_lang); }catch(e){} _langSubs.forEach(fn=>{ try{ fn(_lang); }catch(e){} }); }
 function t(key){ const d=I18N[_lang]||I18N.es; return (d[key]!=null)?d[key]:(I18N.es[key]!=null?I18N.es[key]:key); }
+/* t() con interpolación: tf("juega.hot_desc",{board:"Florida",n:200}) */
+function tf(key,vars){ let s=t(key); if(vars) for(const k in vars){ s=s.split("{"+k+"}").join(vars[k]); } return s; }
 function useLang(){
   const [l,setL]=useState(_lang);
   useEffect(()=>{ const fn=(x)=>setL(x); _langSubs.add(fn); return ()=>{ _langSubs.delete(fn); }; },[]);
@@ -142,6 +156,13 @@ body{margin:0}
 @keyframes goldshine{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
 @media (prefers-reduced-motion: reduce){.flag-text{animation:none}}
 .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+/* Accesibilidad: anillo de foco visible para teclado (la app usaba outline:none
+   en inputs y los chips/botones no mostraban foco). Solo afecta navegación por
+   teclado, no el ratón. — hallazgo del design-review de gstack. */
+.bol-app :focus-visible{outline:2px solid ${T.mango};outline-offset:2px;border-radius:8px}
+/* La ruleta controla su transición por CSS para poder respetar reduce-motion. */
+.clc-wheel{transition:transform 4.2s cubic-bezier(.17,.67,.16,1)}
+@media (prefers-reduced-motion: reduce){.clc-wheel{transition:none}}
 .card{background:${T.surface};border:1px solid ${T.line};border-radius:18px;padding:16px}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid ${T.line};background:${T.raise};color:${T.dim};cursor:pointer;white-space:nowrap}
 .chip.on{background:${T.mango};color:#1A1206;border-color:${T.mango}}
@@ -490,10 +511,10 @@ function CasinoHero({go}){
           style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:0,
             filter:"saturate(1.05) contrast(1.03)"}}/>
       )}
-      <div className="clc-scene" style={hasBg?{position:"relative",zIndex:1,opacity:.86,mixBlendMode:"luminosity"}:undefined} dangerouslySetInnerHTML={{__html:CLC_SCENE}}/>
-      <div className="clc-godray"/>
-      <div className="clc-grain"/>
-      <div className="clc-vignette"/>
+      <div className="clc-scene" aria-hidden="true" style={hasBg?{position:"relative",zIndex:1,opacity:.86,mixBlendMode:"luminosity"}:undefined} dangerouslySetInnerHTML={{__html:CLC_SCENE}}/>
+      <div className="clc-godray" aria-hidden="true"/>
+      <div className="clc-grain" aria-hidden="true"/>
+      <div className="clc-vignette" aria-hidden="true"/>
       <div style={{position:"absolute",top:8,left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
         <div className="clc-sign clc-neon" style={{fontSize:30}}>CUBA&nbsp;LIBRE</div>
         <div className="clc-sign clc-gold" style={{fontSize:15,letterSpacing:"6px",marginTop:-2}}>★ CASINO ★</div>
@@ -576,7 +597,7 @@ function TabHoy({lot,setLot,go}){
           <span className="live-dot"/> <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(isLive && (live?.realBoards||[]).includes(lot)) ? t("today.live_official") : (isLive && (live?.aiBoards||[]).includes(lot)) ? t("today.live_web") : t("today.demo")} · {fmtDate(today)}</span>
         </div>
         <div style={{display:"flex",gap:6,flexShrink:0}}>
-          <button className="chip" onClick={toggleFav} title={t("today.fav")} style={favSet.has(lot)?{borderColor:T.mango,color:T.mango}:undefined}>{favSet.has(lot)?"★":"☆"}</button>
+          <button className="chip" onClick={toggleFav} title={t("today.fav")} aria-label={t("today.fav")} aria-pressed={favSet.has(lot)} style={favSet.has(lot)?{borderColor:T.mango,color:T.mango}:undefined}>{favSet.has(lot)?"★":"☆"}</button>
           {isLive&&(
             <button className="chip" onClick={load} disabled={lstate==="loading"}>
               {lstate==="loading"?t("today.updating"):t("today.refresh")}
