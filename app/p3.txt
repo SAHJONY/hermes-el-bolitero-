@@ -353,6 +353,76 @@ function PlayerLeaderboard(){
 }
 
 /* ============================ TAB: JUEGA (mini-juegos diarios) ============================ */
+/* ===== 🎰 Tragamonedas de la Charada — juego de casino social con monedas
+   virtuales (diversión, sin valor real). Hermes comenta cada tirada. ===== */
+const SLOT_SYMS=[
+  {e:"🎰",pay:50,w:1},{e:"💰",pay:20,w:3},{e:"🐎",pay:12,w:4},
+  {e:"🦋",pay:8,w:5},{e:"🔔",pay:5,w:7},{e:"🍀",pay:4,w:9},{e:"⭐",pay:3,w:11},
+];
+function slotPick(){ const tot=SLOT_SYMS.reduce((s,x)=>s+x.w,0); let r=Math.random()*tot; for(const s of SLOT_SYMS){ if((r-=s.w)<0) return s; } return SLOT_SYMS[SLOT_SYMS.length-1]; }
+function Tragamonedas(){
+  const [reels,setReels]=useState(["🎰","🍀","💰"]);
+  const [bet,setBet]=useState(100);
+  const [bal,setBal]=useState(0);
+  const [spinning,setSpinning]=useState(false);
+  const [msg,setMsg]=useState("");
+  const [enabled,setEnabled]=useState(true);
+  useEffect(()=>{(async()=>{ const cfg=await getCoinsConfig(); setEnabled(cfg.enabled!==false); setBal((await getCoins()).bal); })();},[]);
+  const spin=async()=>{
+    if(spinning) return;
+    const c=await getCoins();
+    if((c.bal||0)<bet){ setMsg("No tienes monedas suficientes. Reclama tu bono diario o compra un pack 🪙"); return; }
+    const sp=await spendCoins(bet); setBal(sp.bal); setMsg(""); setSpinning(true);
+    const final=[slotPick(),slotPick(),slotPick()];
+    // animación: cada rodillo gira y se detiene escalonado
+    let ticks=0;
+    const iv=setInterval(()=>{
+      ticks++;
+      setReels(r=>r.map((v,i)=> (ticks>=8+i*4)? final[i].e : slotPick().e ));
+      if(ticks>=8+2*4+1){
+        clearInterval(iv);
+        setReels(final.map(s=>s.e));
+        settle(final);
+      }
+    },70);
+  };
+  const settle=async(final)=>{
+    const [a,b,c]=final;
+    let win=0,note="";
+    if(a.e===b.e&&b.e===c.e){ win=bet*a.pay; note=`🎉 ¡TRIPLE ${a.e}! Ganaste ${win.toLocaleString()} 🪙`; if(a.e==="🎰") note="💥🎰 ¡JACKPOT MÁXIMO! +"+win.toLocaleString()+" 🪙"; }
+    else if(a.e===b.e||b.e===c.e||a.e===c.e){ win=Math.round(bet*1.5); note=`✨ Par — recuperas ${win.toLocaleString()} 🪙`; }
+    else { note="¡Casi! Dale otra vez 🍀"; }
+    if(win>0){ const nb=await addCoins(win); setBal(nb); if(win>=bet*8){ try{ fireConfetti(); }catch(e){} } }
+    else { setBal((await getCoins()).bal); }
+    setMsg(note); setSpinning(false);
+    try{ await bumpMission("check"); }catch(e){}
+  };
+  if(!enabled) return null;
+  const bets=[50,100,250,500,1000];
+  return (
+    <Section title="🎰 Tragamonedas de la Charada" sub="Gira con monedas de diversión. 3 iguales = premio grande. ¡Suerte!">
+      <div className="card" style={{textAlign:"center",background:"linear-gradient(180deg,rgba(255,184,56,.12),"+T.surface+" 60%)",border:"1.5px solid rgba(255,184,56,.35)"}}>
+        <div style={{display:"flex",justifyContent:"center",gap:10,margin:"6px 0 14px"}}>
+          {reels.map((r,i)=>(
+            <div key={i} style={{width:74,height:84,borderRadius:14,background:T.bg,border:`2px solid ${spinning?T.mango:T.line}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:44,boxShadow:spinning?"0 0 16px rgba(255,184,56,.4)":"none",transition:"border-color .15s"}}>{r}</div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap",marginBottom:12}}>
+          {bets.map(b=>(
+            <button key={b} className={"chip"+(bet===b?" on":"")} onClick={()=>!spinning&&setBet(b)} disabled={spinning}>{b} 🪙</button>
+          ))}
+        </div>
+        <button className="btn primary" style={{width:"100%",fontSize:16,background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",fontWeight:800}} onClick={spin} disabled={spinning}>
+          {spinning?"Girando…":"🎰 GIRAR · "+bet+" 🪙"}
+        </button>
+        <div style={{marginTop:10,fontSize:13,color:msg.includes("Gan")||msg.includes("JACKPOT")||msg.includes("TRIPLE")?T.teal:T.dim,fontWeight:700,minHeight:18}}>{msg}</div>
+        <div style={{fontSize:12,color:T.dim,marginTop:6}}>Saldo: {bal.toLocaleString()} 🪙</div>
+      </div>
+      <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:8}}>Juego de entretenimiento. Las monedas no tienen valor real ni se canjean por dinero.</div>
+    </Section>
+  );
+}
+
 /* ===== Store de monedas (social casino) — fichas de DIVERSIÓN, sin valor real,
    NO canjeables por dinero. Packs configurables por el dueño. ===== */
 const COIN_PACKS_DEFAULT=[
@@ -443,6 +513,7 @@ function TabJuega({lot}){
   const hbDone=mini?.hotball?.played; const chDone=mini?.charada?.played;
   return (
     <div className="fade-in">
+      <Tragamonedas/>
       <CoinStore/>
       <Section title="Juega y gana monedas 🪙" sub="Mini-juegos diarios — una tirada gratis de cada uno por día">
         {/* HOT BALL */}
