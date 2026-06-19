@@ -480,6 +480,579 @@ function CoinStore(){
   );
 }
 
+/* ========================== ARCADE DIARIO (portado) ========================== */
+const GAMES_I18N = {
+  es:{
+    "hdr.exit":"🔒 Salir","hdr.admin":"👑 Admin","hdr.update":"⚡ Hermes Daily Update",
+    "hero.tagline":"El paraíso tropical de la suerte 🌴","hero.sub":"Havana vibes · juega y gana","hero.play":"🎰 JUGAR AHORA",
+    "today.live_official":"EN VIVO · datos oficiales","today.live_web":"EN VIVO · búsqueda web","today.demo":"DEMO · referencia",
+    "today.next":"Próximo tiro","today.refresh":"⟳ Refrescar","today.updating":"Actualizando…",
+    "today.fav":"Favorita","today.listen":"Escuchar","fijo":"Fijo",
+    "foot.disc":"HERMES EL BOLITERO es una app informativa y de entretenimiento. No vende boletos, no acepta apuestas ni garantiza resultados. Si el juego deja de ser un juego, busca ayuda: 1-800-GAMBLER.",
+    "ruleta.title":"🎡 Ruleta Cubana","ruleta.sub":"Gira gratis una vez al día y llévate monedas. ¡La suerte está en La Habana!",
+    "ruleta.spin":"GIRAR","ruleta.spinning":"Girando…","ruleta.come_back":"Vuelve mañana para otro giro gratis.","ruleta.won":"¡Ganaste","ruleta.nada":"¡Suerte para la próxima! El sol te tocó pero sin premio.",
+    "juega.title":"Juega y gana monedas 🪙","juega.sub":"Mini-juegos diarios — una tirada gratis de cada uno por día",
+    "juega.hot_title":"🔥 La Bola Caliente","juega.hot_desc":"Adivina un número (00–99) que esté entre los 5 más calientes de {board}. Si aciertas, ganas {n} 🪙.",
+    "juega.play":"Jugar","juega.hot_won":"¡Acertaste! +200 🪙 🎉","juega.hot_hot":"Hoy no salió. Las calientes fueron:","juega.again":"Vuelve mañana para otra tirada.",
+    "juega.ch_title":"🌙 Reto de la Charada","juega.ch_q":"¿Qué número es \"{symbol}\" en la charada? Acierta y gana {n} 🪙.",
+    "juega.ch_won":"¡Correcto! +150 🪙 🎉","juega.ch_wrong":"No era. La respuesta correcta es","juega.ch_again":"Vuelve mañana para otro reto.",
+    "rasp.title":"🎫 Raspadito de la Suerte","rasp.sub":"Raspa las 9 casillas. Si salen tres símbolos iguales, ¡te llevas las monedas!",
+    "rasp.hint":"Toca cada casilla para raspar — o revela todo de una vez.","rasp.reveal_all":"Raspar todo",
+    "rasp.won":"¡Tres","rasp.won2":"iguales! Ganaste","rasp.lose":"Sin tres iguales esta vez. ¡La próxima cae!","rasp.come_back":"Vuelve mañana para otro raspadito gratis.",
+    "juega.foot":"Mini-juegos de entretenimiento con monedas virtuales. No es dinero real ni apuestas.",
+    "alerta.title":"Alertas de Hermes 🔔","alerta.sub":"Cuando caiga el número, Hermes te llama, te escribe al correo o lo canta en el grupo de Telegram",
+    "alerta.name_ph":"Tu nombre","alerta.phone_ph":"Teléfono (+1 786 …)","alerta.email_ph":"Email",
+    "alerta.how":"¿Cómo te aviso?","alerta.call":"📞 Llamada","alerta.mail":"✉️ Email","alerta.tg":"📣 Telegram",
+    "alerta.which":"¿Qué tiros?","alerta.update":"Actualizar mis alertas","alerta.subscribe":"🔔 Quiero que Hermes me avise","alerta.unsub":"Darme de baja",
+    "alerta.err_contact":"Pon al menos un teléfono o un email.","alerta.err_phone":"Para la llamada de Hermes hace falta tu teléfono.",
+    "alerta.ok":"✔ Inscrito. Cuando caiga el número, Hermes te avisa.","alerta.save_fail":"No se pudo guardar — intenta de nuevo.","alerta.unsubbed":"Te diste de baja de las alertas.",
+    "alerta.tg_group":"📣 Grupo oficial · HERMES EL BOLITERO","alerta.tg_sub":"Los números se cantan en vivo en el grupo de Telegram.","alerta.tg_join":"Unirme al grupo de Telegram",
+    "alerta.privacy":"Tu contacto se guarda en el registro de alertas de la comunidad para que el dueño y su sistema puedan avisarte; no se usa para otra cosa y puedes borrarte cuando quieras. Las alertas son informativas — Hermes canta el número, nunca gestiona jugadas.",
+    "tiro.manana":"Mañana","tiro.mediodia":"Mediodía","tiro.tarde":"Tarde","tiro.noche":"Noche",
+    "g.come_back":"Vuelve mañana para jugar de nuevo.","g.no_prize":"Sin premio esta vez. ¡La próxima cae!",
+    "slots.title":"🎰 Tragamonedas Habana","slots.sub":"Tira gratis una vez al día. ¡Tres iguales y suena la caja!","slots.spinning":"Girando…","slots.two":"¡Dos iguales! Premio chico:",
+    "coin.title":"🪙 Cara o Cruz","coin.sub":"Llama tu lado y lanza la moneda. Si aciertas, ganas 100 🪙.","coin.heads":"Cara","coin.tails":"Cruz","coin.won":"¡Salió {side}! Ganaste 100 🪙 🎉","coin.lost":"Salió {side}. ¡Suerte la próxima!",
+    "dice.title":"🎲 Dados de la Suerte","dice.sub":"Apuesta si la suma de los dos dados es menor, igual o mayor que 7.","dice.under":"Menor de 7","dice.seven":"Justo 7","dice.over":"Mayor de 7","dice.result":"Sacaste {a}+{b}={sum}.",
+    "hilo.title":"🔼 Más o Menos","hilo.sub":"¿El próximo número (00–99) será más alto o más bajo? Acumula y plántate.","hilo.higher":"Más alto 🔼","hilo.lower":"Más bajo 🔽","hilo.pot":"Bote","hilo.cash":"Plantarme","hilo.start":"Empezar","hilo.push":"Empate — sigue igual","hilo.bust":"¡Fallaste! El número era {n}. Pierdes el bote.","hilo.cashed":"¡Te plantaste! Ganaste {n} 🪙 🎉",
+    "bj.title":"🃏 Veintiuno (21)","bj.sub":"Acércate a 21 sin pasarte y gánale al crupier para llevarte 200 🪙.","bj.hit":"Pedir","bj.stand":"Plantarme","bj.you":"Tú","bj.dealer":"Crupier","bj.deal":"Repartir","bj.win":"¡Le ganaste al crupier! +{n} 🪙 🎉","bj.lose":"Gana el crupier. ¡La próxima!","bj.push":"Empate — nadie gana.","bj.bust":"Te pasaste de 21. ¡La próxima!","bj.bj":"¡BLACKJACK! +300 🪙 🎉",
+    "mem.title":"🧠 Memoria Cubana","mem.sub":"Encuentra las 4 parejas en la menor cantidad de intentos.","mem.moves":"Intentos","mem.win":"¡Completaste! +{n} 🪙 🎉",
+    "arc.title":"Progreso del arcade 🎮","arc.count":"{done}/{total} hoy","arc.bonus_hint":"Completa los {total} juegos y gana {n} 🪙 de bono.","arc.bonus_done":"¡Arcade completo! +{n} 🪙 de bono diario 🎉",
+    "tk.pick_title":"Elige tus números 🎟️","tk.pick_sub":"Crea tu ticket souvenir — sin dinero: lo juegas tú en la lotería legal",
+    "tk.win_banner":"¡Tienes {n} ticket(s) con número ganador!","tk.win_banner_sub":"Si lo jugaste en la tienda legal, ve a cobrar allá. Aquí celebramos contigo 🥳",
+    "tk.lbl_monto":"Monto que juegas (calculadora) 🧮","tk.btn_create":"🎟️ Generar mi ticket souvenir","tk.btn_check":"🔎 Comprobar mis tickets","tk.btn_checking":"Comprobando con los tiros oficiales…",
+    "tk.mine":"Mis tickets","tk.empty":"Aún no tienes tickets. Elige tus números arriba.","tk.pending":"⏳ pendiente","tk.miss":"no salió","tk.played":"Jugado","tk.possible":"posible",
+    "tk.pays":"Paga (en monedas 🪙):","tk.pays_two":"Paga (en monedas 🪙) — gana de dos formas:","tk.pays_pos":"Paga según la posición (en monedas 🪙):","tk.pays_each":"Paga cada juego (en monedas 🪙):",
+    "tk.disclaimer":"RECUERDO SIN VALOR MONETARIO · Juega estos números en una tienda autorizada de la lotería legal de tu estado. Aquí no se apuesta ni se paga premio.",
+    "tk.footer":"Cuando tu número salga, lo verás aquí en tu cuenta al instante — y si activaste 🔔 Alertas, Hermes te avisa también por llamada, email o el grupo de Telegram del dueño.",
+    "tk.v_play4":"El Play 4 son 4 dígitos (0000–9999).","tk.v_cash3":"El Cash 3 son 3 dígitos (000–999).","tk.v_box3":"El Cash 3 Box son 3 dígitos (000–999).","tk.v_box4":"El Play 4 Box son 4 dígitos (0000–9999).",
+    "tk.v_pair":"La pareja son 2 dígitos (00–99).","tk.v_cent":"La centena son 3 dígitos (000–999).","tk.v_sb3":"Straight/Box 3 son 3 dígitos (000–999).","tk.v_sb4":"Straight/Box 4 son 4 dígitos (0000–9999).","tk.v_quin":"La quiniela es un número de 2 cifras (00–99).","tk.v_fijo":"El fijo son 2 dígitos (00–99).","tk.v_corr":"Los corridos son de 2 dígitos.",
+    "tk.v_coins":"Te faltan monedas 🪙 — reclama tu bono diario o juega menos.","tk.m_created":"🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.",
+    "tk.m_won":"🎉 ¡¡GANASTE!! {n} ticket(s) · +{c} 🪙 acreditados a tu saldo.","tk.m_checked":"Comprobado contra los tiros oficiales publicados.","tk.m_err":"La señal no respondió — intenta en un momento.","tk.m_copied":"Ticket copiado ✔",
+    "tk.lbl_play4":"Play 4 · 4 dígitos directos (0000–9999)","tk.help_play4":"Ganas si los 4 dígitos salen EXACTOS en el Play 4 / Win 4 oficial de ese tablero y sesión.",
+    "tk.lbl_cash3":"Cash 3 · 3 dígitos directos (000–999)","tk.help_cash3":"Ganas si los 3 dígitos salen EXACTOS en el Cash 3 / Pick 3 oficial de ese tablero y sesión.",
+    "tk.lbl_box3":"Cash 3 Box · 3 dígitos en cualquier orden","tk.help_box3":"Ganas si tus 3 dígitos salen en CUALQUIER orden en el Cash 3 / Pick 3. Paga menos que el directo.",
+    "tk.lbl_box4":"Play 4 Box · 4 dígitos en cualquier orden","tk.help_box4":"Ganas si tus 4 dígitos salen en CUALQUIER orden en el Play 4 / Win 4. Paga menos que el directo.",
+    "tk.lbl_pair":"Pareja · 2 dígitos (delantera o trasera del 3 cifras)","tk.pair_front":"Delantera (ab_)","tk.pair_back":"Trasera (_bc)","tk.help_pair":"Ganas si tus 2 cifras coinciden con las 2 {pos} del Pick 3.",
+    "tk.lbl_cent":"Centena · 3 dígitos directos (000–999)","tk.help_cent":"La centena cubana: los 3 dígitos EXACTOS del Pick 3 (término tradicional del bolitero).",
+    "tk.lbl_sb3":"Straight/Box 3 · 3 dígitos (directo + cualquier orden)","tk.help_sb3":"Un solo ticket que gana de dos formas: EXACTO (paga el directo) o en CUALQUIER orden (box).",
+    "tk.lbl_sb4":"Straight/Box 4 · 4 dígitos (directo + cualquier orden)","tk.help_sb4":"Un solo ticket que gana de dos formas: EXACTO (paga el Play 4) o en CUALQUIER orden (box).",
+    "tk.lbl_quin":"Quiniela · número de 2 cifras (00–99)","tk.help_quin":"Juegas a cualquiera de las 3 posiciones. Cobras según dónde salga: 1ro (mayor), 2do o 3ro.",
+    "tk.front":"delantera","tk.back":"trasera","tk.fronts":"delanteras","tk.backs":"traseras",
+    "tk.if_straight":"Si tu {g} sale directo (en monedas 🪙):","tk.if_anyorder":"Si tu {g} sale en cualquier orden (🪙):","tk.d_exact":"· {n} dígitos exactos","tk.d_anyorder":"· cualquier orden","tk.mult_one":"Multiplicador: {g} ×{m} · monedas de juego (no dinero real)",
+    "tk.if_pair":"Si tu pareja {pos} sale (🪙):","tk.pair_digits":"· 2 cifras {pos}","tk.if_cent":"Si tu centena (3 cifras directo) sale (🪙):","tk.cent_exact":"· 3 cifras exactas",
+    "tk.two_ways":"Un ticket que gana de dos formas (🪙):","tk.row_straight":"🎯 Directo (exacto)","tk.row_box":"🔀 Box (cualquier orden)","tk.sb_note":"Exacto paga ×{s}; cualquier orden ×{b} · monedas de juego (no dinero real)",
+    "tk.if_quin":"Si tu número sale, cobras según la posición (🪙):","tk.q1":"🥇 1er premio","tk.q2":"🥈 2do premio","tk.q3":"🥉 3er premio","tk.quin_note":"Quiniela ×{a}/{b}/{c} · monedas de juego (no dinero real)",
+    "tk.if_bolita":"Si sale tu número, ganarías (en monedas 🪙):","tk.sc_corr1":"1 Corrido","tk.sc_corrN":"Corridos","tk.note_fijo":"si pega el fijo","tk.note_corr":"si pega {n} corrido(s)","tk.note_parle":"fijo + corrido juntos","tk.note_candado":"fijo + 2 corridos · ¡el mayor!",
+    "tk.bolita_note":"Multiplicadores: Fijo ×{f} · Corrido ×{c} · Parlé ×{p} · Candado ×{k} · monedas de juego (no dinero real)",
+    "tk.row_p4_dir":"4️⃣ Play 4 directo","tk.row_c3_dir":"3️⃣ Cash 3 directo",
+  },
+  en:{
+    "hdr.exit":"🔒 Exit","hdr.admin":"👑 Admin","hdr.update":"⚡ Hermes Daily Update",
+    "hero.tagline":"The tropical paradise of luck 🌴","hero.sub":"Havana vibes · play & win","hero.play":"🎰 PLAY NOW",
+    "today.live_official":"LIVE · official data","today.live_web":"LIVE · web search","today.demo":"DEMO · reference",
+    "today.next":"Next draw","today.refresh":"⟳ Refresh","today.updating":"Updating…",
+    "today.fav":"Favorite","today.listen":"Listen","fijo":"Straight",
+    "foot.disc":"HERMES EL BOLITERO is an information & entertainment app. It does not sell tickets, take bets or guarantee results. If gambling stops being a game, get help: 1-800-GAMBLER.",
+    "ruleta.title":"🎡 Cuban Roulette","ruleta.sub":"One free spin a day for coins. Luck lives in Havana!",
+    "ruleta.spin":"SPIN","ruleta.spinning":"Spinning…","ruleta.come_back":"Come back tomorrow for another free spin.","ruleta.won":"You won","ruleta.nada":"Better luck next time! The sun touched you, no prize.",
+    "juega.title":"Play & win coins 🪙","juega.sub":"Daily mini-games — one free try of each per day",
+    "juega.hot_title":"🔥 The Hot Ball","juega.hot_desc":"Guess a number (00–99) among the 5 hottest of {board}. Get it right and win {n} 🪙.",
+    "juega.play":"Play","juega.hot_won":"You nailed it! +200 🪙 🎉","juega.hot_hot":"No luck today. The hot ones were:","juega.again":"Come back tomorrow for another try.",
+    "juega.ch_title":"🌙 Charada Challenge","juega.ch_q":"Which number is \"{symbol}\" in the charada? Get it right and win {n} 🪙.",
+    "juega.ch_won":"Correct! +150 🪙 🎉","juega.ch_wrong":"Not quite. The correct answer is","juega.ch_again":"Come back tomorrow for another challenge.",
+    "rasp.title":"🎫 Lucky Scratcher","rasp.sub":"Scratch all 9 tiles. Match three of the same symbol and the coins are yours!",
+    "rasp.hint":"Tap each tile to scratch — or reveal them all at once.","rasp.reveal_all":"Scratch all",
+    "rasp.won":"Three","rasp.won2":"in a row! You won","rasp.lose":"No three-of-a-kind this time. Next one's coming!","rasp.come_back":"Come back tomorrow for another free scratcher.",
+    "juega.foot":"Entertainment mini-games with virtual coins. Not real money or betting.",
+    "alerta.title":"Hermes Alerts 🔔","alerta.sub":"When your number hits, Hermes calls you, emails you, or sings it out in the Telegram group",
+    "alerta.name_ph":"Your name","alerta.phone_ph":"Phone (+1 786 …)","alerta.email_ph":"Email",
+    "alerta.how":"How should I reach you?","alerta.call":"📞 Call","alerta.mail":"✉️ Email","alerta.tg":"📣 Telegram",
+    "alerta.which":"Which draws?","alerta.update":"Update my alerts","alerta.subscribe":"🔔 Have Hermes notify me","alerta.unsub":"Unsubscribe",
+    "alerta.err_contact":"Add at least a phone or an email.","alerta.err_phone":"Hermes needs your phone number for the call.",
+    "alerta.ok":"✔ Subscribed. When your number hits, Hermes lets you know.","alerta.save_fail":"Couldn't save — try again.","alerta.unsubbed":"You unsubscribed from alerts.",
+    "alerta.tg_group":"📣 Official group · HERMES EL BOLITERO","alerta.tg_sub":"The numbers are sung live in the Telegram group.","alerta.tg_join":"Join the Telegram group",
+    "alerta.privacy":"Your contact info is stored in the community alert registry so the owner and his system can notify you; it isn't used for anything else and you can delete it anytime. Alerts are informational — Hermes sings the number, he never handles bets.",
+    "tiro.manana":"Morning","tiro.mediodia":"Midday","tiro.tarde":"Afternoon","tiro.noche":"Night",
+    "g.come_back":"Come back tomorrow to play again.","g.no_prize":"No prize this time. Next one's coming!",
+    "slots.title":"🎰 Havana Slots","slots.sub":"One free pull a day. Three of a kind rings the register!","slots.spinning":"Spinning…","slots.two":"Two of a kind! Small prize:",
+    "coin.title":"🪙 Heads or Tails","coin.sub":"Call your side and flip. Get it right and win 100 🪙.","coin.heads":"Heads","coin.tails":"Tails","coin.won":"It landed {side}! You won 100 🪙 🎉","coin.lost":"It landed {side}. Better luck next time!",
+    "dice.title":"🎲 Lucky Dice","dice.sub":"Bet whether the two-dice total is under, equal to, or over 7.","dice.under":"Under 7","dice.seven":"Exactly 7","dice.over":"Over 7","dice.result":"You rolled {a}+{b}={sum}.",
+    "hilo.title":"🔼 Higher or Lower","hilo.sub":"Will the next number (00–99) be higher or lower? Build your pot and cash out.","hilo.higher":"Higher 🔼","hilo.lower":"Lower 🔽","hilo.pot":"Pot","hilo.cash":"Cash out","hilo.start":"Start","hilo.push":"Tie — carry on","hilo.bust":"Missed it! The number was {n}. You lose the pot.","hilo.cashed":"You cashed out! You won {n} 🪙 🎉",
+    "bj.title":"🃏 Twenty-One (21)","bj.sub":"Get close to 21 without busting and beat the dealer to win 200 🪙.","bj.hit":"Hit","bj.stand":"Stand","bj.you":"You","bj.dealer":"Dealer","bj.deal":"Deal","bj.win":"You beat the dealer! +{n} 🪙 🎉","bj.lose":"Dealer wins. Next time!","bj.push":"Push — nobody wins.","bj.bust":"You went over 21. Next time!","bj.bj":"BLACKJACK! +300 🪙 🎉",
+    "mem.title":"🧠 Cuban Memory","mem.sub":"Find all 4 pairs in as few tries as possible.","mem.moves":"Tries","mem.win":"Cleared! +{n} 🪙 🎉",
+    "arc.title":"Arcade progress 🎮","arc.count":"{done}/{total} today","arc.bonus_hint":"Finish all {total} games to earn a {n} 🪙 bonus.","arc.bonus_done":"Arcade complete! +{n} 🪙 daily bonus 🎉",
+    "tk.pick_title":"Pick your numbers 🎟️","tk.pick_sub":"Make your souvenir ticket — no money: you play these in the legal lottery",
+    "tk.win_banner":"You have {n} winning ticket(s)!","tk.win_banner_sub":"If you played it at a licensed store, collect there. Here we just celebrate with you 🥳",
+    "tk.lbl_monto":"Amount you play (calculator) 🧮","tk.btn_create":"🎟️ Generate my souvenir ticket","tk.btn_check":"🔎 Check my tickets","tk.btn_checking":"Checking against the official draws…",
+    "tk.mine":"My tickets","tk.empty":"No tickets yet. Pick your numbers above.","tk.pending":"⏳ pending","tk.miss":"no match","tk.played":"Played","tk.possible":"potential",
+    "tk.pays":"Pays (in coins 🪙):","tk.pays_two":"Pays (in coins 🪙) — wins two ways:","tk.pays_pos":"Pays by position (in coins 🪙):","tk.pays_each":"Pays per play (in coins 🪙):",
+    "tk.disclaimer":"KEEPSAKE WITH NO MONETARY VALUE · Play these numbers at a licensed store in your state's legal lottery. No betting or payouts happen here.",
+    "tk.footer":"When your number hits, you'll see it here in your account instantly — and if you turned on 🔔 Alerts, Hermes also notifies you by call, email, or the owner's Telegram group.",
+    "tk.v_play4":"Play 4 is 4 digits (0000–9999).","tk.v_cash3":"Cash 3 is 3 digits (000–999).","tk.v_box3":"Cash 3 Box is 3 digits (000–999).","tk.v_box4":"Play 4 Box is 4 digits (0000–9999).",
+    "tk.v_pair":"The pair is 2 digits (00–99).","tk.v_cent":"The centena is 3 digits (000–999).","tk.v_sb3":"Straight/Box 3 is 3 digits (000–999).","tk.v_sb4":"Straight/Box 4 is 4 digits (0000–9999).","tk.v_quin":"The quiniela is a 2-digit number (00–99).","tk.v_fijo":"The fijo is 2 digits (00–99).","tk.v_corr":"Corridos are 2 digits.",
+    "tk.v_coins":"Not enough coins 🪙 — claim your daily bonus or play less.","tk.m_created":"🎟️ Ticket created — keep it and play those same numbers at a licensed store.",
+    "tk.m_won":"🎉 YOU WON!! {n} ticket(s) · +{c} 🪙 credited to your balance.","tk.m_checked":"Checked against the published official draws.","tk.m_err":"The signal didn't respond — try again in a moment.","tk.m_copied":"Ticket copied ✔",
+    "tk.lbl_play4":"Play 4 · 4 straight digits (0000–9999)","tk.help_play4":"You win if all 4 digits hit EXACTLY in that board and session's official Play 4 / Win 4.",
+    "tk.lbl_cash3":"Cash 3 · 3 straight digits (000–999)","tk.help_cash3":"You win if all 3 digits hit EXACTLY in that board and session's official Cash 3 / Pick 3.",
+    "tk.lbl_box3":"Cash 3 Box · 3 digits in any order","tk.help_box3":"You win if your 3 digits hit in ANY order in the Cash 3 / Pick 3. Pays less than straight.",
+    "tk.lbl_box4":"Play 4 Box · 4 digits in any order","tk.help_box4":"You win if your 4 digits hit in ANY order in the Play 4 / Win 4. Pays less than straight.",
+    "tk.lbl_pair":"Pair · 2 digits (front or back of the 3-digit)","tk.pair_front":"Front (ab_)","tk.pair_back":"Back (_bc)","tk.help_pair":"You win if your 2 digits match the {pos} 2 of the Pick 3.",
+    "tk.lbl_cent":"Centena · 3 straight digits (000–999)","tk.help_cent":"The Cuban centena: the 3 EXACT digits of the Pick 3 (traditional bolita term).",
+    "tk.lbl_sb3":"Straight/Box 3 · 3 digits (straight + any order)","tk.help_sb3":"One ticket that wins two ways: EXACT (pays straight) or ANY order (box).",
+    "tk.lbl_sb4":"Straight/Box 4 · 4 digits (straight + any order)","tk.help_sb4":"One ticket that wins two ways: EXACT (pays Play 4) or ANY order (box).",
+    "tk.lbl_quin":"Quiniela · 2-digit number (00–99)","tk.help_quin":"You play any of the 3 positions. You collect based on where it lands: 1st (highest), 2nd, or 3rd.",
+    "tk.front":"front","tk.back":"back","tk.fronts":"front","tk.backs":"back",
+    "tk.if_straight":"If your {g} hits straight (in coins 🪙):","tk.if_anyorder":"If your {g} hits in any order (🪙):","tk.d_exact":"· {n} exact digits","tk.d_anyorder":"· any order","tk.mult_one":"Multiplier: {g} ×{m} · game coins (not real money)",
+    "tk.if_pair":"If your {pos} pair hits (🪙):","tk.pair_digits":"· {pos} 2 digits","tk.if_cent":"If your centena (3 straight digits) hits (🪙):","tk.cent_exact":"· 3 exact digits",
+    "tk.two_ways":"One ticket that wins two ways (🪙):","tk.row_straight":"🎯 Straight (exact)","tk.row_box":"🔀 Box (any order)","tk.sb_note":"Exact pays ×{s}; any order ×{b} · game coins (not real money)",
+    "tk.if_quin":"If your number hits, you collect by position (🪙):","tk.q1":"🥇 1st prize","tk.q2":"🥈 2nd prize","tk.q3":"🥉 3rd prize","tk.quin_note":"Quiniela ×{a}/{b}/{c} · game coins (not real money)",
+    "tk.if_bolita":"If your number hits, you'd win (in coins 🪙):","tk.sc_corr1":"1 Corrido","tk.sc_corrN":"Corridos","tk.note_fijo":"if the fijo hits","tk.note_corr":"if {n} corrido(s) hit","tk.note_parle":"fijo + corrido together","tk.note_candado":"fijo + 2 corridos · the biggest!",
+    "tk.bolita_note":"Multipliers: Fijo ×{f} · Corrido ×{c} · Parlé ×{p} · Candado ×{k} · game coins (not real money)",
+    "tk.row_p4_dir":"4️⃣ Play 4 straight","tk.row_c3_dir":"3️⃣ Cash 3 straight",
+  },
+};
+
+/* Diccionario y helpers de i18n SOLO para el arcade (claves tipo "bj.title").
+   Se mantienen aparte del t(es,en) global de main para no colisionar. */
+function gt(key){ const L=(_hbLang==="en")?"en":"es"; const d=GAMES_I18N[L]||GAMES_I18N.es; return (d[key]!=null)?d[key]:(GAMES_I18N.es[key]!=null?GAMES_I18N.es[key]:key); }
+function gtf(key,vars){ let s=gt(key); if(vars) for(const k in vars){ s=s.split("{"+k+"}").join(vars[k]); } return s; }
+
+/* ============================ JUEGO: RULETA CUBANA ============================
+   Ruleta de la suerte con giro gratis diario. Premio en monedas virtuales vía
+   addCoins(). 100% CSS/SVG (conic-gradient + rotación), sin dependencias. */
+const RULETA_WEDGES=[100,0,250,50,500,25,150,75];
+function RuletaCubana(){
+  useLang();
+  const [rot,setRot]=useState(0);
+  const [spinning,setSpinning]=useState(false);
+  const [today]=useState(dateKey(new Date()));
+  const [done,setDone]=useState(null); // {prize}
+  useEffect(()=>{(async()=>{ const r=await sGet("ruleta:day",false); if(r&&r.day===today) setDone({prize:r.prize}); })();},[today]);
+  const segColor=(i)=>["#FFB838","#38D6BA","#F2545B","#9D8CFF","#FFD978","#2A7A9B","#E08C00","#247A42"][i];
+  const grad="conic-gradient("+RULETA_WEDGES.map((w,i)=>segColor(i)+" "+(i*45)+"deg "+((i+1)*45)+"deg").join(",")+")";
+  const spin=async()=>{
+    if(spinning||done) return;
+    setSpinning(true);
+    const idx=Math.floor(Math.random()*RULETA_WEDGES.length);
+    const landing=360-(idx*45+22.5);            // orienta el centro de la cuña bajo el puntero
+    let next=Math.ceil((rot+360*5)/360)*360+landing;
+    if(next<=rot+360*5) next+=360;              // siempre gira hacia delante
+    setRot(next);
+    setTimeout(async()=>{
+      const prize=RULETA_WEDGES[idx];
+      if(prize>0){ try{ await addCoins(prize); }catch(e){} fireConfetti(); }
+      await sSet("ruleta:day",{day:today,prize},false);
+      setDone({prize}); setSpinning(false);
+    },4300);
+  };
+  return (
+    <div className="card" style={{marginTop:14,textAlign:"center"}}>
+      <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>{gt("ruleta.title")}</div>
+      <div style={{fontSize:12,color:T.dim,marginBottom:14}}>{gt("ruleta.sub")}</div>
+      <div style={{position:"relative",width:220,height:220,margin:"0 auto 16px"}}>
+        <div style={{position:"absolute",top:-4,left:"50%",transform:"translateX(-50%)",zIndex:2,
+          width:0,height:0,borderLeft:"11px solid transparent",borderRight:"11px solid transparent",
+          borderTop:"18px solid "+T.mango,filter:"drop-shadow(0 2px 3px rgba(0,0,0,.5))"}}/>
+        <div className="clc-wheel" style={{position:"relative",width:220,height:220,borderRadius:"50%",background:grad,
+          border:"6px solid #1A2E39",boxShadow:"0 10px 30px rgba(0,0,0,.5),inset 0 0 0 3px rgba(255,255,255,.08)",
+          transform:"rotate("+rot+"deg)"}}>
+          {RULETA_WEDGES.map((w,i)=>{ const a=i*45+22.5; return (
+            <span key={i} className="mono" style={{position:"absolute",left:"50%",top:"50%",
+              transform:"translate(-50%,-50%) rotate("+a+"deg) translateY(-86px) rotate("+(-a)+"deg)",
+              fontWeight:800,fontSize:13,color:"#11202a"}}>{w}</span>
+          );})}
+        </div>
+        <div style={{position:"absolute",left:"50%",top:"50%",transform:"translate(-50%,-50%)",
+          width:34,height:34,borderRadius:"50%",background:"radial-gradient(circle at 35% 30%,#fff,#cfd9dd)",
+          boxShadow:"0 2px 6px rgba(0,0,0,.5)",zIndex:1}}/>
+      </div>
+      {!done&&<button className="btn primary" style={{width:"100%"}} disabled={spinning} onClick={spin}>{spinning?gt("ruleta.spinning"):gt("ruleta.spin")}</button>}
+      {done&&(
+        <div className="card" style={{background:T.raise,marginTop:4}}>
+          {done.prize>0
+            ? <div className="disp" style={{fontWeight:800,color:T.teal}}>{gt("ruleta.won")} {done.prize} 🪙! 🎉</div>
+            : <div style={{color:T.dim,fontSize:13}}>{gt("ruleta.nada")}</div>}
+          <div style={{fontSize:11,color:T.dim,marginTop:6}}>{gt("ruleta.come_back")}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================ JUEGO: RASPADITO DE LA SUERTE ============================
+   Tarjeta de raspar 3×3 con un juego gratis al día. El cartón se genera y se
+   persiste en la primera raspada (no se puede "re-rollear" recargando). Si hay
+   tres símbolos iguales, paga el premio del símbolo vía addCoins(). Solo CSS. */
+const RASP_SYMS=[{e:"🪙",v:50,w:40},{e:"🥭",v:75,w:30},{e:"🍹",v:150,w:18},{e:"⭐",v:300,w:9},{e:"💎",v:500,w:3}];
+function pickRaspSym(rnd){ // elige símbolo ponderado hacia los de menor valor
+  const tot=RASP_SYMS.reduce((a,s)=>a+s.w,0); let r=rnd()*tot;
+  for(const s of RASP_SYMS){ if((r-=s.w)<0) return s; } return RASP_SYMS[0];
+}
+function genRaspCard(rnd=Math.random){
+  const win=rnd()<0.4;            // ~40% de cartones premiados
+  const cells=new Array(9).fill(null);
+  const counts={};
+  if(win){
+    const wsym=pickRaspSym(rnd);                 // símbolo ganador
+    const order=[0,1,2,3,4,5,6,7,8];
+    for(let i=order.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+    order.slice(0,3).forEach(p=>cells[p]=wsym.e); // coloca exactamente 3
+    for(let i=0;i<9;i++){ if(cells[i])continue;
+      let s; do{ s=pickRaspSym(rnd); }while(s.e===wsym.e||(counts[s.e]||0)>=2); // evita otro trío y más del ganador
+      cells[i]=s.e; counts[s.e]=(counts[s.e]||0)+1; }
+    return {cells,prize:wsym.v,winSym:wsym.e};
+  }
+  for(let i=0;i<9;i++){ let s; do{ s=pickRaspSym(rnd); }while((counts[s.e]||0)>=2); // ningún símbolo llega a 3
+    cells[i]=s.e; counts[s.e]=(counts[s.e]||0)+1; }
+  return {cells,prize:0,winSym:null};
+}
+function Raspadito(){
+  useLang();
+  const [today]=useState(dateKey(new Date()));
+  const [card,setCard]=useState(null);            // {cells,prize,winSym}
+  const [revealed,setRevealed]=useState([]);      // índices destapados
+  const [done,setDone]=useState(false);           // todas destapadas + premio cobrado
+  const awardedRef=useRef(false);
+  useEffect(()=>{(async()=>{ const r=await sGet("rasp:day",false);
+    if(r&&r.day===today){ setCard({cells:r.cells,prize:r.prize,winSym:r.winSym}); setRevealed(r.revealed||[]); if(r.done){ setDone(true); awardedRef.current=true; } }
+  })();},[today]);
+  const ensureCard=async()=>{ if(card) return card; const c=genRaspCard();
+    await sSet("rasp:day",{day:today,cells:c.cells,prize:c.prize,winSym:c.winSym,revealed:[],done:false},false);
+    setCard(c); return c; };
+  const persist=(c,rev,fin)=>sSet("rasp:day",{day:today,cells:c.cells,prize:c.prize,winSym:c.winSym,revealed:rev,done:fin},false);
+  const finish=async(c,rev)=>{ setDone(true);
+    if(c.prize>0&&!awardedRef.current){ awardedRef.current=true; try{ await addCoins(c.prize); }catch(e){} fireConfetti(); }
+    await persist(c,rev,true); };
+  const reveal=async(i)=>{ if(done||revealed.includes(i)) return; const c=await ensureCard();
+    const rev=[...revealed,i]; setRevealed(rev);
+    if(rev.length>=9) await finish(c,rev); else await persist(c,rev,false); };
+  const revealAll=async()=>{ if(done) return; const c=await ensureCard(); const rev=[0,1,2,3,4,5,6,7,8]; setRevealed(rev); await finish(c,rev); };
+  return (
+    <div className="card" style={{marginTop:14,textAlign:"center"}}>
+      <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>{gt("rasp.title")}</div>
+      <div style={{fontSize:12,color:T.dim,marginBottom:12}}>{gt("rasp.sub")}</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,maxWidth:240,margin:"0 auto 12px"}}>
+        {[0,1,2,3,4,5,6,7,8].map(i=>{ const up=revealed.includes(i); const win=done&&card&&card.winSym&&card.cells[i]===card.winSym;
+          return (
+            <button key={i} aria-label={up?(card?card.cells[i]:""):gt("rasp.hint")} onClick={()=>reveal(i)} disabled={done&&!up}
+              style={{aspectRatio:"1",borderRadius:12,fontSize:30,lineHeight:1,cursor:up?"default":"pointer",
+                border:win?"2px solid "+T.teal:"1px solid rgba(255,255,255,.08)",
+                background:up?(win?"rgba(56,214,186,.16)":T.raise):"linear-gradient(135deg,#C9A24B,#8A6D2F)",
+                color:up?"#fff":"rgba(255,255,255,.85)",fontWeight:800,
+                boxShadow:up?"none":"inset 0 1px 2px rgba(255,255,255,.25),0 2px 5px rgba(0,0,0,.35)",
+                transition:"background .15s, transform .12s",transform:up?"none":"scale(1)"}}>
+              {up?card?.cells[i]:"❓"}
+            </button>
+          );
+        })}
+      </div>
+      {!done&&<button className="btn primary" style={{width:"100%"}} onClick={revealAll}>{gt("rasp.reveal_all")}</button>}
+      {!done&&<div style={{fontSize:11,color:T.dim,marginTop:8}}>{gt("rasp.hint")}</div>}
+      {done&&(
+        <div className="card" style={{background:T.raise,marginTop:4}}>
+          {card&&card.prize>0
+            ? <div className="disp" style={{fontWeight:800,color:T.teal}}>{gt("rasp.won")} {card.winSym} {gt("rasp.won2")} {card.prize} 🪙! 🎉</div>
+            : <div style={{color:T.dim,fontSize:13}}>{gt("rasp.lose")}</div>}
+          <div style={{fontSize:11,color:T.dim,marginTop:6}}>{gt("rasp.come_back")}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================ ARCADE: HELPERS COMPARTIDOS ============================
+   useDaily(key): un juego gratis al día, persistido (no se puede "re-rollear"
+   recargando). saved=null → jugable · saved=obj → resultado del día · loading
+   mientras carga. awardCoins paga + confeti. GameShell/GameResult: chrome común. */
+function useDaily(key){
+  const [today]=useState(dateKey(new Date()));
+  const [saved,setSaved]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{(async()=>{ try{ const r=await sGet(key+":day",false); if(r&&r.day===today) setSaved(r); }catch(e){} setLoading(false); })();},[key,today]);
+  const save=async(data)=>{ const rec={day:today,...data}; try{ await sSet(key+":day",rec,false); }catch(e){} setSaved(rec); try{ window.dispatchEvent(new Event("arcade:played")); }catch(e){} };
+  return {saved,loading,save};
+}
+async function awardCoins(n){ if(n>0){ try{ await addCoins(n); }catch(e){} fireConfetti(); } }
+function GameShell({title,sub,children}){
+  return (
+    <div className="card" style={{marginTop:14,textAlign:"center"}}>
+      <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>{title}</div>
+      <div style={{fontSize:12,color:T.dim,marginBottom:12}}>{sub}</div>
+      {children}
+    </div>
+  );
+}
+function GameResult({won,children}){
+  return (
+    <div className="card" style={{background:T.raise,marginTop:10}}>
+      <div className="disp" style={{fontWeight:800,color:won?T.teal:T.dim,fontSize:won?16:13}}>{children}</div>
+      <div style={{fontSize:11,color:T.dim,marginTop:6}}>{gt("g.come_back")}</div>
+    </div>
+  );
+}
+
+/* ---------------- CARA O CRUZ (coin flip) ---------------- */
+function CoinFlip(){
+  useLang(); const {saved,loading,save}=useDaily("coin");
+  const [flipping,setFlipping]=useState(false); const [face,setFace]=useState("🪙");
+  const play=async(pick)=>{
+    if(loading||saved||flipping) return; setFlipping(true);
+    let ticks=0; const iv=setInterval(()=>{ setFace(Math.random()<.5?"🌟":"⚜️"); if(++ticks>8) clearInterval(iv); },110);
+    setTimeout(async()=>{ clearInterval(iv);
+      const res=Math.random()<.5?"cara":"cruz"; setFace(res==="cara"?"🌟":"⚜️");
+      const won=res===pick; if(won) await awardCoins(100);
+      await save({pick,res,won}); setFlipping(false);
+    },1050);
+  };
+  const sideName=(s)=> s==="cara"?gt("coin.heads"):gt("coin.tails");
+  return (
+    <GameShell title={gt("coin.title")} sub={gt("coin.sub")}>
+      <div style={{fontSize:54,margin:"4px 0 12px"}}>{saved?(saved.res==="cara"?"🌟":"⚜️"):face}</div>
+      {!saved&&(
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn primary" style={{flex:1}} disabled={loading||flipping} onClick={()=>play("cara")}>{gt("coin.heads")} 🌟</button>
+          <button className="btn primary" style={{flex:1}} disabled={loading||flipping} onClick={()=>play("cruz")}>{gt("coin.tails")} ⚜️</button>
+        </div>
+      )}
+      {saved&&(saved.won
+        ? <GameResult won>{gtf("coin.won",{side:sideName(saved.res)})}</GameResult>
+        : <GameResult>{gtf("coin.lost",{side:sideName(saved.res)})}</GameResult>)}
+    </GameShell>
+  );
+}
+
+/* ---------------- DADOS DE LA SUERTE (over/under 7) ---------------- */
+const DICE_PIPS=["⚀","⚁","⚂","⚃","⚄","⚅"];
+function DiceLuck(){
+  useLang(); const {saved,loading,save}=useDaily("dice");
+  const [rolling,setRolling]=useState(false); const [dice,setDice]=useState([1,1]);
+  const bet=async(choice)=>{
+    if(loading||saved||rolling) return; setRolling(true);
+    let ticks=0; const iv=setInterval(()=>{ setDice([1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6)]); if(++ticks>9) clearInterval(iv); },90);
+    setTimeout(async()=>{ clearInterval(iv);
+      const a=1+Math.floor(Math.random()*6),b=1+Math.floor(Math.random()*6),sum=a+b; setDice([a,b]);
+      const win=choice==="seven"?sum===7:(choice==="under"?sum<7:sum>7);
+      const prize=win?(choice==="seven"?300:120):0; if(win) await awardCoins(prize);
+      await save({choice,a,b,sum,win,prize}); setRolling(false);
+    },1000);
+  };
+  const a=saved?saved.a:dice[0], b=saved?saved.b:dice[1];
+  return (
+    <GameShell title={gt("dice.title")} sub={gt("dice.sub")}>
+      <div style={{fontSize:50,margin:"2px 0 12px",letterSpacing:6}}>{DICE_PIPS[a-1]}{DICE_PIPS[b-1]}</div>
+      {!saved&&(
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn ghost" style={{flex:1}} disabled={loading||rolling} onClick={()=>bet("under")}>{gt("dice.under")}</button>
+          <button className="btn primary" style={{flex:1}} disabled={loading||rolling} onClick={()=>bet("seven")}>{gt("dice.seven")}</button>
+          <button className="btn ghost" style={{flex:1}} disabled={loading||rolling} onClick={()=>bet("over")}>{gt("dice.over")}</button>
+        </div>
+      )}
+      {saved&&(saved.win
+        ? <GameResult won>{gtf("dice.result",{a:saved.a,b:saved.b,sum:saved.sum})} {gt("ruleta.won")} {saved.prize} 🪙! 🎉</GameResult>
+        : <GameResult>{gtf("dice.result",{a:saved.a,b:saved.b,sum:saved.sum})} {gt("g.no_prize")}</GameResult>)}
+    </GameShell>
+  );
+}
+
+/* ---------------- MÁS O MENOS (higher / lower, bote acumulado) ---------------- */
+function HiLo(){
+  useLang(); const {saved,loading,save}=useDaily("hilo");
+  const [cur,setCur]=useState(null); const [pot,setPot]=useState(0); const [playing,setPlaying]=useState(false); const [flash,setFlash]=useState("");
+  const rnd=()=>Math.floor(Math.random()*100);
+  const start=()=>{ if(loading||saved) return; setCur(rnd()); setPot(0); setPlaying(true); setFlash(""); };
+  const guess=async(dir)=>{
+    if(!playing) return; const next=rnd();
+    if(next===cur){ setFlash(gt("hilo.push")); setCur(next); return; }
+    const correct=(dir==="hi"&&next>cur)||(dir==="lo"&&next<cur);
+    if(correct){ setPot(p=>p+25); setCur(next); setFlash("+25 🪙"); }
+    else { setPlaying(false); await save({result:"bust",pot:0,n:next}); }
+  };
+  const cash=async()=>{ if(!playing||pot===0) return; setPlaying(false); await awardCoins(pot); await save({result:"cashed",pot,n:cur}); };
+  return (
+    <GameShell title={gt("hilo.title")} sub={gt("hilo.sub")}>
+      <div className="mono" style={{fontSize:46,fontWeight:800,color:T.mango}}>{saved?String(saved.n).padStart(2,"0"):(cur===null?"··":String(cur).padStart(2,"0"))}</div>
+      {playing&&<div style={{fontSize:12,color:T.dim,margin:"4px 0 10px"}}>{gt("hilo.pot")}: <b style={{color:T.teal}}>{pot} 🪙</b> · {flash}</div>}
+      {!saved&&!playing&&<button className="btn primary" style={{width:"100%"}} disabled={loading} onClick={start}>{gt("hilo.start")}</button>}
+      {playing&&(
+        <div style={{display:"grid",gap:8}}>
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn primary" style={{flex:1}} onClick={()=>guess("hi")}>{gt("hilo.higher")}</button>
+            <button className="btn primary" style={{flex:1}} onClick={()=>guess("lo")}>{gt("hilo.lower")}</button>
+          </div>
+          <button className="btn ghost" disabled={pot===0} onClick={cash}>{gt("hilo.cash")} ({pot} 🪙)</button>
+        </div>
+      )}
+      {saved&&(saved.result==="cashed"
+        ? <GameResult won>{gtf("hilo.cashed",{n:saved.pot})}</GameResult>
+        : <GameResult>{gtf("hilo.bust",{n:String(saved.n).padStart(2,"0")})}</GameResult>)}
+    </GameShell>
+  );
+}
+
+/* ---------------- VEINTIUNO (21) — blackjack-lite vs crupier ---------------- */
+const BJ_SUITS=["♠","♥","♦","♣"];
+function bjDraw(){ return {r:1+Math.floor(Math.random()*13),s:BJ_SUITS[Math.floor(Math.random()*4)]}; }
+function bjLabel(c){ return ({1:"A",11:"J",12:"Q",13:"K"})[c.r]||String(c.r); }
+function bjTotal(hand){ let sum=0,aces=0; for(const c of hand){ if(c.r===1){ aces++; sum+=11; } else sum+=Math.min(c.r,10); } while(sum>21&&aces){ sum-=10; aces--; } return sum; }
+function BlackjackLite(){
+  useLang(); const {saved,loading,save}=useDaily("bj");
+  const [ph,setPh]=useState(null); const [dh,setDh]=useState(null); const [phase,setPhase]=useState("idle"); // idle | player | done
+  const finish=async(p,d,natural)=>{
+    setPh(p); setDh(d); setPhase("done");
+    const pt=bjTotal(p),dt=bjTotal(d); let outcome,prize=0;
+    if(pt>21) outcome="bust";
+    else if(natural){ outcome="bj"; prize=300; }
+    else if(dt>21||pt>dt){ outcome="win"; prize=200; }
+    else if(pt===dt) outcome="push";
+    else outcome="lose";
+    if(prize>0) await awardCoins(prize);
+    await save({p,d,pt,dt,outcome,prize});
+  };
+  const deal=()=>{ if(loading||saved) return; const p=[bjDraw(),bjDraw()],d=[bjDraw(),bjDraw()]; setPh(p); setDh(d);
+    if(bjTotal(p)===21) finish(p,d,true); else setPhase("player"); };
+  const hit=()=>{ const p=[...ph,bjDraw()]; setPh(p); if(bjTotal(p)>21) finish(p,dh,false); };
+  const stand=()=>{ const d=[...dh]; while(bjTotal(d)<17) d.push(bjDraw()); finish(ph,d,false); };
+  const S=saved||{}; const showP=saved?S.p:ph; const showD=saved?S.d:dh;
+  const chip=(c,hidden,key)=>(
+    <span key={key} style={{display:"inline-block",minWidth:26,padding:"6px 5px",margin:2,borderRadius:7,
+      background:hidden?"#16435a":"#fff",color:hidden?"#16435a":((c.s==="♥"||c.s==="♦")?"#C0392B":"#1a2530"),
+      fontWeight:800,fontSize:15}}>{hidden?"🂠":bjLabel(c)+c.s}</span>
+  );
+  const dealerHidden=(i)=> phase==="player"&&!saved&&i>=1;
+  return (
+    <GameShell title={gt("bj.title")} sub={gt("bj.sub")}>
+      {(phase!=="idle"||saved)&&(
+        <div style={{textAlign:"left",margin:"4px 0 12px"}}>
+          <div style={{fontSize:12,color:T.dim}}>{gt("bj.dealer")}{(saved||phase==="done")?(" · "+S.dt):""}</div>
+          <div>{showD&&showD.map((c,i)=>chip(c,dealerHidden(i),i))}</div>
+          <div style={{fontSize:12,color:T.dim,marginTop:8}}>{gt("bj.you")} · {bjTotal(showP||[])}</div>
+          <div>{showP&&showP.map((c,i)=>chip(c,false,i))}</div>
+        </div>
+      )}
+      {!saved&&phase==="idle"&&<button className="btn primary" style={{width:"100%"}} disabled={loading} onClick={deal}>{gt("bj.deal")}</button>}
+      {!saved&&phase==="player"&&(
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn primary" style={{flex:1}} onClick={hit}>{gt("bj.hit")}</button>
+          <button className="btn ghost" style={{flex:1}} onClick={stand}>{gt("bj.stand")}</button>
+        </div>
+      )}
+      {saved&&<GameResult won={S.prize>0}>{
+        S.outcome==="bj"?gt("bj.bj"):
+        S.outcome==="win"?gtf("bj.win",{n:S.prize}):
+        S.outcome==="push"?gt("bj.push"):
+        S.outcome==="bust"?gt("bj.bust"):gt("bj.lose")
+      }</GameResult>}
+    </GameShell>
+  );
+}
+
+/* ---------------- MEMORIA CUBANA (memory match, 4 parejas) ---------------- */
+const MEM_ICONS=["🍒","🔔","🍀","⭐","💎","🎰","🪙","🎲"];
+function MemoryGame(){
+  useLang(); const {saved,loading,save}=useDaily("mem");
+  const [deck,setDeck]=useState(null); const [flipped,setFlipped]=useState([]); const [matched,setMatched]=useState([]); const [moves,setMoves]=useState(0); const [lock,setLock]=useState(false);
+  const shuffle=(arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; };
+  const start=()=>{ if(loading||saved) return;
+    const four=shuffle([...MEM_ICONS]).slice(0,4);
+    setDeck(shuffle([...four,...four])); setFlipped([]); setMatched([]); setMoves(0); setLock(false); };
+  const finish=async(mv)=>{ const prize=Math.max(60,260-(mv-4)*25); await awardCoins(prize); await save({moves:mv,prize}); };
+  const flip=(i)=>{
+    if(lock||!deck||flipped.includes(i)||matched.includes(i)) return;
+    const f=[...flipped,i]; setFlipped(f);
+    if(f.length===2){ const mv=moves+1; setMoves(mv); setLock(true); const [a,b]=f;
+      if(deck[a]===deck[b]){ const nm=[...matched,a,b]; setMatched(nm); setFlipped([]); setLock(false); if(nm.length===8) finish(mv); }
+      else setTimeout(()=>{ setFlipped([]); setLock(false); },750);
+    }
+  };
+  const isUp=(i)=> flipped.includes(i)||matched.includes(i);
+  return (
+    <GameShell title={gt("mem.title")} sub={gt("mem.sub")}>
+      {deck&&!saved&&<div style={{fontSize:12,color:T.dim,marginBottom:8}}>{gt("mem.moves")}: <b>{moves}</b></div>}
+      {!saved&&!deck&&<button className="btn primary" style={{width:"100%"}} disabled={loading} onClick={start}>{gt("hilo.start")}</button>}
+      {deck&&!saved&&(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,maxWidth:260,margin:"0 auto"}}>
+          {deck.map((e,i)=>{ const up=isUp(i); return (
+            <button key={i} onClick={()=>flip(i)} disabled={up}
+              style={{aspectRatio:"1",borderRadius:10,fontSize:26,fontWeight:800,border:"1px solid rgba(255,255,255,.08)",
+                background:up?T.raise:"linear-gradient(135deg,#1f6f8b,#16435a)",color:"#fff"}}>{up?e:"❓"}</button>
+          );})}
+        </div>
+      )}
+      {saved&&<GameResult won>{gtf("mem.win",{n:saved.prize})} · {gt("mem.moves")}: {saved.moves}</GameResult>}
+    </GameShell>
+  );
+}
+
+/* ============================ ARCADE: PROGRESO + BONO DIARIO ============================
+   Cuenta cuántos de los juegos diarios llevas hoy y paga un bono único al
+   completarlos todos. Se refresca con el evento "arcade:played" que disparan
+   los juegos al guardar, así que sube en vivo sin recargar. El bono se protege
+   con su propia clave del día para no pagar dos veces. */
+const ARCADE_DAILY=["ruleta","rasp","coin","dice","hilo","bj","mem"]; // + hotball y charada (mini-state)
+const ARCADE_TOTAL=ARCADE_DAILY.length+2;
+const ARCADE_BONUS=300;
+async function countArcade(){
+  const today=dateKey(new Date());
+  // Antes: 9 lecturas await en serie (getMiniState + 8× sGet) en cada evento.
+  // Ahora se disparan en paralelo y se resuelven de una sola vez: ~1 tick en
+  // lugar de 9 encadenados, con cada fallo aislado para no tumbar el conteo.
+  const [mini,...recs]=await Promise.all([
+    getMiniState().catch(()=>null),
+    ...ARCADE_DAILY.map(k=>sGet(k+":day",false).catch(()=>null)),
+  ]);
+  let done=0;
+  if(mini&&mini.hotball&&mini.hotball.played) done++;
+  if(mini&&mini.charada&&mini.charada.played) done++;
+  for(const r of recs){ if(r&&r.day===today) done++; }
+  return done;
+}
+function ArcadeProgress(){
+  useLang();
+  const [done,setDone]=useState(0);
+  const [bonus,setBonus]=useState(false); // bono ya acreditado hoy
+  const claimingRef=useRef(false);
+  const refresh=async()=>{
+    const today=dateKey(new Date());
+    const n=await countArcade(); setDone(n);
+    let claimed=false;
+    try{ const b=await sGet("arcadeall:day",false); claimed=!!(b&&b.day===today); }catch(e){}
+    if(n>=ARCADE_TOTAL && !claimed && !claimingRef.current){
+      claimingRef.current=true;
+      try{ await sSet("arcadeall:day",{day:today,claimed:true},false); await awardCoins(ARCADE_BONUS); }catch(e){}
+      claimed=true;
+    }
+    setBonus(claimed);
+  };
+  useEffect(()=>{ refresh();
+    // Coalesce ráfagas de "arcade:played" (varios juegos guardando casi a la vez)
+    // en un solo recálculo, evitando N recomputaciones + setStates redundantes.
+    let tmr=null;
+    const on=()=>{ clearTimeout(tmr); tmr=setTimeout(refresh,200); };
+    window.addEventListener("arcade:played",on);
+    return ()=>{ clearTimeout(tmr); window.removeEventListener("arcade:played",on); };
+  },[]);
+  const pct=Math.min(100,Math.round(done/ARCADE_TOTAL*100));
+  const complete=done>=ARCADE_TOTAL;
+  return (
+    <div className="card" style={{marginBottom:14,border:complete?"1.5px solid #FFD978":undefined,
+      background:complete?"linear-gradient(135deg, rgba(255,184,56,.16), rgba(19,34,43,.92))":undefined}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <div className="disp" style={{fontWeight:800,fontSize:15}}>{gt("arc.title")}</div>
+        <div className="mono" style={{fontWeight:800,color:complete?"#FFD978":T.teal}}>{gtf("arc.count",{done,total:ARCADE_TOTAL})}</div>
+      </div>
+      <div style={{height:8,borderRadius:6,background:"rgba(255,255,255,.08)",overflow:"hidden"}}>
+        <div style={{height:"100%",width:pct+"%",borderRadius:6,transition:"width .4s ease",
+          background:complete?"linear-gradient(90deg,#E8A317,#FFD978)":"linear-gradient(90deg,#1f6f8b,#38D6BA)"}}/>
+      </div>
+      <div style={{fontSize:11,color:complete?"#FFD978":T.dim,marginTop:8,textAlign:"center"}}>
+        {bonus?gtf("arc.bonus_done",{n:ARCADE_BONUS}):gtf("arc.bonus_hint",{total:ARCADE_TOTAL,n:ARCADE_BONUS})}
+      </div>
+    </div>
+  );
+}
+
+
+
 function TabJuega({lot}){
   const [mini,setMini]=useState(null);
   const [hbGuess,setHbGuess]=useState("");
@@ -514,6 +1087,16 @@ function TabJuega({lot}){
   return (
     <div className="fade-in">
       <Tragamonedas/>
+      <Section title={t("🕹️ Arcade diario","🕹️ Daily arcade")} sub={t("Una jugada gratis de cada uno por día — monedas virtuales","One free play of each per day — virtual coins")}>
+        <ArcadeProgress/>
+        <RuletaCubana/>
+        <Raspadito/>
+        <CoinFlip/>
+        <DiceLuck/>
+        <HiLo/>
+        <BlackjackLite/>
+        <MemoryGame/>
+      </Section>
       <CoinStore/>
       <Section title="Juega y gana monedas 🪙" sub="Mini-juegos diarios — una tirada gratis de cada uno por día">
         {/* HOT BALL */}
