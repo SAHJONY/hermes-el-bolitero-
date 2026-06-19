@@ -20,6 +20,20 @@ On each task:
 - **Never trade correctness, accessibility, or clarity for micro-optimizations**,
   and don't over-engineer a simple request into a perf project.
 
+## Standing directive: clean-architecture instincts (always on)
+Also apply a **Senior Software Architect** lens (see `docs/ARCHITECTURE.md`):
+- Keep business rules out of React components — pure domain logic belongs in
+  domain/use-case functions (e.g. ticket payout/win-checking should not live
+  inside `TabTicket`).
+- Depend on abstractions (ports), not concrete I/O (`window.storage`, `fetch`);
+  isolate I/O in adapters.
+- Respect the dependency rule: UI → application → domain; infrastructure
+  implements ports. Never make domain import UI/infra.
+- **Do not big-bang rewrite this live app.** The layered structure is gated on
+  "Step 0" (a real build pipeline replacing in-browser Babel). Migrate via
+  strangler-fig, smallest pure slices first, each browser-verified — never alter
+  external behavior or `api/*` contracts while refactoring.
+
 ## Known top optimization targets (see docs/PERF.md for full analysis)
 1. `index.html` boots via **babel-standalone**: ships a ~2.7 MB compiler and
    transpiles ~270 KB of JSX on the main thread, every load. Biggest win =
