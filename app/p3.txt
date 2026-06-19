@@ -627,9 +627,18 @@ const ARCADE_DAILY=["ruleta","rasp","slots","coin","dice","hilo","bj","mem"]; //
 const ARCADE_TOTAL=ARCADE_DAILY.length+2;
 const ARCADE_BONUS=300;
 async function countArcade(){
-  const today=dateKey(new Date()); let done=0;
-  try{ const mini=await getMiniState(); if(mini&&mini.hotball&&mini.hotball.played) done++; if(mini&&mini.charada&&mini.charada.played) done++; }catch(e){}
-  for(const k of ARCADE_DAILY){ try{ const r=await sGet(k+":day",false); if(r&&r.day===today) done++; }catch(e){} }
+  const today=dateKey(new Date());
+  // Antes: 9 lecturas await en serie (getMiniState + 8× sGet) en cada evento.
+  // Ahora se disparan en paralelo y se resuelven de una sola vez: ~1 tick en
+  // lugar de 9 encadenados, con cada fallo aislado para no tumbar el conteo.
+  const [mini,...recs]=await Promise.all([
+    getMiniState().catch(()=>null),
+    ...ARCADE_DAILY.map(k=>sGet(k+":day",false).catch(()=>null)),
+  ]);
+  let done=0;
+  if(mini&&mini.hotball&&mini.hotball.played) done++;
+  if(mini&&mini.charada&&mini.charada.played) done++;
+  for(const r of recs){ if(r&&r.day===today) done++; }
   return done;
 }
 function ArcadeProgress(){
@@ -650,8 +659,12 @@ function ArcadeProgress(){
     setBonus(claimed);
   };
   useEffect(()=>{ refresh();
-    const on=()=>refresh(); window.addEventListener("arcade:played",on);
-    return ()=>window.removeEventListener("arcade:played",on);
+    // Coalesce ráfagas de "arcade:played" (varios juegos guardando casi a la vez)
+    // en un solo recálculo, evitando N recomputaciones + setStates redundantes.
+    let tmr=null;
+    const on=()=>{ clearTimeout(tmr); tmr=setTimeout(refresh,200); };
+    window.addEventListener("arcade:played",on);
+    return ()=>{ clearTimeout(tmr); window.removeEventListener("arcade:played",on); };
   },[]);
   const pct=Math.min(100,Math.round(done/ARCADE_TOTAL*100));
   const complete=done>=ARCADE_TOTAL;
