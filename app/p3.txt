@@ -765,6 +765,9 @@ function TabJuega({lot}){
 }
 
 function TabTicket(){
+  useLang();
+  const tr=t; // alias estable: dentro de .map(t=>…) la variable del ticket tapa el t() global
+  const posWord=(pos,plural)=> pos==="back"?(plural?tr("tk.backs"):tr("tk.back")):(plural?tr("tk.fronts"):tr("tk.front"));
   const [board,setBoard]=useState("labolita");
   const lottery=LOTTERIES.find(l=>l.id===board);
   const [sess,setSess]=useState("Noche");
@@ -804,29 +807,29 @@ function TabTicket(){
   const crear=async()=>{
     setMsg("");
     if(modo==="play4"){
-      if(!/^\d{4}$/.test(play4)){ setMsg("El Play 4 son 4 dígitos (0000–9999)."); return; }
+      if(!/^\d{4}$/.test(play4)){ setMsg(t("tk.v_play4")); return; }
     } else if(modo==="cash3"){
-      if(!/^\d{3}$/.test(cash3)){ setMsg("El Cash 3 son 3 dígitos (000–999)."); return; }
+      if(!/^\d{3}$/.test(cash3)){ setMsg(t("tk.v_cash3")); return; }
     } else if(modo==="box3"){
-      if(!/^\d{3}$/.test(box3)){ setMsg("El Cash 3 Box son 3 dígitos (000–999)."); return; }
+      if(!/^\d{3}$/.test(box3)){ setMsg(t("tk.v_box3")); return; }
     } else if(modo==="box4"){
-      if(!/^\d{4}$/.test(box4)){ setMsg("El Play 4 Box son 4 dígitos (0000–9999)."); return; }
+      if(!/^\d{4}$/.test(box4)){ setMsg(t("tk.v_box4")); return; }
     } else if(modo==="pareja"){
-      if(!d2ok(pair)){ setMsg("La pareja son 2 dígitos (00–99)."); return; }
+      if(!d2ok(pair)){ setMsg(t("tk.v_pair")); return; }
     } else if(modo==="centena"){
-      if(!/^\d{3}$/.test(cent)){ setMsg("La centena son 3 dígitos (000–999)."); return; }
+      if(!/^\d{3}$/.test(cent)){ setMsg(t("tk.v_cent")); return; }
     } else if(modo==="sb3"){
-      if(!/^\d{3}$/.test(sb3v)){ setMsg("Straight/Box 3 son 3 dígitos (000–999)."); return; }
+      if(!/^\d{3}$/.test(sb3v)){ setMsg(t("tk.v_sb3")); return; }
     } else if(modo==="sb4"){
-      if(!/^\d{4}$/.test(sb4v)){ setMsg("Straight/Box 4 son 4 dígitos (0000–9999)."); return; }
+      if(!/^\d{4}$/.test(sb4v)){ setMsg(t("tk.v_sb4")); return; }
     } else if(modo==="quiniela"){
-      if(!d2ok(qnum)){ setMsg("La quiniela es un número de 2 cifras (00–99)."); return; }
+      if(!d2ok(qnum)){ setMsg(t("tk.v_quin")); return; }
     } else {
-      if(!d2ok(fijo)){ setMsg("El fijo son 2 dígitos (00–99)."); return; }
-      if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
+      if(!d2ok(fijo)){ setMsg(t("tk.v_fijo")); return; }
+      if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg(t("tk.v_corr")); return; }
     }
     const bet=num(monto);
-    if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } await recordWager(bet); }
+    if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg(t("tk.v_coins")); return; } await recordWager(bet); }
     const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
       board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
       tipo:modo, play4:modo==="play4"?play4:"", cash3:modo==="cash3"?cash3:"",
@@ -838,7 +841,7 @@ function TabTicket(){
     await save([t,...(tickets||[])].slice(0,30));
     setFijo("");setC1("");setC2("");setPlay4("");setCash3("");setBox3("");setBox4("");setPair("");setCent("");setSb3v("");setSb4v("");setQnum("");setMonto("");
     try{ await bumpMission("play3"); }catch{}
-    setMsg("🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.");
+    setMsg(t("tk.m_created"));
   };
   const comprobar=async()=>{
     if(checking) return; setChecking(true); setMsg("");
@@ -945,13 +948,13 @@ function TabTicket(){
         const cc=await getCoins(); const al=await sGet("chat:alias",false); await pushScore(al||"Jugador",cc.xp||0);
       }catch{}
       if(wins>0) fireConfetti();
-      setMsg(wins>0?("🎉 ¡¡GANASTE!! "+wins+" ticket(s) · +"+coinWin.toLocaleString()+" 🪙 acreditados a tu saldo."):"Comprobado contra los tiros oficiales publicados.");
-    }catch{ setMsg("La señal no respondió — intenta en un momento."); }
+      setMsg(wins>0?tf("tk.m_won",{n:wins,c:coinWin.toLocaleString()}):t("tk.m_checked"));
+    }catch{ setMsg(t("tk.m_err")); }
     setChecking(false);
   };
   const compartir=async(t)=>{
     const txt=`🎟️ HERMES EL BOLITERO · Ticket ${t.id}\n${t.boardName} · ${t.session} · ${t.date}\nFIJO ${t.fijo}${t.corridos.length?" · corridos "+t.corridos.join(" "):""}\nRecuerdo sin valor — juego estos números en la lotería legal.`;
-    try{ if(navigator.share) await navigator.share({text:txt}); else { await navigator.clipboard.writeText(txt); setMsg("Ticket copiado ✔"); } }catch{}
+    try{ if(navigator.share) await navigator.share({text:txt}); else { await navigator.clipboard.writeText(txt); setMsg(tr("tk.m_copied")); } }catch{}
   };
   const ganados=(tickets||[]).filter(t=>t.status==="ganador").length;
   return (
@@ -960,11 +963,11 @@ function TabTicket(){
       {ganados>0&&(
         <div className="card" style={{marginBottom:12,border:"1.5px solid #FFD978",background:"linear-gradient(135deg, rgba(255,184,56,.18), rgba(19,34,43,.9))",textAlign:"center"}}>
           <div style={{fontSize:22}}>🎉👑🎉</div>
-          <div className="disp" style={{fontWeight:800,color:"#FFD978"}}>¡Tienes {ganados} ticket(s) con número ganador!</div>
-          <div style={{fontSize:11,color:T.dim,marginTop:4}}>Si lo jugaste en la tienda legal, ve a cobrar allá. Aquí celebramos contigo 🥳</div>
+          <div className="disp" style={{fontWeight:800,color:"#FFD978"}}>{tf("tk.win_banner",{n:ganados})}</div>
+          <div style={{fontSize:11,color:T.dim,marginTop:4}}>{t("tk.win_banner_sub")}</div>
         </div>
       )}
-      <Section title="Elige tus números 🎟️" sub="Crea tu ticket souvenir — sin dinero: lo juegas tú en la lotería legal">
+      <Section title={t("tk.pick_title")} sub={t("tk.pick_sub")}>
         <div className="card" style={{display:"grid",gap:10}}>
           <div className="scroll-x">{LOTTERIES.map(l=><button key={l.id} className={"chip"+(board===l.id?" on":"")} onClick={()=>setBoard(l.id)}>{l.short}</button>)}</div>
           <div className="scroll-x">{lottery.sessions.map(s=><button key={s} className={"chip"+(sess===s?" on":"")} onClick={()=>setSess(s)}>{s}</button>)}</div>
@@ -993,74 +996,74 @@ function TabTicket(){
           </>)}
           {modo==="play4"&&(
             <div>
-              <Label>Play 4 · 4 dígitos directos (0000–9999)</Label>
+              <Label>{t("tk.lbl_play4")}</Label>
               <input className="input mono" inputMode="numeric" maxLength={4} placeholder="1234" value={play4} onChange={e=>setPlay4(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.18em"}}/>
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Ganas si los 4 dígitos salen EXACTOS en el Play 4 / Win 4 oficial de ese tablero y sesión.</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{t("tk.help_play4")}</div>
             </div>
           )}
           {modo==="cash3"&&(
             <div>
-              <Label>Cash 3 · 3 dígitos directos (000–999)</Label>
+              <Label>{t("tk.lbl_cash3")}</Label>
               <input className="input mono" inputMode="numeric" maxLength={3} placeholder="123" value={cash3} onChange={e=>setCash3(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.18em"}}/>
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Ganas si los 3 dígitos salen EXACTOS en el Cash 3 / Pick 3 oficial de ese tablero y sesión.</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{t("tk.help_cash3")}</div>
             </div>
           )}
           {modo==="box3"&&(
             <div>
-              <Label>Cash 3 Box · 3 dígitos en cualquier orden</Label>
+              <Label>{t("tk.lbl_box3")}</Label>
               <input className="input mono" inputMode="numeric" maxLength={3} placeholder="123" value={box3} onChange={e=>setBox3(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.18em"}}/>
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Ganas si tus 3 dígitos salen en CUALQUIER orden en el Cash 3 / Pick 3. Paga menos que el directo.</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{t("tk.help_box3")}</div>
             </div>
           )}
           {modo==="box4"&&(
             <div>
-              <Label>Play 4 Box · 4 dígitos en cualquier orden</Label>
+              <Label>{t("tk.lbl_box4")}</Label>
               <input className="input mono" inputMode="numeric" maxLength={4} placeholder="1234" value={box4} onChange={e=>setBox4(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.18em"}}/>
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Ganas si tus 4 dígitos salen en CUALQUIER orden en el Play 4 / Win 4. Paga menos que el directo.</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{t("tk.help_box4")}</div>
             </div>
           )}
           {modo==="pareja"&&(
             <div>
-              <Label>Pareja · 2 dígitos (delantera o trasera del 3 cifras)</Label>
+              <Label>{t("tk.lbl_pair")}</Label>
               <div style={{display:"flex",gap:6,marginBottom:8}}>
-                <button className={"chip"+(pairPos==="front"?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setPairPos("front")}>Delantera (ab_)</button>
-                <button className={"chip"+(pairPos==="back"?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setPairPos("back")}>Trasera (_bc)</button>
+                <button className={"chip"+(pairPos==="front"?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setPairPos("front")}>{t("tk.pair_front")}</button>
+                <button className={"chip"+(pairPos==="back"?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setPairPos("back")}>{t("tk.pair_back")}</button>
               </div>
               <input className="input mono" inputMode="numeric" maxLength={2} placeholder="12" value={pair} onChange={e=>setPair(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.14em"}}/>
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Ganas si tus 2 cifras coinciden con las 2 {pairPos==="back"?"traseras":"delanteras"} del Pick 3.</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{tf("tk.help_pair",{pos:posWord(pairPos,true)})}</div>
             </div>
           )}
           {modo==="centena"&&(
             <div>
-              <Label>Centena · 3 dígitos directos (000–999)</Label>
+              <Label>{t("tk.lbl_cent")}</Label>
               <input className="input mono" inputMode="numeric" maxLength={3} placeholder="123" value={cent} onChange={e=>setCent(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.18em"}}/>
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>La centena cubana: los 3 dígitos EXACTOS del Pick 3 (término tradicional del bolitero).</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{t("tk.help_cent")}</div>
             </div>
           )}
           {modo==="sb3"&&(
             <div>
-              <Label>Straight/Box 3 · 3 dígitos (directo + cualquier orden)</Label>
+              <Label>{t("tk.lbl_sb3")}</Label>
               <input className="input mono" inputMode="numeric" maxLength={3} placeholder="123" value={sb3v} onChange={e=>setSb3v(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.18em"}}/>
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Un solo ticket que gana de dos formas: EXACTO (paga el directo) o en CUALQUIER orden (box).</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{t("tk.help_sb3")}</div>
             </div>
           )}
           {modo==="sb4"&&(
             <div>
-              <Label>Straight/Box 4 · 4 dígitos (directo + cualquier orden)</Label>
+              <Label>{t("tk.lbl_sb4")}</Label>
               <input className="input mono" inputMode="numeric" maxLength={4} placeholder="1234" value={sb4v} onChange={e=>setSb4v(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.18em"}}/>
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Un solo ticket que gana de dos formas: EXACTO (paga el Play 4) o en CUALQUIER orden (box).</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{t("tk.help_sb4")}</div>
             </div>
           )}
           {modo==="quiniela"&&(
             <div>
-              <Label>Quiniela · número de 2 cifras (00–99)</Label>
+              <Label>{t("tk.lbl_quin")}</Label>
               <input className="input mono" inputMode="numeric" maxLength={2} placeholder="17" value={qnum} onChange={e=>setQnum(e.target.value.replace(/\D/g,""))} style={{textAlign:"center",fontSize:30,fontWeight:800,letterSpacing:"0.14em"}}/>
               {qnum.length===2&&<div style={{fontSize:12,color:T.mango,textAlign:"center",marginTop:4}}>{parseInt(qnum,10)===0?100:parseInt(qnum,10)} · {charadaOf(parseInt(qnum,10))}</div>}
-              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>Juegas a cualquiera de las 3 posiciones. Cobras según dónde salga: 1ro (mayor), 2do o 3ro.</div>
+              <div style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:4}}>{t("tk.help_quin")}</div>
             </div>
           )}
           <div>
-            <Label>Monto que juegas (calculadora) 🧮</Label>
+            <Label>{t("tk.lbl_monto")}</Label>
             <input className="input mono" inputMode="decimal" placeholder="$ ej: 5" value={monto} onChange={e=>setMonto(e.target.value)} style={{textAlign:"center",fontSize:18}}/>
           </div>
           {num(monto)>0&&(()=>{
@@ -1069,12 +1072,12 @@ function TabTicket(){
               if(!/^\d{4}$/.test(play4)) return null;
               return (
                 <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu Play 4 sale directo (en monedas 🪙):</div>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{tf("tk.if_straight",{g:"Play 4"})}</div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:13}}>4️⃣ <b>Play 4</b> <span style={{fontSize:10,color:T.dim}}>· 4 dígitos exactos</span></span>
+                    <span style={{fontSize:13}}>4️⃣ <b>Play 4</b> <span style={{fontSize:10,color:T.dim}}>{tf("tk.d_exact",{n:4})}</span></span>
                     <span className="disp" style={{fontWeight:800,fontSize:16,color:"#FFD978"}}>≈ {(bet*PAYOUTS.play4).toLocaleString()} 🪙</span>
                   </div>
-                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicador: Play 4 ×{PAYOUTS.play4} · monedas de juego (no dinero real)</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.mult_one",{g:"Play 4",m:PAYOUTS.play4})}</div>
                 </div>
               );
             }
@@ -1082,12 +1085,12 @@ function TabTicket(){
               if(!/^\d{3}$/.test(cash3)) return null;
               return (
                 <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu Cash 3 sale directo (en monedas 🪙):</div>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{tf("tk.if_straight",{g:"Cash 3"})}</div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:13}}>3️⃣ <b>Cash 3</b> <span style={{fontSize:10,color:T.dim}}>· 3 dígitos exactos</span></span>
+                    <span style={{fontSize:13}}>3️⃣ <b>Cash 3</b> <span style={{fontSize:10,color:T.dim}}>{tf("tk.d_exact",{n:3})}</span></span>
                     <span className="disp" style={{fontWeight:800,fontSize:16,color:"#FFD978"}}>≈ {(bet*PAYOUTS.cash3).toLocaleString()} 🪙</span>
                   </div>
-                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicador: Cash 3 ×{PAYOUTS.cash3} · monedas de juego (no dinero real)</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.mult_one",{g:"Cash 3",m:PAYOUTS.cash3})}</div>
                 </div>
               );
             }
@@ -1095,12 +1098,12 @@ function TabTicket(){
               if(!/^\d{3}$/.test(box3)) return null;
               return (
                 <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu Cash 3 sale en cualquier orden (🪙):</div>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{tf("tk.if_anyorder",{g:"Cash 3"})}</div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:13}}>🔀 <b>Cash 3 Box</b> <span style={{fontSize:10,color:T.dim}}>· cualquier orden</span></span>
+                    <span style={{fontSize:13}}>🔀 <b>Cash 3 Box</b> <span style={{fontSize:10,color:T.dim}}>{t("tk.d_anyorder")}</span></span>
                     <span className="disp" style={{fontWeight:800,fontSize:16,color:"#FFD978"}}>≈ {(bet*PAYOUTS.box3).toLocaleString()} 🪙</span>
                   </div>
-                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicador: Cash 3 Box ×{PAYOUTS.box3} · monedas de juego (no dinero real)</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.mult_one",{g:"Cash 3 Box",m:PAYOUTS.box3})}</div>
                 </div>
               );
             }
@@ -1108,12 +1111,12 @@ function TabTicket(){
               if(!/^\d{4}$/.test(box4)) return null;
               return (
                 <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu Play 4 sale en cualquier orden (🪙):</div>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{tf("tk.if_anyorder",{g:"Play 4"})}</div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:13}}>🔀 <b>Play 4 Box</b> <span style={{fontSize:10,color:T.dim}}>· cualquier orden</span></span>
+                    <span style={{fontSize:13}}>🔀 <b>Play 4 Box</b> <span style={{fontSize:10,color:T.dim}}>{t("tk.d_anyorder")}</span></span>
                     <span className="disp" style={{fontWeight:800,fontSize:16,color:"#FFD978"}}>≈ {(bet*PAYOUTS.box4).toLocaleString()} 🪙</span>
                   </div>
-                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicador: Play 4 Box ×{PAYOUTS.box4} · monedas de juego (no dinero real)</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.mult_one",{g:"Play 4 Box",m:PAYOUTS.box4})}</div>
                 </div>
               );
             }
@@ -1121,12 +1124,12 @@ function TabTicket(){
               if(!/^\d{2}$/.test(pair)) return null;
               return (
                 <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu pareja {pairPos==="back"?"trasera":"delantera"} sale (🪙):</div>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{tf("tk.if_pair",{pos:posWord(pairPos,false)})}</div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:13}}>👫 <b>Pareja</b> <span style={{fontSize:10,color:T.dim}}>· 2 cifras {pairPos==="back"?"traseras":"delanteras"}</span></span>
+                    <span style={{fontSize:13}}>👫 <b>Pareja</b> <span style={{fontSize:10,color:T.dim}}>{tf("tk.pair_digits",{pos:posWord(pairPos,true)})}</span></span>
                     <span className="disp" style={{fontWeight:800,fontSize:16,color:"#FFD978"}}>≈ {(bet*PAYOUTS.pair).toLocaleString()} 🪙</span>
                   </div>
-                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicador: Pareja ×{PAYOUTS.pair} · monedas de juego (no dinero real)</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.mult_one",{g:"Pareja",m:PAYOUTS.pair})}</div>
                 </div>
               );
             }
@@ -1134,12 +1137,12 @@ function TabTicket(){
               if(!/^\d{3}$/.test(cent)) return null;
               return (
                 <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu centena (3 cifras directo) sale (🪙):</div>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{t("tk.if_cent")}</div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:13}}>💯 <b>Centena</b> <span style={{fontSize:10,color:T.dim}}>· 3 cifras exactas</span></span>
+                    <span style={{fontSize:13}}>💯 <b>Centena</b> <span style={{fontSize:10,color:T.dim}}>{t("tk.cent_exact")}</span></span>
                     <span className="disp" style={{fontWeight:800,fontSize:16,color:"#FFD978"}}>≈ {(bet*PAYOUTS.centena).toLocaleString()} 🪙</span>
                   </div>
-                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicador: Centena ×{PAYOUTS.centena} · monedas de juego (no dinero real)</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.mult_one",{g:"Centena",m:PAYOUTS.centena})}</div>
                 </div>
               );
             }
@@ -1147,10 +1150,10 @@ function TabTicket(){
               const v=modo==="sb3"?sb3v:sb4v, len=modo==="sb3"?3:4;
               if(!new RegExp("^\\d{"+len+"}$").test(v)) return null;
               const straight=modo==="sb3"?PAYOUTS.cash3:PAYOUTS.play4, boxM=modo==="sb3"?PAYOUTS.box3:PAYOUTS.box4;
-              const rows=[["🎯 Directo (exacto)",bet*straight],["🔀 Box (cualquier orden)",bet*boxM]];
+              const rows=[[t("tk.row_straight"),bet*straight],[t("tk.row_box"),bet*boxM]];
               return (
                 <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Un ticket que gana de dos formas (🪙):</div>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{t("tk.two_ways")}</div>
                   <div style={{display:"grid",gap:6}}>
                     {rows.map((r,i)=>(
                       <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:i<rows.length-1?`1px dashed ${T.line}`:"none",paddingBottom:5}}>
@@ -1159,16 +1162,16 @@ function TabTicket(){
                       </div>
                     ))}
                   </div>
-                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Exacto paga ×{straight}; cualquier orden ×{boxM} · monedas de juego (no dinero real)</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.sb_note",{s:straight,b:boxM})}</div>
                 </div>
               );
             }
             if(modo==="quiniela"){
               if(!/^\d{2}$/.test(qnum)) return null;
-              const rows=[["🥇 1er premio",bet*PAYOUTS.q1],["🥈 2do premio",bet*PAYOUTS.q2],["🥉 3er premio",bet*PAYOUTS.q3]];
+              const rows=[[t("tk.q1"),bet*PAYOUTS.q1],[t("tk.q2"),bet*PAYOUTS.q2],[t("tk.q3"),bet*PAYOUTS.q3]];
               return (
                 <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si tu número sale, cobras según la posición (🪙):</div>
+                  <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{t("tk.if_quin")}</div>
                   <div style={{display:"grid",gap:6}}>
                     {rows.map((r,i)=>(
                       <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:i<rows.length-1?`1px dashed ${T.line}`:"none",paddingBottom:5}}>
@@ -1177,20 +1180,20 @@ function TabTicket(){
                       </div>
                     ))}
                   </div>
-                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Quiniela ×{PAYOUTS.q1}/{PAYOUTS.q2}/{PAYOUTS.q3} · monedas de juego (no dinero real)</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.quin_note",{a:PAYOUTS.q1,b:PAYOUTS.q2,c:PAYOUTS.q3})}</div>
                 </div>
               );
             }
             const hasFijo=d2ok(fijo);
             // Escenarios posibles según lo que el jugador llenó:
             const escenarios=[];
-            if(hasFijo) escenarios.push({k:"Fijo",icon:"🎯",pago:bet*PAYOUTS.fijo,nota:"si pega el fijo"});
-            if(nCorr>0) escenarios.push({k:nCorr===1?"1 Corrido":"Corridos",icon:"➡️",pago:bet*nCorr*PAYOUTS.corrido,nota:`si pega ${nCorr} corrido(s)`});
-            if((hasFijo&&nCorr>=1)||nCorr>=2) escenarios.push({k:"Parlé",icon:"🎯",pago:bet*((hasFijo?PAYOUTS.fijo:0)+nCorr*PAYOUTS.corrido+PAYOUTS.parle),nota:"fijo + corrido juntos"});
-            if(hasFijo&&nCorr>=2) escenarios.push({k:"Candado",icon:"🔒",pago:bet*(PAYOUTS.fijo+2*PAYOUTS.corrido+PAYOUTS.candado),nota:"fijo + 2 corridos · ¡el mayor!"});
+            if(hasFijo) escenarios.push({k:"Fijo",icon:"🎯",pago:bet*PAYOUTS.fijo,nota:t("tk.note_fijo")});
+            if(nCorr>0) escenarios.push({k:nCorr===1?t("tk.sc_corr1"):t("tk.sc_corrN"),icon:"➡️",pago:bet*nCorr*PAYOUTS.corrido,nota:tf("tk.note_corr",{n:nCorr})});
+            if((hasFijo&&nCorr>=1)||nCorr>=2) escenarios.push({k:"Parlé",icon:"🎯",pago:bet*((hasFijo?PAYOUTS.fijo:0)+nCorr*PAYOUTS.corrido+PAYOUTS.parle),nota:t("tk.note_parle")});
+            if(hasFijo&&nCorr>=2) escenarios.push({k:"Candado",icon:"🔒",pago:bet*(PAYOUTS.fijo+2*PAYOUTS.corrido+PAYOUTS.candado),nota:t("tk.note_candado")});
             return (
             <div className="card" style={{background:T.raise,padding:"12px 14px"}}>
-              <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>Si sale tu número, ganarías (en monedas 🪙):</div>
+              <div style={{fontSize:11,color:T.dim,textAlign:"center",marginBottom:8}}>{t("tk.if_bolita")}</div>
               <div style={{display:"grid",gap:6}}>
                 {escenarios.map((e,i)=>(
                   <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:i<escenarios.length-1?`1px dashed ${T.line}`:"none",paddingBottom:5}}>
@@ -1199,18 +1202,18 @@ function TabTicket(){
                   </div>
                 ))}
               </div>
-              <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>Multiplicadores: Fijo ×{PAYOUTS.fijo} · Corrido ×{PAYOUTS.corrido} · Parlé ×{PAYOUTS.parle} · Candado ×{PAYOUTS.candado} · monedas de juego (no dinero real)</div>
+              <div style={{fontSize:10,color:T.dim,marginTop:8,textAlign:"center"}}>{tf("tk.bolita_note",{f:PAYOUTS.fijo,c:PAYOUTS.corrido,p:PAYOUTS.parle,k:PAYOUTS.candado})}</div>
             </div>
             );
           })()}
-          <button className="btn primary" onClick={crear}>🎟️ Generar mi ticket souvenir</button>
-          <button className="btn ghost" onClick={comprobar} disabled={checking}>{checking?"Comprobando con los tiros oficiales…":"🔎 Comprobar mis tickets"}</button>
+          <button className="btn primary" onClick={crear}>{t("tk.btn_create")}</button>
+          <button className="btn ghost" onClick={comprobar} disabled={checking}>{checking?t("tk.btn_checking"):t("tk.btn_check")}</button>
           {msg&&<div style={{fontSize:12,color:msg.includes("🎉")||msg.includes("✔")||msg.includes("🎟️")?T.teal:T.coral}}>{msg}</div>}
         </div>
       </Section>
-      <Section title="Mis tickets" right={<span style={{fontSize:11,color:T.dim}}>{(tickets||[]).length}</span>}>
+      <Section title={t("tk.mine")} right={<span style={{fontSize:11,color:T.dim}}>{(tickets||[]).length}</span>}>
         <div style={{display:"grid",gap:10}}>
-          {tickets&&tickets.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no tienes tickets. Elige tus números arriba.</div>}
+          {tickets&&tickets.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>{t("tk.empty")}</div>}
           {(tickets||[]).map(t=>(
             <div key={t.id} className="card" style={{padding:0,overflow:"hidden",border:t.status==="ganador"?"1.5px solid #FFD978":`1px solid ${T.line}`}}>
               <div style={{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1220,7 +1223,7 @@ function TabTicket(){
               <div style={{padding:"12px 14px"}}>
                 <div style={{fontSize:11,color:T.dim,marginBottom:8,display:"flex",justifyContent:"space-between"}}>
                   <span>{t.boardName} · {t.session} · {t.date}</span>
-                  {num(t.monto)>0&&<span style={{color:T.mango}}>Jugado ${num(t.monto).toFixed(2)}{t.tipo==="play4"?` · Play 4 ×${PAYOUTS.play4}`:t.tipo==="cash3"?` · Cash 3 ×${PAYOUTS.cash3}`:t.tipo==="box3"?` · Cash 3 Box ×${PAYOUTS.box3}`:t.tipo==="box4"?` · Play 4 Box ×${PAYOUTS.box4}`:t.tipo==="pareja"?` · Pareja ×${PAYOUTS.pair}`:t.tipo==="centena"?` · Centena ×${PAYOUTS.centena}`:t.tipo==="sb3"?` · Str/Box ×${PAYOUTS.cash3}/${PAYOUTS.box3}`:t.tipo==="sb4"?` · Str/Box ×${PAYOUTS.play4}/${PAYOUTS.box4}`:t.tipo==="quiniela"?` · Quiniela ×${PAYOUTS.q1}/${PAYOUTS.q2}/${PAYOUTS.q3}`:` · posible ≈ $${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}`}</span>}
+                  {num(t.monto)>0&&<span style={{color:T.mango}}>{tr("tk.played")} ${num(t.monto).toFixed(2)}{t.tipo==="play4"?` · Play 4 ×${PAYOUTS.play4}`:t.tipo==="cash3"?` · Cash 3 ×${PAYOUTS.cash3}`:t.tipo==="box3"?` · Cash 3 Box ×${PAYOUTS.box3}`:t.tipo==="box4"?` · Play 4 Box ×${PAYOUTS.box4}`:t.tipo==="pareja"?` · Pareja ×${PAYOUTS.pair}`:t.tipo==="centena"?` · Centena ×${PAYOUTS.centena}`:t.tipo==="sb3"?` · Str/Box ×${PAYOUTS.cash3}/${PAYOUTS.box3}`:t.tipo==="sb4"?` · Str/Box ×${PAYOUTS.play4}/${PAYOUTS.box4}`:t.tipo==="quiniela"?` · Quiniela ×${PAYOUTS.q1}/${PAYOUTS.q2}/${PAYOUTS.q3}`:` · ${tr("tk.possible")} ≈ $${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}`}</span>}
                 </div>
                 <div style={{display:"flex",gap:10,alignItems:"center"}}>
                   {t.tipo==="play4"
@@ -1244,48 +1247,48 @@ function TabTicket(){
                     : <><div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.fijo}</div>
                       {t.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}</>}
                   <div style={{marginLeft:"auto",textAlign:"right"}}>
-                    {t.status==="pendiente"&&<span className="chip" style={{cursor:"default"}}>⏳ pendiente</span>}
+                    {t.status==="pendiente"&&<span className="chip" style={{cursor:"default"}}>{tr("tk.pending")}</span>}
                     {t.status==="ganador"&&<span className="chip" style={{cursor:"default",background:"#FFD978",color:"#3A2604",fontWeight:800}}>🏆 {t.premio}{num(t.ganancia)>0?` · +${num(t.ganancia).toLocaleString()}🪙`:""}</span>}
-                    {t.status==="no salió"&&<span className="chip" style={{cursor:"default"}}>{t.resultado||"no salió"}</span>}
+                    {t.status==="no salió"&&<span className="chip" style={{cursor:"default"}}>{t.resultado||tr("tk.miss")}</span>}
                   </div>
                 </div>
                 {num(t.monto)>0&&t.tipo==="play4"&&(
                   <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙):</div>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>{tr("tk.pays")}</div>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                      <span>4️⃣ Play 4 directo</span>
+                      <span>{tr("tk.row_p4_dir")}</span>
                       <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*PAYOUTS.play4).toLocaleString()} 🪙</span>
                     </div>
                   </div>
                 )}
                 {num(t.monto)>0&&t.tipo==="cash3"&&(
                   <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙):</div>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>{tr("tk.pays")}</div>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                      <span>3️⃣ Cash 3 directo</span>
+                      <span>{tr("tk.row_c3_dir")}</span>
                       <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*PAYOUTS.cash3).toLocaleString()} 🪙</span>
                     </div>
                   </div>
                 )}
                 {num(t.monto)>0&&(t.tipo==="box3"||t.tipo==="box4"||t.tipo==="pareja"||t.tipo==="centena")&&(
                   <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙):</div>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>{tr("tk.pays")}</div>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                      <span>{t.tipo==="box3"?"🔀 Cash 3 Box":t.tipo==="box4"?"🔀 Play 4 Box":t.tipo==="centena"?"💯 Centena":"👫 Pareja "+(t.pairPos==="back"?"trasera":"delantera")}</span>
+                      <span>{t.tipo==="box3"?"🔀 Cash 3 Box":t.tipo==="box4"?"🔀 Play 4 Box":t.tipo==="centena"?"💯 Centena":"👫 Pareja "+posWord(t.pairPos,false)}</span>
                       <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*(t.tipo==="box3"?PAYOUTS.box3:t.tipo==="box4"?PAYOUTS.box4:t.tipo==="centena"?PAYOUTS.centena:PAYOUTS.pair)).toLocaleString()} 🪙</span>
                     </div>
                   </div>
                 )}
                 {num(t.monto)>0&&(t.tipo==="sb3"||t.tipo==="sb4")&&(
                   <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙) — gana de dos formas:</div>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>{tr("tk.pays_two")}</div>
                     <div style={{display:"grid",gap:4}}>
                       <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                        <span>🎯 Directo (exacto)</span>
+                        <span>{tr("tk.row_straight")}</span>
                         <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*(t.tipo==="sb3"?PAYOUTS.cash3:PAYOUTS.play4)).toLocaleString()} 🪙</span>
                       </div>
                       <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                        <span>🔀 Box (cualquier orden)</span>
+                        <span>{tr("tk.row_box")}</span>
                         <span className="mono" style={{fontWeight:700,color:T.teal}}>≈ {(num(t.monto)*(t.tipo==="sb3"?PAYOUTS.box3:PAYOUTS.box4)).toLocaleString()} 🪙</span>
                       </div>
                     </div>
@@ -1293,9 +1296,9 @@ function TabTicket(){
                 )}
                 {num(t.monto)>0&&t.tipo==="quiniela"&&(
                   <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga según la posición (en monedas 🪙):</div>
+                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>{tr("tk.pays_pos")}</div>
                     <div style={{display:"grid",gap:4}}>
-                      {[["🥇 1er premio",PAYOUTS.q1,true],["🥈 2do premio",PAYOUTS.q2,false],["🥉 3er premio",PAYOUTS.q3,false]].map((f,i)=>(
+                      {[[tr("tk.q1"),PAYOUTS.q1,true],[tr("tk.q2"),PAYOUTS.q2,false],[tr("tk.q3"),PAYOUTS.q3,false]].map((f,i)=>(
                         <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
                           <span>{f[0]}</span>
                           <span className="mono" style={{fontWeight:700,color:f[2]?"#FFD978":T.teal}}>≈ {(num(t.monto)*f[1]).toLocaleString()} 🪙</span>
@@ -1312,7 +1315,7 @@ function TabTicket(){
                   if(ncor>=2) filas.push(["🔒 Candado",bet*(PAYOUTS.fijo+2*PAYOUTS.corrido+PAYOUTS.candado),false]);
                   return (
                     <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                      <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga cada juego (en monedas 🪙):</div>
+                      <div style={{fontSize:10,color:T.dim,marginBottom:6}}>{tr("tk.pays_each")}</div>
                       <div style={{display:"grid",gap:4}}>
                         {filas.map((f,i)=>(
                           <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
@@ -1325,7 +1328,7 @@ function TabTicket(){
                   );
                 })()}
                 <div style={{borderTop:`1px dashed ${T.line}`,marginTop:10,paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontSize:9,color:T.dim,maxWidth:"70%"}}>RECUERDO SIN VALOR MONETARIO · Juega estos números en una tienda autorizada de la lotería legal de tu estado. Aquí no se apuesta ni se paga premio.</span>
+                  <span style={{fontSize:9,color:T.dim,maxWidth:"70%"}}>{tr("tk.disclaimer")}</span>
                   <button className="chip" onClick={()=>compartir(t)}>📤</button>
                 </div>
               </div>
@@ -1335,8 +1338,7 @@ function TabTicket(){
       </Section>
       <PlayerLeaderboard/>
       <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
-        Cuando tu número salga, lo verás aquí en tu cuenta al instante — y si activaste 🔔 Alertas,
-        Hermes te avisa también por llamada, email o el grupo de Telegram del dueño.
+        {t("tk.footer")}
       </div>
     </div>
   );
@@ -1484,6 +1486,7 @@ const CHANGELOG=[
     "🎫 Raspadito de la Suerte — raspa 9 casillas, junta tres iguales y gana monedas",
     "🕹️ Arcade ampliado — Tragamonedas, Cara o Cruz, Dados, Más o Menos, 21 y Memoria, una jugada gratis al día",
     "🏅 Progreso del arcade con bono diario — completa todos los juegos del día y gana 🪙 extra",
+    "🌐 Pestaña Ticket ahora bilingüe Español / English (modos, calculadora, validaciones y tickets)",
     "🔊 Escucha el resultado en voz alta (Fijo y Corridos)",
     "⭐ Marca tus loterías favoritas y súbelas al frente",
     "♿ Accesibilidad: foco visible por teclado, etiquetas y respeto a reduce-motion",
