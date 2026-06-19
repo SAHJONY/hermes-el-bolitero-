@@ -360,7 +360,7 @@ function useDaily(key){
   const [saved,setSaved]=useState(null);
   const [loading,setLoading]=useState(true);
   useEffect(()=>{(async()=>{ try{ const r=await sGet(key+":day",false); if(r&&r.day===today) setSaved(r); }catch(e){} setLoading(false); })();},[key,today]);
-  const save=async(data)=>{ const rec={day:today,...data}; try{ await sSet(key+":day",rec,false); }catch(e){} setSaved(rec); };
+  const save=async(data)=>{ const rec={day:today,...data}; try{ await sSet(key+":day",rec,false); }catch(e){} setSaved(rec); try{ window.dispatchEvent(new Event("arcade:played")); }catch(e){} };
   return {saved,loading,save};
 }
 async function awardCoins(n){ if(n>0){ try{ await addCoins(n); }catch(e){} fireConfetti(); } }
@@ -618,6 +618,61 @@ function MemoryGame(){
   );
 }
 
+/* ============================ ARCADE: PROGRESO + BONO DIARIO ============================
+   Cuenta cuántos de los juegos diarios llevas hoy y paga un bono único al
+   completarlos todos. Se refresca con el evento "arcade:played" que disparan
+   los juegos al guardar, así que sube en vivo sin recargar. El bono se protege
+   con su propia clave del día para no pagar dos veces. */
+const ARCADE_DAILY=["ruleta","rasp","slots","coin","dice","hilo","bj","mem"]; // + hotball y charada (mini-state)
+const ARCADE_TOTAL=ARCADE_DAILY.length+2;
+const ARCADE_BONUS=300;
+async function countArcade(){
+  const today=dateKey(new Date()); let done=0;
+  try{ const mini=await getMiniState(); if(mini&&mini.hotball&&mini.hotball.played) done++; if(mini&&mini.charada&&mini.charada.played) done++; }catch(e){}
+  for(const k of ARCADE_DAILY){ try{ const r=await sGet(k+":day",false); if(r&&r.day===today) done++; }catch(e){} }
+  return done;
+}
+function ArcadeProgress(){
+  useLang();
+  const [done,setDone]=useState(0);
+  const [bonus,setBonus]=useState(false); // bono ya acreditado hoy
+  const claimingRef=useRef(false);
+  const refresh=async()=>{
+    const today=dateKey(new Date());
+    const n=await countArcade(); setDone(n);
+    let claimed=false;
+    try{ const b=await sGet("arcadeall:day",false); claimed=!!(b&&b.day===today); }catch(e){}
+    if(n>=ARCADE_TOTAL && !claimed && !claimingRef.current){
+      claimingRef.current=true;
+      try{ await sSet("arcadeall:day",{day:today,claimed:true},false); await awardCoins(ARCADE_BONUS); }catch(e){}
+      claimed=true;
+    }
+    setBonus(claimed);
+  };
+  useEffect(()=>{ refresh();
+    const on=()=>refresh(); window.addEventListener("arcade:played",on);
+    return ()=>window.removeEventListener("arcade:played",on);
+  },[]);
+  const pct=Math.min(100,Math.round(done/ARCADE_TOTAL*100));
+  const complete=done>=ARCADE_TOTAL;
+  return (
+    <div className="card" style={{marginBottom:14,border:complete?"1.5px solid #FFD978":undefined,
+      background:complete?"linear-gradient(135deg, rgba(255,184,56,.16), rgba(19,34,43,.92))":undefined}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <div className="disp" style={{fontWeight:800,fontSize:15}}>{t("arc.title")}</div>
+        <div className="mono" style={{fontWeight:800,color:complete?"#FFD978":T.teal}}>{tf("arc.count",{done,total:ARCADE_TOTAL})}</div>
+      </div>
+      <div style={{height:8,borderRadius:6,background:"rgba(255,255,255,.08)",overflow:"hidden"}}>
+        <div style={{height:"100%",width:pct+"%",borderRadius:6,transition:"width .4s ease",
+          background:complete?"linear-gradient(90deg,#E8A317,#FFD978)":"linear-gradient(90deg,#1f6f8b,#38D6BA)"}}/>
+      </div>
+      <div style={{fontSize:11,color:complete?"#FFD978":T.dim,marginTop:8,textAlign:"center"}}>
+        {bonus?tf("arc.bonus_done",{n:ARCADE_BONUS}):tf("arc.bonus_hint",{total:ARCADE_TOTAL,n:ARCADE_BONUS})}
+      </div>
+    </div>
+  );
+}
+
 /* ============================ TAB: JUEGA (mini-juegos diarios) ============================ */
 function TabJuega({lot}){
   useLang();
@@ -640,20 +695,22 @@ function TabJuega({lot}){
     for(let i=arr.length-1;i>0;i--){ seed=(seed*1103515245+12345)>>>0; const j=seed%(i+1); [arr[i],arr[j]]=[arr[j],arr[i]]; }
     setReto({symbol:charadaOf(correct), correct, options:arr});
   },[]);
+  const pinged=()=>{ try{ window.dispatchEvent(new Event("arcade:played")); }catch(e){} };
   const jugarHot=async()=>{
     if(!/^\d{1,2}$/.test(hbGuess)) return;
     const r=await playHotBall(lot, hbGuess); if(r.already){ await load(); return; }
-    setHbRes(r); if(r.won) fireConfetti(); await load();
+    setHbRes(r); if(r.won) fireConfetti(); await load(); pinged();
   };
   const jugarCharada=async(pick)=>{
     if(!reto) return;
     const r=await playCharada(reto.correct, pick); if(r.already){ await load(); return; }
-    setChRes({...r, pick}); if(r.won) fireConfetti(); await load();
+    setChRes({...r, pick}); if(r.won) fireConfetti(); await load(); pinged();
   };
   const hbDone=mini?.hotball?.played; const chDone=mini?.charada?.played;
   return (
     <div className="fade-in">
       <Section title={t("juega.title")} sub={t("juega.sub")}>
+        <ArcadeProgress/>
         {/* HOT BALL */}
         <div className="card" style={{marginBottom:14}}>
           <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>{t("juega.hot_title")}</div>
@@ -1426,6 +1483,7 @@ const CHANGELOG=[
     "🎡 Ruleta Cubana — gira gratis cada día y llévate monedas",
     "🎫 Raspadito de la Suerte — raspa 9 casillas, junta tres iguales y gana monedas",
     "🕹️ Arcade ampliado — Tragamonedas, Cara o Cruz, Dados, Más o Menos, 21 y Memoria, una jugada gratis al día",
+    "🏅 Progreso del arcade con bono diario — completa todos los juegos del día y gana 🪙 extra",
     "🔊 Escucha el resultado en voz alta (Fijo y Corridos)",
     "⭐ Marca tus loterías favoritas y súbelas al frente",
     "♿ Accesibilidad: foco visible por teclado, etiquetas y respeto a reduce-motion",

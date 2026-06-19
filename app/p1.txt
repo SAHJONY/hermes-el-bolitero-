@@ -110,6 +110,7 @@ const I18N = {
     "hilo.title":"🔼 Más o Menos","hilo.sub":"¿El próximo número (00–99) será más alto o más bajo? Acumula y plántate.","hilo.higher":"Más alto 🔼","hilo.lower":"Más bajo 🔽","hilo.pot":"Bote","hilo.cash":"Plantarme","hilo.start":"Empezar","hilo.push":"Empate — sigue igual","hilo.bust":"¡Fallaste! El número era {n}. Pierdes el bote.","hilo.cashed":"¡Te plantaste! Ganaste {n} 🪙 🎉",
     "bj.title":"🃏 Veintiuno (21)","bj.sub":"Acércate a 21 sin pasarte y gánale al crupier para llevarte 200 🪙.","bj.hit":"Pedir","bj.stand":"Plantarme","bj.you":"Tú","bj.dealer":"Crupier","bj.deal":"Repartir","bj.win":"¡Le ganaste al crupier! +{n} 🪙 🎉","bj.lose":"Gana el crupier. ¡La próxima!","bj.push":"Empate — nadie gana.","bj.bust":"Te pasaste de 21. ¡La próxima!","bj.bj":"¡BLACKJACK! +300 🪙 🎉",
     "mem.title":"🧠 Memoria Cubana","mem.sub":"Encuentra las 4 parejas en la menor cantidad de intentos.","mem.moves":"Intentos","mem.win":"¡Completaste! +{n} 🪙 🎉",
+    "arc.title":"Progreso del arcade 🎮","arc.count":"{done}/{total} hoy","arc.bonus_hint":"Completa los {total} juegos y gana {n} 🪙 de bono.","arc.bonus_done":"¡Arcade completo! +{n} 🪙 de bono diario 🎉",
   },
   en:{
     "hdr.exit":"🔒 Exit","hdr.admin":"👑 Admin","hdr.update":"⚡ Hermes Daily Update",
@@ -145,6 +146,7 @@ const I18N = {
     "hilo.title":"🔼 Higher or Lower","hilo.sub":"Will the next number (00–99) be higher or lower? Build your pot and cash out.","hilo.higher":"Higher 🔼","hilo.lower":"Lower 🔽","hilo.pot":"Pot","hilo.cash":"Cash out","hilo.start":"Start","hilo.push":"Tie — carry on","hilo.bust":"Missed it! The number was {n}. You lose the pot.","hilo.cashed":"You cashed out! You won {n} 🪙 🎉",
     "bj.title":"🃏 Twenty-One (21)","bj.sub":"Get close to 21 without busting and beat the dealer to win 200 🪙.","bj.hit":"Hit","bj.stand":"Stand","bj.you":"You","bj.dealer":"Dealer","bj.deal":"Deal","bj.win":"You beat the dealer! +{n} 🪙 🎉","bj.lose":"Dealer wins. Next time!","bj.push":"Push — nobody wins.","bj.bust":"You went over 21. Next time!","bj.bj":"BLACKJACK! +300 🪙 🎉",
     "mem.title":"🧠 Cuban Memory","mem.sub":"Find all 4 pairs in as few tries as possible.","mem.moves":"Tries","mem.win":"Cleared! +{n} 🪙 🎉",
+    "arc.title":"Arcade progress 🎮","arc.count":"{done}/{total} today","arc.bonus_hint":"Finish all {total} games to earn a {n} 🪙 bonus.","arc.bonus_done":"Arcade complete! +{n} 🪙 daily bonus 🎉",
   },
 };
 let _lang = (()=>{ try{ return localStorage.getItem("hb:lang")||"es"; }catch(e){ return "es"; } })();
