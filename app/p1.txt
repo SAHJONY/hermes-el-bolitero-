@@ -393,6 +393,7 @@ function Countdown({to}){
 function FijoHero({res, session}){
   const cents=res.fijo3[0], last2=res.fijo2;
   const n=parseInt(last2,10);
+  useEffect(()=>()=>{ try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} },[]);
   return (
     <div className="card fade-in" style={{textAlign:"center",padding:"22px 16px",background:`linear-gradient(180deg, ${T.surface}, #0F1B22)`}}>
       <Label>Fijo · {session}</Label>
@@ -498,16 +499,19 @@ const CLC_SCENE = "<svg viewBox='0 0 400 240' width='100%' preserveAspectRatio='
 "<path d='M4,-74 C26,-84 46,-82 60,-72 C44,-78 24,-80 4,-74Z' fill='#1f6b3a'/>"+
 "<circle cx='4' cy='-74' r='3.4' fill='#caa24a'/></g></g>"+
 "</svg>";
+let _casinoBgOk=null; // null=sin probar, true/false=resultado cacheado (evita 404 repetidos)
 function CasinoHero({go}){
   useLang(); // re-render al cambiar idioma
   // Capa fotorrealista opcional ("mix"): si existe /casino-bg.jpg (generado GRATIS con
   // FLUX/Wan/ComfyUI — ver docs/free-ai-generation-stack.md), entra como fondo bajo la
   // escena vectorial. Si no existe, onError la oculta y queda solo el hero cinematográfico.
-  const [hasBg,setHasBg]=useState(true);
+  const [hasBg,setHasBg]=useState(_casinoBgOk); // null=desconocido (sondea), false=ausente (no pide)
   return (
     <div className="clc-hero" style={{marginBottom:16}}>
-      {hasBg&&(
-        <img src="/casino-bg.jpg" alt="" aria-hidden="true" onError={()=>setHasBg(false)}
+      {hasBg!==false&&(
+        <img src="/casino-bg.jpg" alt="" aria-hidden="true"
+          onLoad={()=>{_casinoBgOk=true; if(hasBg!==true) setHasBg(true);}}
+          onError={()=>{_casinoBgOk=false; setHasBg(false);}}
           style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:0,
             filter:"saturate(1.05) contrast(1.03)"}}/>
       )}
