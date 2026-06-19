@@ -1622,7 +1622,7 @@ function CoinBalance({admin}){
   );
 }
 
-/* ===== 🌴 CUBA LIBRE CASINO — escena tropical animada (atardecer en una Habana
+/* ===== 🌴 HERMES CASINO — escena tropical animada (atardecer en una Habana
    futurista más imponente que Dubái: skyline de neón, mar, playa y palmeras).
    Bilingüe ES/EN. Supera el estándar visual de los casinos sociales. ===== */
 const CASINO_CSS=`
