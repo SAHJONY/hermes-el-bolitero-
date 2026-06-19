@@ -1072,6 +1072,7 @@ const CHANGELOG=[
     "🔊 Escucha el resultado en voz alta (Fijo y Corridos)",
     "⭐ Marca tus loterías favoritas y súbelas al frente",
     "♿ Accesibilidad: foco visible por teclado, etiquetas y respeto a reduce-motion",
+    "🕛 Los reinicios diarios ahora son a tu medianoche local (antes a medianoche UTC)",
   ]},
   {v:"2.1",fecha:"15 jun 2026",items:[
     "🎟️ Menú de jugadas completo: Cash 3, Cash 3 Box y Play 4 Box (cualquier orden), Pareja delantera/trasera",
