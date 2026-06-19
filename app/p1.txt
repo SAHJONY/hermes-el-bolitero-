@@ -53,7 +53,10 @@ function resultFor(lotId, dateKey, session){
     candado:[fijo2,c1,c2],
   };
 }
-const dateKey = (d) => d.toISOString().slice(0,10);
+// Clave de día en hora LOCAL del dispositivo (antes usaba UTC vía toISOString, lo
+// que hacía que los reinicios diarios cayeran ~7–8pm en Cuba/Este en vez de a
+// medianoche). Ahora "el día" reinicia a la medianoche local de cada usuario.
+const dateKey = (d) => { const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0"); return y+"-"+m+"-"+day; };
 const fmtDate = (d) => d.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
 function pastDays(n){const out=[];const t=new Date();for(let i=0;i<n;i++){const d=new Date(t);d.setDate(t.getDate()-i);out.push(d);}return out;}
 function nextDraw(lot){
