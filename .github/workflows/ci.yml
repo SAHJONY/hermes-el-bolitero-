@@ -1,0 +1,48 @@
+name: CI
+
+# Runs on every push and PR. The job is the same gate the app already uses
+# locally (npm run check → scripts/check-app.js), which Babel-transpiles the four
+# app chunks (p1..p4) and fails on any syntax error before it can reach prod.
+# This is the missing automated safety net: until now the gate only ran by hand.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Transpile gate + sanity checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies (clean, lockfile-pinned)
+        run: npm ci
+
+      - name: App transpile gate (p1..p4 must compile)
+        run: npm run check
+
+      - name: Guard against leaked secrets in committed source
+        # Fast, dependency-free heuristic: fail if obvious provider keys land in
+        # tracked files. Real secret scanning (gitleaks/Trufflehog) is the
+        # long-term recommendation.
+        run: |
+          if git grep -nE '(sk-[A-Za-z0-9]{20,}|AIza[0-9A-Za-z._-]{20,}|xox[baprs]-[0-9A-Za-z-]{10,})' -- . ':!*.md' ':!.github/*'; then
+            echo "::error::Possible hardcoded secret found in tracked files."; exit 1
+          fi
+          echo "No obvious hardcoded secrets detected."
