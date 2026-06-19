@@ -1622,6 +1622,136 @@ function CoinBalance({admin}){
   );
 }
 
+/* ===== 🌴 CUBA LIBRE CASINO — escena tropical animada (atardecer en una Habana
+   futurista más imponente que Dubái: skyline de neón, mar, playa y palmeras).
+   Bilingüe ES/EN. Supera el estándar visual de los casinos sociales. ===== */
+const CASINO_CSS=`
+@keyframes clcSway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+@keyframes clcSway2{0%,100%{transform:rotate(2deg)}50%{transform:rotate(-3deg)}}
+@keyframes clcTwinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes clcShimmer{0%{transform:translateX(-6px)}100%{transform:translateX(6px)}}
+@keyframes clcSun{0%,100%{filter:drop-shadow(0 0 14px rgba(255,180,90,.7))}50%{filter:drop-shadow(0 0 26px rgba(255,150,70,.95))}}
+@keyframes clcNeon{0%,100%{opacity:1;filter:drop-shadow(0 0 6px rgba(255,80,140,.9)) drop-shadow(0 0 16px rgba(255,80,140,.6))}45%{opacity:.92}48%{opacity:.6}52%{opacity:.95}}
+@keyframes clcFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.clc-hero{position:relative;border-radius:20px;overflow:hidden;border:1.5px solid rgba(255,184,56,.35);box-shadow:0 14px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04) inset}
+.clc-sign{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;letter-spacing:.5px;line-height:.95}
+.clc-neon{color:#fff;text-shadow:0 0 4px #fff,0 0 12px #ff4f8c,0 0 22px #ff4f8c,0 0 40px #c026d3;animation:clcNeon 4.5s infinite}
+.clc-gold{background-image:linear-gradient(115deg,#E8A317,#FFF6D8 50%,#FFD978);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 6px rgba(255,200,80,.5))}
+.clc-cta{animation:clcFloat 3s ease-in-out infinite}
+`;
+function LangToggle(){
+  const lang=useLang();
+  return (
+    <button className="chip" title="Idioma / Language" onClick={()=>setLang(lang==="es"?"en":"es")}
+      style={{fontWeight:800,letterSpacing:.5}}>
+      🌐 {lang==="es"?"ES":"EN"}
+    </button>
+  );
+}
+function CubaLibreHero({onPlay}){
+  const lang=useLang();
+  const stars=useMemo(()=>Array.from({length:22},(_,i)=>({x:8+Math.random()*384,y:6+Math.random()*70,r:Math.random()*1.1+.4,d:(Math.random()*3).toFixed(2)})),[]);
+  const Palm=({x,scale,anim,flip})=>(
+    <g transform={`translate(${x},212) scale(${(flip?-1:1)*scale},${scale})`} style={{transformOrigin:`${x}px 212px`}}>
+      <path d="M0,0 C-3,-26 -2,-52 4,-74" fill="none" stroke="#3a2a17" strokeWidth="5" strokeLinecap="round"/>
+      <path d="M0,0 C-3,-26 -2,-52 4,-74" fill="none" stroke="#5a4327" strokeWidth="2.2" strokeLinecap="round"/>
+      <g style={{transformOrigin:"4px -74px",animation:`${anim} 4.2s ease-in-out infinite`}}>
+        <path d="M4,-74 C-22,-86 -40,-84 -54,-74 C-38,-80 -20,-80 4,-74Z" fill="#1f6b3a"/>
+        <path d="M4,-74 C-16,-94 -30,-104 -50,-108 C-30,-100 -14,-90 4,-74Z" fill="#247a42"/>
+        <path d="M4,-74 C4,-98 8,-116 16,-130 C10,-112 8,-94 4,-74Z" fill="#2b8c4c"/>
+        <path d="M4,-74 C26,-92 44,-100 62,-100 C42,-94 22,-86 4,-74Z" fill="#247a42"/>
+        <path d="M4,-74 C26,-84 46,-82 60,-72 C44,-78 24,-80 4,-74Z" fill="#1f6b3a"/>
+        <circle cx="4" cy="-74" r="3.4" fill="#caa24a"/>
+        <circle cx="9" cy="-70" r="2.4" fill="#b8923f"/>
+      </g>
+    </g>
+  );
+  return (
+    <div className="clc-hero fade-in" style={{marginBottom:14}}>
+      <style>{CASINO_CSS}</style>
+      <svg viewBox="0 0 400 240" width="100%" style={{display:"block"}} preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="clcSky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#10183f"/><stop offset="34%" stopColor="#3b2768"/>
+            <stop offset="60%" stopColor="#9b3b82"/><stop offset="78%" stopColor="#e96a5a"/>
+            <stop offset="100%" stopColor="#ffb86b"/>
+          </linearGradient>
+          <linearGradient id="clcSea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#ffcaa0"/><stop offset="22%" stopColor="#e98a8f"/>
+            <stop offset="55%" stopColor="#2a7a9b"/><stop offset="100%" stopColor="#0c3a52"/>
+          </linearGradient>
+          <radialGradient id="clcSunG" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stopColor="#fff3c4"/><stop offset="55%" stopColor="#ffcf6b"/><stop offset="100%" stopColor="#ff9a52" stopOpacity="0"/>
+          </radialGradient>
+          <linearGradient id="clcSand" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#f4dca6"/><stop offset="100%" stopColor="#caa86a"/>
+          </linearGradient>
+        </defs>
+        {/* cielo */}
+        <rect width="400" height="170" fill="url(#clcSky)"/>
+        {stars.map((s,i)=>(<circle key={i} cx={s.x} cy={s.y} r={s.r} fill="#fff" style={{animation:`clcTwinkle 3s ease-in-out ${s.d}s infinite`}}/>))}
+        {/* sol */}
+        <circle cx="200" cy="120" r="58" fill="url(#clcSunG)"/>
+        <circle cx="200" cy="120" r="26" fill="#ffe08a" style={{animation:"clcSun 5s ease-in-out infinite"}}/>
+        {/* skyline futurista (más imponente que Dubái) */}
+        <g fill="#161a3a">
+          <rect x="20" y="96" width="16" height="76"/><rect x="40" y="74" width="13" height="98"/>
+          <rect x="56" y="108" width="18" height="64"/>
+          <polygon points="92,172 92,44 100,30 108,44 108,172"/>{/* torre aguja 1 */}
+          <rect x="120" y="84" width="15" height="88"/><rect x="138" y="100" width="12" height="72"/>
+          <rect x="262" y="90" width="15" height="82"/><rect x="280" y="70" width="14" height="102"/>
+          <polygon points="300,172 300,38 308,20 316,38 316,172"/>{/* torre aguja 2 (la más alta) */}
+          <rect x="332" y="86" width="16" height="86"/><rect x="352" y="104" width="14" height="68"/><rect x="370" y="120" width="12" height="52"/>
+          {/* twin towers centrales con corona */}
+          <rect x="166" y="62" width="20" height="110"/><rect x="190" y="54" width="20" height="118"/><rect x="214" y="62" width="20" height="110"/>
+        </g>
+        {/* neón en los edificios */}
+        <g stroke="#ff5fa2" strokeWidth="1.4" opacity=".9">
+          <line x1="92" y1="44" x2="100" y2="30"/><line x1="108" y1="44" x2="100" y2="30"/>
+          <line x1="300" y1="38" x2="308" y2="20"/><line x1="316" y1="38" x2="308" y2="20"/>
+        </g>
+        <g fill="#38d6ba" opacity=".85">
+          <rect x="190" y="54" width="20" height="3"/><rect x="166" y="62" width="20" height="3"/><rect x="214" y="62" width="20" height="3"/>
+          <circle cx="100" cy="28" r="2.2" fill="#ffd978"/><circle cx="308" cy="18" r="2.2" fill="#ffd978"/>
+        </g>
+        {/* ventanitas encendidas */}
+        <g fill="#ffd06b" opacity=".8">
+          <rect x="196" y="70" width="3" height="4"/><rect x="201" y="80" width="3" height="4"/><rect x="196" y="96" width="3" height="4"/>
+          <rect x="172" y="78" width="3" height="4"/><rect x="220" y="84" width="3" height="4"/><rect x="284" y="86" width="3" height="4"/>
+          <rect x="44" y="86" width="3" height="4"/><rect x="338" y="100" width="3" height="4"/>
+        </g>
+        {/* mar */}
+        <rect y="166" width="400" height="40" fill="url(#clcSea)"/>
+        {/* reflejo del sol */}
+        <rect x="190" y="166" width="20" height="40" fill="#ffd98a" opacity=".5" style={{animation:"clcShimmer 3s ease-in-out infinite alternate"}}/>
+        <g stroke="#fff" strokeWidth="1" opacity=".25" style={{animation:"clcShimmer 4s ease-in-out infinite alternate"}}>
+          <line x1="30" y1="178" x2="80" y2="178"/><line x1="120" y1="190" x2="180" y2="190"/><line x1="250" y1="184" x2="320" y2="184"/>
+        </g>
+        {/* playa */}
+        <path d="M0,200 Q200,188 400,200 L400,240 L0,240 Z" fill="url(#clcSand)"/>
+        <path d="M0,202 Q200,192 400,202" fill="none" stroke="#fff" strokeWidth="2" opacity=".5"/>
+        {/* palmeras */}
+        <Palm x={48} scale={1} anim="clcSway"/>
+        <Palm x={356} scale={1.12} anim="clcSway2" flip/>
+      </svg>
+      {/* letrero de neón + CTA */}
+      <div style={{position:"absolute",top:8,left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
+        <div className="clc-sign clc-neon" style={{fontSize:30}}>CUBA&nbsp;LIBRE</div>
+        <div className="clc-sign clc-gold" style={{fontSize:15,letterSpacing:6,marginTop:-2}}>★ CASINO ★</div>
+      </div>
+      <div style={{position:"absolute",bottom:10,left:0,right:0,padding:"0 14px",display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
+        <div style={{fontSize:11,color:"#fff",textShadow:"0 1px 4px rgba(0,0,0,.8)",fontWeight:600,maxWidth:200}}>
+          {t("El paraíso tropical de la suerte 🌴","Tropical paradise of luck 🌴")}<br/>
+          <span style={{opacity:.85,fontSize:10}}>{t("Havana vibes · play & win","Sabor habanero · juega y gana")}</span>
+        </div>
+        <button className="btn primary clc-cta" style={{pointerEvents:"auto",background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",fontWeight:800,padding:"9px 16px",fontSize:13,whiteSpace:"nowrap"}} onClick={onPlay}>
+          🎰 {t("JUGAR AHORA","PLAY NOW")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Las 5 pestañas más usadas viven en la barra; el resto en "Más" (estándar de
 // las mejores apps: navegación limpia, sin 12 íconos apretados).
 const PRIMARY_TABS=["hoy","ticket","ia","suerte","alertas"];
@@ -1654,9 +1784,10 @@ function MainApp({admin,onLock}){
             <Wordmark size={0.74}/>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <LangToggle/>
             <InstallButton/>
             <CoinBalance admin={admin}/>
-            <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?"👑 Admin":"🔒 Salir"}</button>
+            <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?"👑 Admin":t("🔒 Salir","🔒 Exit")}</button>
           </div>
         </header>
         <div style={{marginBottom:12}}>
@@ -1675,6 +1806,7 @@ function MainApp({admin,onLock}){
           )}
         </div>
         {!memberActive&&<AdSlot onUpgrade={()=>goTab("pago")}/>}
+        {tab==="hoy"&&<CubaLibreHero onPlay={()=>goTab("juega")}/>}
         {tab==="hoy"&&!admin&&<InviteCard/>}
         {tab==="hoy"&&<TabHoy lot={lot} setLot={setLot}/>}
         {tab==="hist"&&<TabHistorial lot={lot}/>}

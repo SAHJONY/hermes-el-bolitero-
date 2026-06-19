@@ -1,4 +1,13 @@
 const { useState, useEffect, useMemo, useRef } = React;
+
+// ── Bilingüe ES/EN · Cuba Libre Casino ──
+let _hbLang = (()=>{ try{ return localStorage.getItem("hb:lang")||"es"; }catch(e){ return "es"; } })();
+const _hbLangSubs = new Set();
+function getLang(){ return _hbLang; }
+function setLang(l){ _hbLang=(l==="en"?"en":"es"); try{ localStorage.setItem("hb:lang",_hbLang); }catch(e){} _hbLangSubs.forEach(fn=>{ try{fn(_hbLang);}catch(_){}});}
+function useLang(){ const [l,setL]=useState(_hbLang); useEffect(()=>{ const fn=x=>setL(x); _hbLangSubs.add(fn); return ()=>_hbLangSubs.delete(fn); },[]); return l; }
+// t("texto español","english text") → devuelve según idioma activo (EN cae a ES si falta)
+function t(es,en){ return _hbLang==="en" ? (en==null?es:en) : es; }
 const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } = Recharts;
 
 /* ============================================================
