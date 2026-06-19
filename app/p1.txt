@@ -90,6 +90,9 @@ const I18N = {
     "juega.play":"Jugar","juega.hot_won":"¡Acertaste! +200 🪙 🎉","juega.hot_hot":"Hoy no salió. Las calientes fueron:","juega.again":"Vuelve mañana para otra tirada.",
     "juega.ch_title":"🌙 Reto de la Charada","juega.ch_q":"¿Qué número es \"{symbol}\" en la charada? Acierta y gana {n} 🪙.",
     "juega.ch_won":"¡Correcto! +150 🪙 🎉","juega.ch_wrong":"No era. La respuesta correcta es","juega.ch_again":"Vuelve mañana para otro reto.",
+    "rasp.title":"🎫 Raspadito de la Suerte","rasp.sub":"Raspa las 9 casillas. Si salen tres símbolos iguales, ¡te llevas las monedas!",
+    "rasp.hint":"Toca cada casilla para raspar — o revela todo de una vez.","rasp.reveal_all":"Raspar todo",
+    "rasp.won":"¡Tres","rasp.won2":"iguales! Ganaste","rasp.lose":"Sin tres iguales esta vez. ¡La próxima cae!","rasp.come_back":"Vuelve mañana para otro raspadito gratis.",
     "juega.foot":"Mini-juegos de entretenimiento con monedas virtuales. No es dinero real ni apuestas.",
   },
   en:{
@@ -106,6 +109,9 @@ const I18N = {
     "juega.play":"Play","juega.hot_won":"You nailed it! +200 🪙 🎉","juega.hot_hot":"No luck today. The hot ones were:","juega.again":"Come back tomorrow for another try.",
     "juega.ch_title":"🌙 Charada Challenge","juega.ch_q":"Which number is \"{symbol}\" in the charada? Get it right and win {n} 🪙.",
     "juega.ch_won":"Correct! +150 🪙 🎉","juega.ch_wrong":"Not quite. The correct answer is","juega.ch_again":"Come back tomorrow for another challenge.",
+    "rasp.title":"🎫 Lucky Scratcher","rasp.sub":"Scratch all 9 tiles. Match three of the same symbol and the coins are yours!",
+    "rasp.hint":"Tap each tile to scratch — or reveal them all at once.","rasp.reveal_all":"Scratch all",
+    "rasp.won":"Three","rasp.won2":"in a row! You won","rasp.lose":"No three-of-a-kind this time. Next one's coming!","rasp.come_back":"Come back tomorrow for another free scratcher.",
     "juega.foot":"Entertainment mini-games with virtual coins. Not real money or betting.",
   },
 };

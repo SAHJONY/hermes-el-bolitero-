@@ -270,6 +270,87 @@ function RuletaCubana(){
   );
 }
 
+/* ============================ JUEGO: RASPADITO DE LA SUERTE ============================
+   Tarjeta de raspar 3×3 con un juego gratis al día. El cartón se genera y se
+   persiste en la primera raspada (no se puede "re-rollear" recargando). Si hay
+   tres símbolos iguales, paga el premio del símbolo vía addCoins(). Solo CSS. */
+const RASP_SYMS=[{e:"🪙",v:50,w:40},{e:"🥭",v:75,w:30},{e:"🍹",v:150,w:18},{e:"⭐",v:300,w:9},{e:"💎",v:500,w:3}];
+function pickRaspSym(rnd){ // elige símbolo ponderado hacia los de menor valor
+  const tot=RASP_SYMS.reduce((a,s)=>a+s.w,0); let r=rnd()*tot;
+  for(const s of RASP_SYMS){ if((r-=s.w)<0) return s; } return RASP_SYMS[0];
+}
+function genRaspCard(rnd=Math.random){
+  const win=rnd()<0.4;            // ~40% de cartones premiados
+  const cells=new Array(9).fill(null);
+  const counts={};
+  if(win){
+    const wsym=pickRaspSym(rnd);                 // símbolo ganador
+    const order=[0,1,2,3,4,5,6,7,8];
+    for(let i=order.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+    order.slice(0,3).forEach(p=>cells[p]=wsym.e); // coloca exactamente 3
+    for(let i=0;i<9;i++){ if(cells[i])continue;
+      let s; do{ s=pickRaspSym(rnd); }while(s.e===wsym.e||(counts[s.e]||0)>=2); // evita otro trío y más del ganador
+      cells[i]=s.e; counts[s.e]=(counts[s.e]||0)+1; }
+    return {cells,prize:wsym.v,winSym:wsym.e};
+  }
+  for(let i=0;i<9;i++){ let s; do{ s=pickRaspSym(rnd); }while((counts[s.e]||0)>=2); // ningún símbolo llega a 3
+    cells[i]=s.e; counts[s.e]=(counts[s.e]||0)+1; }
+  return {cells,prize:0,winSym:null};
+}
+function Raspadito(){
+  useLang();
+  const [today]=useState(dateKey(new Date()));
+  const [card,setCard]=useState(null);            // {cells,prize,winSym}
+  const [revealed,setRevealed]=useState([]);      // índices destapados
+  const [done,setDone]=useState(false);           // todas destapadas + premio cobrado
+  const awardedRef=useRef(false);
+  useEffect(()=>{(async()=>{ const r=await sGet("rasp:day",false);
+    if(r&&r.day===today){ setCard({cells:r.cells,prize:r.prize,winSym:r.winSym}); setRevealed(r.revealed||[]); if(r.done){ setDone(true); awardedRef.current=true; } }
+  })();},[today]);
+  const ensureCard=async()=>{ if(card) return card; const c=genRaspCard();
+    await sSet("rasp:day",{day:today,cells:c.cells,prize:c.prize,winSym:c.winSym,revealed:[],done:false},false);
+    setCard(c); return c; };
+  const persist=(c,rev,fin)=>sSet("rasp:day",{day:today,cells:c.cells,prize:c.prize,winSym:c.winSym,revealed:rev,done:fin},false);
+  const finish=async(c,rev)=>{ setDone(true);
+    if(c.prize>0&&!awardedRef.current){ awardedRef.current=true; try{ await addCoins(c.prize); }catch(e){} fireConfetti(); }
+    await persist(c,rev,true); };
+  const reveal=async(i)=>{ if(done||revealed.includes(i)) return; const c=await ensureCard();
+    const rev=[...revealed,i]; setRevealed(rev);
+    if(rev.length>=9) await finish(c,rev); else await persist(c,rev,false); };
+  const revealAll=async()=>{ if(done) return; const c=await ensureCard(); const rev=[0,1,2,3,4,5,6,7,8]; setRevealed(rev); await finish(c,rev); };
+  return (
+    <div className="card" style={{marginTop:14,textAlign:"center"}}>
+      <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>{t("rasp.title")}</div>
+      <div style={{fontSize:12,color:T.dim,marginBottom:12}}>{t("rasp.sub")}</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,maxWidth:240,margin:"0 auto 12px"}}>
+        {[0,1,2,3,4,5,6,7,8].map(i=>{ const up=revealed.includes(i); const win=done&&card&&card.winSym&&card.cells[i]===card.winSym;
+          return (
+            <button key={i} aria-label={up?(card?card.cells[i]:""):t("rasp.hint")} onClick={()=>reveal(i)} disabled={done&&!up}
+              style={{aspectRatio:"1",borderRadius:12,fontSize:30,lineHeight:1,cursor:up?"default":"pointer",
+                border:win?"2px solid "+T.teal:"1px solid rgba(255,255,255,.08)",
+                background:up?(win?"rgba(56,214,186,.16)":T.raise):"linear-gradient(135deg,#C9A24B,#8A6D2F)",
+                color:up?"#fff":"rgba(255,255,255,.85)",fontWeight:800,
+                boxShadow:up?"none":"inset 0 1px 2px rgba(255,255,255,.25),0 2px 5px rgba(0,0,0,.35)",
+                transition:"background .15s, transform .12s",transform:up?"none":"scale(1)"}}>
+              {up?card?.cells[i]:"❓"}
+            </button>
+          );
+        })}
+      </div>
+      {!done&&<button className="btn primary" style={{width:"100%"}} onClick={revealAll}>{t("rasp.reveal_all")}</button>}
+      {!done&&<div style={{fontSize:11,color:T.dim,marginTop:8}}>{t("rasp.hint")}</div>}
+      {done&&(
+        <div className="card" style={{background:T.raise,marginTop:4}}>
+          {card&&card.prize>0
+            ? <div className="disp" style={{fontWeight:800,color:T.teal}}>{t("rasp.won")} {card.winSym} {t("rasp.won2")} {card.prize} 🪙! 🎉</div>
+            : <div style={{color:T.dim,fontSize:13}}>{t("rasp.lose")}</div>}
+          <div style={{fontSize:11,color:T.dim,marginTop:6}}>{t("rasp.come_back")}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ============================ TAB: JUEGA (mini-juegos diarios) ============================ */
 function TabJuega({lot}){
   useLang();
@@ -346,6 +427,7 @@ function TabJuega({lot}){
           )}
         </div>
         <RuletaCubana/>
+        <Raspadito/>
       </Section>
       <div style={{fontSize:11,color:T.dim,textAlign:"center"}}>{t("juega.foot")}</div>
     </div>
@@ -1069,6 +1151,7 @@ const CHANGELOG=[
     "🎬 Nuevo hero cinematográfico Cuba Libre Casino — atardecer de La Habana, skyline, palmeras y neón premium",
     "🌐 App bilingüe Español / English — cambia el idioma con el botón 🇨🇺/🇺🇸 arriba",
     "🎡 Ruleta Cubana — gira gratis cada día y llévate monedas",
+    "🎫 Raspadito de la Suerte — raspa 9 casillas, junta tres iguales y gana monedas",
     "🔊 Escucha el resultado en voz alta (Fijo y Corridos)",
     "⭐ Marca tus loterías favoritas y súbelas al frente",
     "♿ Accesibilidad: foco visible por teclado, etiquetas y respeto a reduce-motion",
