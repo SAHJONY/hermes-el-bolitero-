@@ -546,9 +546,9 @@ function CasinoHero({go}){
       <div className="clc-godray" aria-hidden="true"/>
       <div className="clc-grain" aria-hidden="true"/>
       <div className="clc-vignette" aria-hidden="true"/>
-      <div style={{position:"absolute",top:8,left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
-        <div className="clc-sign clc-neon" style={{fontSize:30}}>CUBA&nbsp;LIBRE</div>
-        <div className="clc-sign clc-gold" style={{fontSize:15,letterSpacing:"6px",marginTop:-2}}>★ CASINO ★</div>
+      <div style={{position:"absolute",top:10,left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
+        <div className="clc-sign clc-gold" style={{fontSize:16,letterSpacing:"7px",marginBottom:1}}>HERMES</div>
+        <div className="clc-sign clc-neon" style={{fontSize:44,letterSpacing:"8px"}}>CASINO</div>
       </div>
       <div style={{position:"absolute",bottom:10,left:0,right:0,padding:"0 14px",display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
         <div style={{fontSize:11,color:"#fff",textShadow:"0 1px 4px rgba(0,0,0,.8)",fontWeight:600,maxWidth:200}}>

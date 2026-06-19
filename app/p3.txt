@@ -1148,7 +1148,7 @@ function TabPago(){
 const APP_VERSION="3.1";
 const CHANGELOG=[
   {v:"3.1",fecha:"19 jun 2026",items:[
-    "🎬 Nuevo hero cinematográfico Cuba Libre Casino — atardecer de La Habana, skyline, palmeras y neón premium",
+    "🎬 Nuevo hero cinematográfico HERMES CASINO — atardecer de La Habana, skyline, palmeras y neón premium",
     "🌐 App bilingüe Español / English — cambia el idioma con el botón 🇨🇺/🇺🇸 arriba",
     "🎡 Ruleta Cubana — gira gratis cada día y llévate monedas",
     "🎫 Raspadito de la Suerte — raspa 9 casillas, junta tres iguales y gana monedas",
