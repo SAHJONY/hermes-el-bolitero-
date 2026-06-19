@@ -1,5 +1,7 @@
 function TabAlertas(){
-  const TIROS=["Mañana","Mediodía","Tarde","Noche"];
+  useLang();
+  const TIROS=["Mañana","Mediodía","Tarde","Noche"]; // claves internas (datos) — etiqueta vía tiroLabel
+  const tiroLabel={"Mañana":t("tiro.manana"),"Mediodía":t("tiro.mediodia"),"Tarde":t("tiro.tarde"),"Noche":t("tiro.noche")};
   const [f,setF]=useState({nombre:"",tel:"",email:"",voz:true,mail:true,tg:true,tiros:{Mañana:false,"Mediodía":true,Tarde:false,Noche:true},activo:true});
   const [estado,setEstado]=useState("");
   const [yaInscrito,setYa]=useState(false);
@@ -10,8 +12,8 @@ function TabAlertas(){
     const tg=await sGet("canal:telegram",true); if(tg) setTgLink(tg);
   })();},[]);
   const guardar=async()=>{
-    if(!f.tel.trim()&&!f.email.trim()){ setEstado("Pon al menos un teléfono o un email."); return; }
-    if(f.voz&&!f.tel.trim()){ setEstado("Para la llamada de Hermes hace falta tu teléfono."); return; }
+    if(!f.tel.trim()&&!f.email.trim()){ setEstado(t("alerta.err_contact")); return; }
+    if(f.voz&&!f.tel.trim()){ setEstado(t("alerta.err_phone")); return; }
     let mine=await sGet("alerta:mine",false);
     const id=mine?.id||("s"+Math.random().toString(16).slice(2,10));
     const data={...f,ts:Date.now()};
@@ -20,53 +22,51 @@ function TabAlertas(){
     const ok=await sSet("alertas:subs",subs,true);
     await sSet("alerta:mine",{id,data},false);
     setYa(true);
-    setEstado(ok?"✔ Inscrito. Cuando caiga el número, Hermes te avisa.":"No se pudo guardar — intenta de nuevo.");
+    setEstado(ok?t("alerta.ok"):t("alerta.save_fail"));
   };
   const baja=async()=>{
     const mine=await sGet("alerta:mine",false);
     if(mine){ const subs=await sGet("alertas:subs",true)||{}; delete subs[mine.id]; await sSet("alertas:subs",subs,true); }
     try{ await window.storage.delete("alerta:mine"); }catch{}
-    setYa(false); setEstado("Te diste de baja de las alertas.");
+    setYa(false); setEstado(t("alerta.unsubbed"));
   };
   return (
     <div className="fade-in">
-      <Section title="Alertas de Hermes 🔔" sub="Cuando caiga el número, Hermes te llama, te escribe al correo o lo canta en el grupo de Telegram">
+      <Section title={t("alerta.title")} sub={t("alerta.sub")}>
         <div className="card" style={{display:"grid",gap:10}}>
-          <input className="input" placeholder="Tu nombre" value={f.nombre} onChange={e=>setF({...f,nombre:e.target.value})}/>
-          <input className="input mono" placeholder="Teléfono (+1 786 …)" inputMode="tel" value={f.tel} onChange={e=>setF({...f,tel:e.target.value})}/>
-          <input className="input mono" placeholder="Email" inputMode="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
+          <input className="input" placeholder={t("alerta.name_ph")} value={f.nombre} onChange={e=>setF({...f,nombre:e.target.value})}/>
+          <input className="input mono" placeholder={t("alerta.phone_ph")} inputMode="tel" value={f.tel} onChange={e=>setF({...f,tel:e.target.value})}/>
+          <input className="input mono" placeholder={t("alerta.email_ph")} inputMode="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
           <div>
-            <Label>¿Cómo te aviso?</Label>
+            <Label>{t("alerta.how")}</Label>
             <div style={{display:"flex",gap:8}}>
-              <button className={"chip"+(f.voz?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,voz:!f.voz})}>📞 Llamada</button>
-              <button className={"chip"+(f.mail?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,mail:!f.mail})}>✉️ Email</button>
-              <button className={"chip"+(f.tg?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,tg:!f.tg})}>📣 Telegram</button>
+              <button className={"chip"+(f.voz?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,voz:!f.voz})}>{t("alerta.call")}</button>
+              <button className={"chip"+(f.mail?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,mail:!f.mail})}>{t("alerta.mail")}</button>
+              <button className={"chip"+(f.tg?" on":"")} style={{flex:1,justifyContent:"center"}} onClick={()=>setF({...f,tg:!f.tg})}>{t("alerta.tg")}</button>
             </div>
           </div>
           <div>
-            <Label>¿Qué tiros?</Label>
+            <Label>{t("alerta.which")}</Label>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {TIROS.map(t=>(
-                <button key={t} className={"chip"+(f.tiros[t]?" on":"")} onClick={()=>setF({...f,tiros:{...f.tiros,[t]:!f.tiros[t]}})}>{t}</button>
+              {TIROS.map(tiro=>(
+                <button key={tiro} className={"chip"+(f.tiros[tiro]?" on":"")} onClick={()=>setF({...f,tiros:{...f.tiros,[tiro]:!f.tiros[tiro]}})}>{tiroLabel[tiro]||tiro}</button>
               ))}
             </div>
           </div>
-          <button className="btn primary" onClick={guardar}>{yaInscrito?"Actualizar mis alertas":"🔔 Quiero que Hermes me avise"}</button>
-          {yaInscrito&&<button className="btn ghost" onClick={baja}>Darme de baja</button>}
+          <button className="btn primary" onClick={guardar}>{yaInscrito?t("alerta.update"):t("alerta.subscribe")}</button>
+          {yaInscrito&&<button className="btn ghost" onClick={baja}>{t("alerta.unsub")}</button>}
           {estado&&<div style={{fontSize:12,color:estado.startsWith("✔")?T.teal:T.coral}}>{estado}</div>}
         </div>
       </Section>
       {tgLink&&(
         <div className="card" style={{marginBottom:12,textAlign:"center"}}>
-          <div className="disp" style={{fontWeight:800,fontSize:15,marginBottom:6}}>📣 Grupo oficial · HERMES EL BOLITERO</div>
-          <div style={{fontSize:12,color:T.dim,marginBottom:10}}>Los números se cantan en vivo en el grupo de Telegram.</div>
-          <a href={tgLink} target="_blank" rel="noreferrer" className="btn primary" style={{display:"block",textAlign:"center",textDecoration:"none"}}>Unirme al grupo de Telegram</a>
+          <div className="disp" style={{fontWeight:800,fontSize:15,marginBottom:6}}>{t("alerta.tg_group")}</div>
+          <div style={{fontSize:12,color:T.dim,marginBottom:10}}>{t("alerta.tg_sub")}</div>
+          <a href={tgLink} target="_blank" rel="noreferrer" className="btn primary" style={{display:"block",textAlign:"center",textDecoration:"none"}}>{t("alerta.tg_join")}</a>
         </div>
       )}
       <div style={{fontSize:11,color:T.dim,lineHeight:1.6}}>
-        Tu contacto se guarda en el registro de alertas de la comunidad para que el dueño y su sistema
-        puedan avisarte; no se usa para otra cosa y puedes borrarte cuando quieras. Las alertas son
-        informativas — Hermes canta el número, nunca gestiona jugadas.
+        {t("alerta.privacy")}
       </div>
     </div>
   );
