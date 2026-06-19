@@ -351,6 +351,273 @@ function Raspadito(){
   );
 }
 
+/* ============================ ARCADE: HELPERS COMPARTIDOS ============================
+   useDaily(key): un juego gratis al día, persistido (no se puede "re-rollear"
+   recargando). saved=null → jugable · saved=obj → resultado del día · loading
+   mientras carga. awardCoins paga + confeti. GameShell/GameResult: chrome común. */
+function useDaily(key){
+  const [today]=useState(dateKey(new Date()));
+  const [saved,setSaved]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{(async()=>{ try{ const r=await sGet(key+":day",false); if(r&&r.day===today) setSaved(r); }catch(e){} setLoading(false); })();},[key,today]);
+  const save=async(data)=>{ const rec={day:today,...data}; try{ await sSet(key+":day",rec,false); }catch(e){} setSaved(rec); };
+  return {saved,loading,save};
+}
+async function awardCoins(n){ if(n>0){ try{ await addCoins(n); }catch(e){} fireConfetti(); } }
+function GameShell({title,sub,children}){
+  return (
+    <div className="card" style={{marginTop:14,textAlign:"center"}}>
+      <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>{title}</div>
+      <div style={{fontSize:12,color:T.dim,marginBottom:12}}>{sub}</div>
+      {children}
+    </div>
+  );
+}
+function GameResult({won,children}){
+  return (
+    <div className="card" style={{background:T.raise,marginTop:10}}>
+      <div className="disp" style={{fontWeight:800,color:won?T.teal:T.dim,fontSize:won?16:13}}>{children}</div>
+      <div style={{fontSize:11,color:T.dim,marginTop:6}}>{t("g.come_back")}</div>
+    </div>
+  );
+}
+
+/* ---------------- TRAGAMONEDAS HABANA (slots de 3 carretes) ---------------- */
+const SLOT_SYMS=[{e:"🍒",v:100,w:34},{e:"🔔",v:150,w:26},{e:"🍀",v:200,w:18},{e:"⭐",v:300,w:12},{e:"💎",v:500,w:7},{e:"7️⃣",v:777,w:3}];
+function pickSlot(rnd){ const tot=SLOT_SYMS.reduce((a,s)=>a+s.w,0); let r=rnd()*tot; for(const s of SLOT_SYMS){ if((r-=s.w)<0) return s; } return SLOT_SYMS[0]; }
+function genSlots(rnd=Math.random){
+  const r=rnd();
+  if(r<0.16){ const s=pickSlot(rnd); return {reels:[s.e,s.e,s.e],prize:s.v,kind:3}; }      // 3 iguales
+  if(r<0.42){                                                                                // 2 iguales
+    const a=pickSlot(rnd); let b; do{ b=pickSlot(rnd); }while(b.e===a.e);
+    const reels=[a.e,a.e,b.e];
+    for(let i=reels.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [reels[i],reels[j]]=[reels[j],reels[i]]; }
+    return {reels,prize:40,kind:2};
+  }
+  const set=new Set(),reels=[];                                                              // 3 distintos
+  while(reels.length<3){ const s=pickSlot(rnd); if(set.has(s.e))continue; set.add(s.e); reels.push(s.e); }
+  return {reels,prize:0,kind:0};
+}
+function SlotsHabana(){
+  useLang(); const {saved,loading,save}=useDaily("slots");
+  const [spinning,setSpinning]=useState(false);
+  const [reels,setReels]=useState(["❓","❓","❓"]);
+  const shown=saved?saved.reels:reels;
+  const spin=async()=>{
+    if(loading||saved||spinning) return; setSpinning(true);
+    const out=genSlots(); let ticks=0;
+    const iv=setInterval(()=>{ setReels([0,1,2].map(()=>SLOT_SYMS[Math.floor(Math.random()*SLOT_SYMS.length)].e)); if(++ticks>10) clearInterval(iv); },90);
+    setTimeout(async()=>{ clearInterval(iv); setReels(out.reels); await awardCoins(out.prize); await save({reels:out.reels,prize:out.prize,kind:out.kind}); setSpinning(false); },1100);
+  };
+  return (
+    <GameShell title={t("slots.title")} sub={t("slots.sub")}>
+      <div style={{display:"flex",justifyContent:"center",gap:10,margin:"6px 0 14px"}}>
+        {shown.map((e,i)=>(
+          <div key={i} style={{width:64,height:74,borderRadius:12,background:"linear-gradient(180deg,#10212B,#0a151c)",
+            border:"2px solid rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,
+            boxShadow:"inset 0 2px 8px rgba(0,0,0,.6)"}}>{e}</div>
+        ))}
+      </div>
+      {!saved&&<button className="btn primary" style={{width:"100%"}} disabled={loading||spinning} onClick={spin}>{spinning?t("slots.spinning"):t("juega.play")}</button>}
+      {saved&&(saved.prize>0
+        ? <GameResult won>{saved.kind===3?(t("ruleta.won")+" "+saved.prize+" 🪙! 🎉"):(t("slots.two")+" "+saved.prize+" 🪙")}</GameResult>
+        : <GameResult>{t("g.no_prize")}</GameResult>)}
+    </GameShell>
+  );
+}
+
+/* ---------------- CARA O CRUZ (coin flip) ---------------- */
+function CoinFlip(){
+  useLang(); const {saved,loading,save}=useDaily("coin");
+  const [flipping,setFlipping]=useState(false); const [face,setFace]=useState("🪙");
+  const play=async(pick)=>{
+    if(loading||saved||flipping) return; setFlipping(true);
+    let ticks=0; const iv=setInterval(()=>{ setFace(Math.random()<.5?"🌟":"⚜️"); if(++ticks>8) clearInterval(iv); },110);
+    setTimeout(async()=>{ clearInterval(iv);
+      const res=Math.random()<.5?"cara":"cruz"; setFace(res==="cara"?"🌟":"⚜️");
+      const won=res===pick; if(won) await awardCoins(100);
+      await save({pick,res,won}); setFlipping(false);
+    },1050);
+  };
+  const sideName=(s)=> s==="cara"?t("coin.heads"):t("coin.tails");
+  return (
+    <GameShell title={t("coin.title")} sub={t("coin.sub")}>
+      <div style={{fontSize:54,margin:"4px 0 12px"}}>{saved?(saved.res==="cara"?"🌟":"⚜️"):face}</div>
+      {!saved&&(
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn primary" style={{flex:1}} disabled={loading||flipping} onClick={()=>play("cara")}>{t("coin.heads")} 🌟</button>
+          <button className="btn primary" style={{flex:1}} disabled={loading||flipping} onClick={()=>play("cruz")}>{t("coin.tails")} ⚜️</button>
+        </div>
+      )}
+      {saved&&(saved.won
+        ? <GameResult won>{tf("coin.won",{side:sideName(saved.res)})}</GameResult>
+        : <GameResult>{tf("coin.lost",{side:sideName(saved.res)})}</GameResult>)}
+    </GameShell>
+  );
+}
+
+/* ---------------- DADOS DE LA SUERTE (over/under 7) ---------------- */
+const DICE_PIPS=["⚀","⚁","⚂","⚃","⚄","⚅"];
+function DiceLuck(){
+  useLang(); const {saved,loading,save}=useDaily("dice");
+  const [rolling,setRolling]=useState(false); const [dice,setDice]=useState([1,1]);
+  const bet=async(choice)=>{
+    if(loading||saved||rolling) return; setRolling(true);
+    let ticks=0; const iv=setInterval(()=>{ setDice([1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6)]); if(++ticks>9) clearInterval(iv); },90);
+    setTimeout(async()=>{ clearInterval(iv);
+      const a=1+Math.floor(Math.random()*6),b=1+Math.floor(Math.random()*6),sum=a+b; setDice([a,b]);
+      const win=choice==="seven"?sum===7:(choice==="under"?sum<7:sum>7);
+      const prize=win?(choice==="seven"?300:120):0; if(win) await awardCoins(prize);
+      await save({choice,a,b,sum,win,prize}); setRolling(false);
+    },1000);
+  };
+  const a=saved?saved.a:dice[0], b=saved?saved.b:dice[1];
+  return (
+    <GameShell title={t("dice.title")} sub={t("dice.sub")}>
+      <div style={{fontSize:50,margin:"2px 0 12px",letterSpacing:6}}>{DICE_PIPS[a-1]}{DICE_PIPS[b-1]}</div>
+      {!saved&&(
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn ghost" style={{flex:1}} disabled={loading||rolling} onClick={()=>bet("under")}>{t("dice.under")}</button>
+          <button className="btn primary" style={{flex:1}} disabled={loading||rolling} onClick={()=>bet("seven")}>{t("dice.seven")}</button>
+          <button className="btn ghost" style={{flex:1}} disabled={loading||rolling} onClick={()=>bet("over")}>{t("dice.over")}</button>
+        </div>
+      )}
+      {saved&&(saved.win
+        ? <GameResult won>{tf("dice.result",{a:saved.a,b:saved.b,sum:saved.sum})} {t("ruleta.won")} {saved.prize} 🪙! 🎉</GameResult>
+        : <GameResult>{tf("dice.result",{a:saved.a,b:saved.b,sum:saved.sum})} {t("g.no_prize")}</GameResult>)}
+    </GameShell>
+  );
+}
+
+/* ---------------- MÁS O MENOS (higher / lower, bote acumulado) ---------------- */
+function HiLo(){
+  useLang(); const {saved,loading,save}=useDaily("hilo");
+  const [cur,setCur]=useState(null); const [pot,setPot]=useState(0); const [playing,setPlaying]=useState(false); const [flash,setFlash]=useState("");
+  const rnd=()=>Math.floor(Math.random()*100);
+  const start=()=>{ if(loading||saved) return; setCur(rnd()); setPot(0); setPlaying(true); setFlash(""); };
+  const guess=async(dir)=>{
+    if(!playing) return; const next=rnd();
+    if(next===cur){ setFlash(t("hilo.push")); setCur(next); return; }
+    const correct=(dir==="hi"&&next>cur)||(dir==="lo"&&next<cur);
+    if(correct){ setPot(p=>p+25); setCur(next); setFlash("+25 🪙"); }
+    else { setPlaying(false); await save({result:"bust",pot:0,n:next}); }
+  };
+  const cash=async()=>{ if(!playing||pot===0) return; setPlaying(false); await awardCoins(pot); await save({result:"cashed",pot,n:cur}); };
+  return (
+    <GameShell title={t("hilo.title")} sub={t("hilo.sub")}>
+      <div className="mono" style={{fontSize:46,fontWeight:800,color:T.mango}}>{saved?String(saved.n).padStart(2,"0"):(cur===null?"··":String(cur).padStart(2,"0"))}</div>
+      {playing&&<div style={{fontSize:12,color:T.dim,margin:"4px 0 10px"}}>{t("hilo.pot")}: <b style={{color:T.teal}}>{pot} 🪙</b> · {flash}</div>}
+      {!saved&&!playing&&<button className="btn primary" style={{width:"100%"}} disabled={loading} onClick={start}>{t("hilo.start")}</button>}
+      {playing&&(
+        <div style={{display:"grid",gap:8}}>
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn primary" style={{flex:1}} onClick={()=>guess("hi")}>{t("hilo.higher")}</button>
+            <button className="btn primary" style={{flex:1}} onClick={()=>guess("lo")}>{t("hilo.lower")}</button>
+          </div>
+          <button className="btn ghost" disabled={pot===0} onClick={cash}>{t("hilo.cash")} ({pot} 🪙)</button>
+        </div>
+      )}
+      {saved&&(saved.result==="cashed"
+        ? <GameResult won>{tf("hilo.cashed",{n:saved.pot})}</GameResult>
+        : <GameResult>{tf("hilo.bust",{n:String(saved.n).padStart(2,"0")})}</GameResult>)}
+    </GameShell>
+  );
+}
+
+/* ---------------- VEINTIUNO (21) — blackjack-lite vs crupier ---------------- */
+const BJ_SUITS=["♠","♥","♦","♣"];
+function bjDraw(){ return {r:1+Math.floor(Math.random()*13),s:BJ_SUITS[Math.floor(Math.random()*4)]}; }
+function bjLabel(c){ return ({1:"A",11:"J",12:"Q",13:"K"})[c.r]||String(c.r); }
+function bjTotal(hand){ let sum=0,aces=0; for(const c of hand){ if(c.r===1){ aces++; sum+=11; } else sum+=Math.min(c.r,10); } while(sum>21&&aces){ sum-=10; aces--; } return sum; }
+function BlackjackLite(){
+  useLang(); const {saved,loading,save}=useDaily("bj");
+  const [ph,setPh]=useState(null); const [dh,setDh]=useState(null); const [phase,setPhase]=useState("idle"); // idle | player | done
+  const finish=async(p,d,natural)=>{
+    setPh(p); setDh(d); setPhase("done");
+    const pt=bjTotal(p),dt=bjTotal(d); let outcome,prize=0;
+    if(pt>21) outcome="bust";
+    else if(natural){ outcome="bj"; prize=300; }
+    else if(dt>21||pt>dt){ outcome="win"; prize=200; }
+    else if(pt===dt) outcome="push";
+    else outcome="lose";
+    if(prize>0) await awardCoins(prize);
+    await save({p,d,pt,dt,outcome,prize});
+  };
+  const deal=()=>{ if(loading||saved) return; const p=[bjDraw(),bjDraw()],d=[bjDraw(),bjDraw()]; setPh(p); setDh(d);
+    if(bjTotal(p)===21) finish(p,d,true); else setPhase("player"); };
+  const hit=()=>{ const p=[...ph,bjDraw()]; setPh(p); if(bjTotal(p)>21) finish(p,dh,false); };
+  const stand=()=>{ const d=[...dh]; while(bjTotal(d)<17) d.push(bjDraw()); finish(ph,d,false); };
+  const S=saved||{}; const showP=saved?S.p:ph; const showD=saved?S.d:dh;
+  const chip=(c,hidden,key)=>(
+    <span key={key} style={{display:"inline-block",minWidth:26,padding:"6px 5px",margin:2,borderRadius:7,
+      background:hidden?"#16435a":"#fff",color:hidden?"#16435a":((c.s==="♥"||c.s==="♦")?"#C0392B":"#1a2530"),
+      fontWeight:800,fontSize:15}}>{hidden?"🂠":bjLabel(c)+c.s}</span>
+  );
+  const dealerHidden=(i)=> phase==="player"&&!saved&&i>=1;
+  return (
+    <GameShell title={t("bj.title")} sub={t("bj.sub")}>
+      {(phase!=="idle"||saved)&&(
+        <div style={{textAlign:"left",margin:"4px 0 12px"}}>
+          <div style={{fontSize:12,color:T.dim}}>{t("bj.dealer")}{(saved||phase==="done")?(" · "+S.dt):""}</div>
+          <div>{showD&&showD.map((c,i)=>chip(c,dealerHidden(i),i))}</div>
+          <div style={{fontSize:12,color:T.dim,marginTop:8}}>{t("bj.you")} · {bjTotal(showP||[])}</div>
+          <div>{showP&&showP.map((c,i)=>chip(c,false,i))}</div>
+        </div>
+      )}
+      {!saved&&phase==="idle"&&<button className="btn primary" style={{width:"100%"}} disabled={loading} onClick={deal}>{t("bj.deal")}</button>}
+      {!saved&&phase==="player"&&(
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn primary" style={{flex:1}} onClick={hit}>{t("bj.hit")}</button>
+          <button className="btn ghost" style={{flex:1}} onClick={stand}>{t("bj.stand")}</button>
+        </div>
+      )}
+      {saved&&<GameResult won={S.prize>0}>{
+        S.outcome==="bj"?t("bj.bj"):
+        S.outcome==="win"?tf("bj.win",{n:S.prize}):
+        S.outcome==="push"?t("bj.push"):
+        S.outcome==="bust"?t("bj.bust"):t("bj.lose")
+      }</GameResult>}
+    </GameShell>
+  );
+}
+
+/* ---------------- MEMORIA CUBANA (memory match, 4 parejas) ---------------- */
+const MEM_ICONS=["🍒","🔔","🍀","⭐","💎","🎰","🪙","🎲"];
+function MemoryGame(){
+  useLang(); const {saved,loading,save}=useDaily("mem");
+  const [deck,setDeck]=useState(null); const [flipped,setFlipped]=useState([]); const [matched,setMatched]=useState([]); const [moves,setMoves]=useState(0); const [lock,setLock]=useState(false);
+  const shuffle=(arr)=>{ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; };
+  const start=()=>{ if(loading||saved) return;
+    const four=shuffle([...MEM_ICONS]).slice(0,4);
+    setDeck(shuffle([...four,...four])); setFlipped([]); setMatched([]); setMoves(0); setLock(false); };
+  const finish=async(mv)=>{ const prize=Math.max(60,260-(mv-4)*25); await awardCoins(prize); await save({moves:mv,prize}); };
+  const flip=(i)=>{
+    if(lock||!deck||flipped.includes(i)||matched.includes(i)) return;
+    const f=[...flipped,i]; setFlipped(f);
+    if(f.length===2){ const mv=moves+1; setMoves(mv); setLock(true); const [a,b]=f;
+      if(deck[a]===deck[b]){ const nm=[...matched,a,b]; setMatched(nm); setFlipped([]); setLock(false); if(nm.length===8) finish(mv); }
+      else setTimeout(()=>{ setFlipped([]); setLock(false); },750);
+    }
+  };
+  const isUp=(i)=> flipped.includes(i)||matched.includes(i);
+  return (
+    <GameShell title={t("mem.title")} sub={t("mem.sub")}>
+      {deck&&!saved&&<div style={{fontSize:12,color:T.dim,marginBottom:8}}>{t("mem.moves")}: <b>{moves}</b></div>}
+      {!saved&&!deck&&<button className="btn primary" style={{width:"100%"}} disabled={loading} onClick={start}>{t("hilo.start")}</button>}
+      {deck&&!saved&&(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,maxWidth:260,margin:"0 auto"}}>
+          {deck.map((e,i)=>{ const up=isUp(i); return (
+            <button key={i} onClick={()=>flip(i)} disabled={up}
+              style={{aspectRatio:"1",borderRadius:10,fontSize:26,fontWeight:800,border:"1px solid rgba(255,255,255,.08)",
+                background:up?T.raise:"linear-gradient(135deg,#1f6f8b,#16435a)",color:"#fff"}}>{up?e:"❓"}</button>
+          );})}
+        </div>
+      )}
+      {saved&&<GameResult won>{tf("mem.win",{n:saved.prize})} · {t("mem.moves")}: {saved.moves}</GameResult>}
+    </GameShell>
+  );
+}
+
 /* ============================ TAB: JUEGA (mini-juegos diarios) ============================ */
 function TabJuega({lot}){
   useLang();
@@ -428,6 +695,12 @@ function TabJuega({lot}){
         </div>
         <RuletaCubana/>
         <Raspadito/>
+        <SlotsHabana/>
+        <CoinFlip/>
+        <DiceLuck/>
+        <HiLo/>
+        <BlackjackLite/>
+        <MemoryGame/>
       </Section>
       <div style={{fontSize:11,color:T.dim,textAlign:"center"}}>{t("juega.foot")}</div>
     </div>
@@ -1152,6 +1425,7 @@ const CHANGELOG=[
     "🌐 App bilingüe Español / English — cambia el idioma con el botón 🇨🇺/🇺🇸 arriba",
     "🎡 Ruleta Cubana — gira gratis cada día y llévate monedas",
     "🎫 Raspadito de la Suerte — raspa 9 casillas, junta tres iguales y gana monedas",
+    "🕹️ Arcade ampliado — Tragamonedas, Cara o Cruz, Dados, Más o Menos, 21 y Memoria, una jugada gratis al día",
     "🔊 Escucha el resultado en voz alta (Fijo y Corridos)",
     "⭐ Marca tus loterías favoritas y súbelas al frente",
     "♿ Accesibilidad: foco visible por teclado, etiquetas y respeto a reduce-motion",
