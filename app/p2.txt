@@ -240,6 +240,35 @@ Todo es con MONEDAS VIRTUALES (no dinero real); el dueño fija los multiplicador
 === LÍMITES Y ÉTICA (respétalos siempre) ===
 Solo información y entretenimiento. No es casa de apuestas: no vende boletos, no acepta jugadas reales ni paga premios en dinero. Nunca prometas ganancias. Cada tiro es azar independiente. Recomienda juego responsable (1-800-GAMBLER) a quien lo necesite.
 `;
+// ── Hermes Agente: números de la suerte deterministas por día+tablero ──
+function agentLuckyNumbers(lot){
+  const dk=dateKey(new Date())+"|"+lot; let h=0; for(let i=0;i<dk.length;i++) h=(h*31+dk.charCodeAt(i))>>>0;
+  const out=[]; let s=h;
+  while(out.length<3){ s=(s*1103515245+12345)>>>0; const v=String(s%100).padStart(2,"0"); if(!out.includes(v)) out.push(v); }
+  return out;
+}
+// ── Hermes Agente: ejecutor de acciones reales en la app ──
+async function execAgentAction(name,params,lot){
+  if(name==="saldo"){ const c=await getCoins(); return `🪙 Tienes ${(c.bal||0).toLocaleString()} monedas. Racha de ${c.streak||0} día(s).`; }
+  if(name==="bono"){
+    const b=await claimDailyBonus();
+    return b.claimed
+      ? `🎁 ¡Listo! Te di tu bono diario: +${(b.amount||0).toLocaleString()} 🪙${b.jackpot?" 🎉 ¡JACKPOT!":""}. Saldo: ${(b.bal||0).toLocaleString()} 🪙`
+      : `Ya reclamaste tu bono de hoy 😉 Vuelve mañana. Saldo: ${(b.bal||0).toLocaleString()} 🪙`;
+  }
+  if(name==="racha"){ const c=await getCoins(); return `🔥 Racha actual: ${c.streak||0} día(s) · Mejor: ${c.bestStreak||0} · XP: ${(c.xp||0).toLocaleString()}.`; }
+  if(name==="numeros"){
+    const nums=agentLuckyNumbers(lot); const board=(LOTTERIES.find(l=>l.id===lot)?.short)||"tu tablero";
+    return `🍀 Tus números de la suerte de hoy para ${board}: ${nums.join(" · ")}. (Tradición y diversión — cada tiro es azar.)`;
+  }
+  if(name==="ir"){
+    let d=(params.destino||params.d||"").toLowerCase(); if(d==="store"||d==="tienda"||d==="monedas") d="juega";
+    const ok=["hoy","juega","ticket","suerte","alertas","hist","stats","charada","studio","foro","pago"];
+    if(ok.includes(d)){ try{ window.dispatchEvent(new CustomEvent("hb-go-tab",{detail:d})); }catch(e){} return `Te llevo a ${d} 👉`; }
+  }
+  return null;
+}
+
 function TabIA({lot}){
   const GREET={role:"assistant",text:"¡Asere, qué bolá! ⚡ Soy Hermes. Aquí hablas conmigo en privado: pregúntame por los números, la charada o las estadísticas. ¿Tienes un recibo o comprobante? Pégalo con el botón 📎 y te doy una confirmación que el dueño revisa."};
   const [msgs,setMsgs]=useState([GREET]);
@@ -272,9 +301,20 @@ function TabIA({lot}){
       const data=await askClaude(
         hist.slice(-10).map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.text})),
         {system:
-          `Eres "Hermes", el agente-cerebro IA de HERMES EL BOLITERO, app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca aceptas ni gestionas apuestas, nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Atiendes a cada cliente en privado. Si el cliente pega un recibo o comprobante, agradece, confírmale que quedó registrado y que el dueño lo revisará; no calcules premios ni manejes dinero. Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot, realDraws)}. Charada disponible 1-100.\n\nCONOCIMIENTO DE HERMES (úsalo para responder cualquier pregunta del cliente con seguridad y sabor cubano):${HERMES_KB}\nREGLA DE ORO DE LOS NÚMEROS: solo puedes dar como resultado de un sorteo los números que aparezcan en "RESULTADOS OFICIALES" del contexto. JAMÁS inventes, adivines ni recites de memoria un número de lotería. Si te piden un resultado que no está en el contexto (otra fecha, otra lotería o aún no cae), responde con honestidad que no lo tienes verificado y dile que mire la pestaña 🎱 Hoy de la app, que trae los números oficiales en vivo. Las estadísticas (calientes/atrasados) son orientativas, deja claro que no predicen nada. IMPORTANTE: responde SIEMPRE en el mismo idioma en que te escribe el cliente (detéctalo de su último mensaje; si es español, mantén el sabor cubano). Máximo ~120 palabras.`,
+          `Eres "Hermes", el agente-cerebro IA de HERMES EL BOLITERO, app cubana de resultados de la bolita (solo informativa y de entretenimiento; nunca aceptas ni gestionas apuestas reales, nunca prometes ganancias, recuerdas que cada tiro es azar independiente cuando pidan predicciones). Atiendes a cada cliente en privado. Si el cliente pega un recibo o comprobante, agradece, confírmale que quedó registrado y que el dueño lo revisará; no calcules premios ni manejes dinero. Tono cubano cálido y breve. Contexto de hoy: ${aiContext(lot, realDraws)}. Charada disponible 1-100.\n\nERES UN AGENTE CON ACCIONES REALES. Cuando el cliente pida algo que se pueda EJECUTAR, escribe tu respuesta cordial y AÑADE AL FINAL, en su propia línea, una etiqueta EXACTA así: [[ACT:nombre]] o [[ACT:nombre|clave=valor]]. Acciones disponibles:\n• [[ACT:saldo]] — decir cuántas monedas tiene.\n• [[ACT:bono]] — reclamar su bono diario de monedas.\n• [[ACT:racha]] — ver su racha y nivel.\n• [[ACT:numeros]] — darle sus números de la suerte de hoy (tradición/diversión).\n• [[ACT:ir|destino=X]] — llevarlo a una sección. X puede ser: hoy, juega, store, ticket, suerte, alertas.\nEjemplos: si dice "¿cuánto tengo?" responde algo cálido + [[ACT:saldo]]. Si dice "dame mi bono" → + [[ACT:bono]]. Si dice "quiero comprar monedas" → + [[ACT:ir|destino=store]]. Si NO es una acción ejecutable, NO pongas etiqueta. Usa SOLO una etiqueta por respuesta.\n\nCONOCIMIENTO DE HERMES (úsalo para responder cualquier pregunta del cliente con seguridad y sabor cubano):${HERMES_KB}\nREGLA DE ORO DE LOS NÚMEROS: solo puedes dar como resultado de un sorteo los números que aparezcan en "RESULTADOS OFICIALES" del contexto. JAMÁS inventes, adivines ni recites de memoria un número de lotería. Si te piden un resultado que no está en el contexto (otra fecha, otra lotería o aún no cae), responde con honestidad que no lo tienes verificado y dile que mire la pestaña 🎱 Hoy de la app, que trae los números oficiales en vivo. Las estadísticas (calientes/atrasados) son orientativas, deja claro que no predicen nada. IMPORTANTE: responde SIEMPRE en el mismo idioma en que te escribe el cliente (detéctalo de su último mensaje; si es español, mantén el sabor cubano). Máximo ~120 palabras.`,
           maxTokens:500});
-      setMsgs(m=>[...m,{role:"assistant",text:textOf(data)||"…"}]);
+      let reply=textOf(data)||"…";
+      // ── Hermes Agente: detecta y ejecuta la acción si la hay ──
+      const am=reply.match(/\[\[ACT:([a-z]+)(\|[^\]]*)?\]\]/i);
+      let actionResult=null;
+      if(am){
+        reply=reply.replace(am[0],"").trim();
+        const name=am[1].toLowerCase(); const params={};
+        if(am[2]) am[2].slice(1).split("|").forEach(kv=>{ const ix=kv.indexOf("="); if(ix>0) params[kv.slice(0,ix).trim()]=kv.slice(ix+1).trim(); });
+        try{ actionResult=await execAgentAction(name,params,lot); }catch(e){}
+      }
+      setMsgs(m=>[...m,{role:"assistant",text:reply||"…"}]);
+      if(actionResult) setMsgs(m=>[...m,{role:"assistant",text:actionResult,agent:true}]);
     }catch{
       setMsgs(m=>[...m,{role:"assistant",text:"Se me fue la señal 📡 — intenta otra vez."}]);
     }
@@ -296,7 +336,7 @@ function TabIA({lot}){
     setMsgs(m=>[...m,{role:"assistant",text:`✅ Recibí tu comprobante. Tu número de confirmación es ${ref}.`+(delivered?" Ya se lo pasé al dueño para verificarlo.":" Lo guardé en tu cuenta; el dueño lo verá en cuanto haya señal.")+" Copia y guarda esta confirmación."}]);
     setRec(""); setContacto(""); setShowRec(false); setRecBusy(false);
   };
-  const quick=["¿Qué salió hoy?","Adivinanza del día","¿Qué número está más atrasado?","Significado del 17"];
+  const quick=["¿Cuánto tengo? 🪙","Dame mi bono 🎁","Mis números de hoy 🍀","¿Qué salió hoy?","Llévame a comprar monedas","Significado del 17"];
   return (
     <div className="fade-in" style={{display:"flex",flexDirection:"column",height:"calc(100vh - 190px)"}}>
       <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:10,paddingBottom:10}}>

@@ -1561,6 +1561,12 @@ function MainApp({admin,onLock}){
   const [showMore,setShowMore]=useState(false);
   const [acct,setAcct]=useState(null);
   useEffect(()=>{(async()=>{ setAcct(await enforceAccount()); })();},[tab]);
+  // Hermes Agente puede navegar la app por el usuario (acción [[ACT:ir]]).
+  useEffect(()=>{
+    const go=(e)=>{ const id=e&&e.detail; if(id){ setTab(id); setShowMore(false); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(err){} } };
+    window.addEventListener("hb-go-tab",go);
+    return ()=>window.removeEventListener("hb-go-tab",go);
+  },[]);
   const memberActive=admin||accountActive(acct);
   const tabs=admin?[...TABS,{id:"admin",icon:"👑",label:"Admin"}]:TABS;
   const primary=tabs.filter(t=>PRIMARY_TABS.includes(t.id));
