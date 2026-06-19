@@ -65,6 +65,53 @@ const T = {
   ink:"#F4EFE4", dim:"#8AA0AB", mango:"#FFB838", mangoDeep:"#E08C00",
   coral:"#F2545B", teal:"#38D6BA", violet:"#9D8CFF",
 };
+
+/* ============================================================
+   i18n — bilingüe Español / English.  El idioma vive a nivel de
+   módulo (persistido en localStorage) y los componentes que llaman
+   useLang() se re-renderizan al cambiarlo. t(key) cae a ES y, si no
+   existe la clave, devuelve la propia clave para no romper la UI.
+   ============================================================ */
+const I18N = {
+  es:{
+    "hdr.exit":"🔒 Salir","hdr.admin":"👑 Admin","hdr.update":"⚡ Hermes Daily Update",
+    "hero.tagline":"El paraíso tropical de la suerte 🌴","hero.sub":"Havana vibes · juega y gana","hero.play":"🎰 JUGAR AHORA",
+    "today.live_official":"EN VIVO · datos oficiales","today.live_web":"EN VIVO · búsqueda web","today.demo":"DEMO · referencia",
+    "today.next":"Próximo tiro","today.refresh":"⟳ Refrescar","today.updating":"Actualizando…",
+    "today.fav":"Favorita","today.listen":"Escuchar","fijo":"Fijo",
+    "foot.disc":"HERMES EL BOLITERO es una app informativa y de entretenimiento. No vende boletos, no acepta apuestas ni garantiza resultados. Si el juego deja de ser un juego, busca ayuda: 1-800-GAMBLER.",
+    "ruleta.title":"🎡 Ruleta Cubana","ruleta.sub":"Gira gratis una vez al día y llévate monedas. ¡La suerte está en La Habana!",
+    "ruleta.spin":"GIRAR","ruleta.spinning":"Girando…","ruleta.come_back":"Vuelve mañana para otro giro gratis.","ruleta.won":"¡Ganaste","ruleta.nada":"¡Suerte para la próxima! El sol te tocó pero sin premio.",
+  },
+  en:{
+    "hdr.exit":"🔒 Exit","hdr.admin":"👑 Admin","hdr.update":"⚡ Hermes Daily Update",
+    "hero.tagline":"The tropical paradise of luck 🌴","hero.sub":"Havana vibes · play & win","hero.play":"🎰 PLAY NOW",
+    "today.live_official":"LIVE · official data","today.live_web":"LIVE · web search","today.demo":"DEMO · reference",
+    "today.next":"Next draw","today.refresh":"⟳ Refresh","today.updating":"Updating…",
+    "today.fav":"Favorite","today.listen":"Listen","fijo":"Straight",
+    "foot.disc":"HERMES EL BOLITERO is an information & entertainment app. It does not sell tickets, take bets or guarantee results. If gambling stops being a game, get help: 1-800-GAMBLER.",
+    "ruleta.title":"🎡 Cuban Roulette","ruleta.sub":"One free spin a day for coins. Luck lives in Havana!",
+    "ruleta.spin":"SPIN","ruleta.spinning":"Spinning…","ruleta.come_back":"Come back tomorrow for another free spin.","ruleta.won":"You won","ruleta.nada":"Better luck next time! The sun touched you, no prize.",
+  },
+};
+let _lang = (()=>{ try{ return localStorage.getItem("hb:lang")||"es"; }catch(e){ return "es"; } })();
+const _langSubs = new Set();
+function getLang(){ return _lang; }
+function setLang(l){ _lang=(l==="en"?"en":"es"); try{ localStorage.setItem("hb:lang",_lang); }catch(e){} _langSubs.forEach(fn=>{ try{ fn(_lang); }catch(e){} }); }
+function t(key){ const d=I18N[_lang]||I18N.es; return (d[key]!=null)?d[key]:(I18N.es[key]!=null?I18N.es[key]:key); }
+function useLang(){
+  const [l,setL]=useState(_lang);
+  useEffect(()=>{ const fn=(x)=>setL(x); _langSubs.add(fn); return ()=>{ _langSubs.delete(fn); }; },[]);
+  return [l,setLang];
+}
+/* Lectura en voz alta de resultados (Web Speech API, sin dependencias). */
+function speak(text){
+  try{ if(!window.speechSynthesis) return;
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang=getLang()==="en"?"en-US":"es-ES"; u.rate=.95; u.pitch=1;
+    window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+  }catch(e){}
+}
 const FLAG_TILE = "data:image/svg+xml;utf8," + encodeURIComponent(
   "<svg xmlns='http://www.w3.org/2000/svg' width='60' height='32' viewBox='0 0 60 32'>"+
   "<rect width='60' height='32' fill='#F7F2E6'/>"+
@@ -117,6 +164,41 @@ body{margin:0}
 @media (prefers-reduced-motion: reduce){.fade-in,.live-dot{animation:none}}
 html{-webkit-text-size-adjust:100%}
 @media (min-width:760px){.bol-app .wrap{max-width:640px}}
+
+/* ============ CUBA LIBRE CASINO — hero cinematográfico premium ============ */
+@keyframes clcSway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+@keyframes clcSway2{0%,100%{transform:rotate(2deg)}50%{transform:rotate(-3deg)}}
+@keyframes clcTwinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes clcShimmer{0%{transform:translateX(-6px)}100%{transform:translateX(6px)}}
+@keyframes clcSun{0%,100%{filter:drop-shadow(0 0 14px rgba(255,180,90,.7))}50%{filter:drop-shadow(0 0 26px rgba(255,150,70,.95))}}
+@keyframes clcNeon{0%,100%{opacity:1;filter:drop-shadow(0 0 6px rgba(255,80,140,.9)) drop-shadow(0 0 16px rgba(255,80,140,.6))}45%{opacity:.92}48%{opacity:.6}52%{opacity:.95}}
+@keyframes clcFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes clcRayspin{0%{transform:translate(-50%,-50%) rotate(0)}100%{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes clcRise{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+.clc-hero{position:relative;border-radius:22px;overflow:hidden;border:1.5px solid rgba(255,184,56,.38);
+  box-shadow:0 18px 50px rgba(0,0,0,.55),0 2px 0 rgba(255,255,255,.05) inset;animation:clcRise .6s cubic-bezier(.2,.8,.25,1)}
+.clc-scene{display:block;line-height:0}
+.clc-scene svg{display:block;width:100%}
+.clc-sign{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;letter-spacing:.5px;line-height:.95}
+.clc-neon{color:#fff;text-shadow:0 0 4px #fff,0 0 12px #ff4f8c,0 0 22px #ff4f8c,0 0 40px #c026d3;animation:clcNeon 4.5s infinite}
+.clc-gold{background-image:linear-gradient(115deg,#E8A317,#FFF6D8 50%,#FFD978);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 1px 6px rgba(255,200,80,.5))}
+/* rayos de sol volumétricos girando lentamente tras la escena */
+.clc-godray{position:absolute;left:50%;top:50%;width:150%;padding-top:150%;pointer-events:none;mix-blend-mode:screen;opacity:.5;
+  background:conic-gradient(from 0deg,transparent 0 8deg,rgba(255,225,170,.16) 9deg 12deg,transparent 13deg 26deg,rgba(255,225,170,.12) 27deg 30deg,transparent 31deg);
+  -webkit-mask-image:radial-gradient(closest-side,#000 30%,transparent 72%);mask-image:radial-gradient(closest-side,#000 30%,transparent 72%);
+  animation:clcRayspin 48s linear infinite}
+/* grano de película fino + viñeta para look "shot on cinema" */
+.clc-grain{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:.16;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>")}
+.clc-vignette{position:absolute;inset:0;pointer-events:none;border-radius:22px;
+  box-shadow:inset 0 0 70px 14px rgba(0,0,0,.55),inset 0 -30px 60px rgba(0,0,0,.4)}
+.clc-glass{background:linear-gradient(135deg,rgba(255,233,168,.95),rgba(255,184,56,.92) 60%,rgba(224,140,0,.95));
+  color:#3A2604;font-weight:800;border:1px solid rgba(255,247,216,.6);
+  box-shadow:0 6px 18px rgba(0,0,0,.4),0 0 0 3px rgba(255,184,56,.18),inset 0 1px 0 rgba(255,255,255,.7);
+  animation:clcFloat 3s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){
+  .clc-godray,.clc-glass,.clc-hero,.clc-neon,.clc-sign{animation:none}
+}
 `;
 
 /* ---------- Claude + Higgsfield MCP bridge ---------- */
@@ -300,6 +382,13 @@ function FijoHero({res, session}){
       <div style={{marginTop:8,fontSize:13,color:T.mango,fontWeight:600}}>
         {n===0?100:n} · {charadaOf(n)}
       </div>
+      <button className="chip" style={{marginTop:14}} onClick={()=>{
+        const sp=(s)=>String(s).split("").join(" ");
+        const phrase=getLang()==="en"
+          ? `${session} result. Straight ${sp(res.fijo3)}. Runners ${res.corridos.map(sp).join(", ")}.`
+          : `Resultado ${session}. Fijo ${sp(res.fijo3)}. Corridos ${res.corridos.map(sp).join(", ")}.`;
+        speak(phrase);
+      }}>🔊 {t("today.listen")}</button>
     </div>
   );
 }
@@ -333,6 +422,93 @@ function ResultDetail({res}){
   );
 }
 
+/* ============================ CUBA LIBRE CASINO — HERO ============================
+   "Mix" pedido: fondo cinematográfico (escena vectorial premium con sol, skyline de
+   La Habana, palmeras y mar) + UI vectorial encima. Pensado para que, cuando haya
+   créditos de Higgsfield, una imagen fotorrealista entre como capa <img> de fondo
+   bajo .clc-scene sin tocar el resto. Todo CSS/SVG: cero dependencias, cero costo. */
+const CLC_SCENE = "<svg viewBox='0 0 400 240' width='100%' preserveAspectRatio='xMidYMid slice'>"+
+"<defs>"+
+"<linearGradient id='clcSky' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#10183f'/><stop offset='34%' stop-color='#3b2768'/><stop offset='60%' stop-color='#9b3b82'/><stop offset='78%' stop-color='#e96a5a'/><stop offset='100%' stop-color='#ffb86b'/></linearGradient>"+
+"<linearGradient id='clcSea' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#ffcaa0'/><stop offset='22%' stop-color='#e98a8f'/><stop offset='55%' stop-color='#2a7a9b'/><stop offset='100%' stop-color='#0c3a52'/></linearGradient>"+
+"<radialGradient id='clcSunG' cx='50%' cy='50%' r='50%'><stop offset='0' stop-color='#fff3c4'/><stop offset='55%' stop-color='#ffcf6b'/><stop offset='100%' stop-color='#ff9a52' stop-opacity='0'/></radialGradient>"+
+"<linearGradient id='clcSand' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#f4dca6'/><stop offset='100%' stop-color='#caa86a'/></linearGradient>"+
+"</defs>"+
+"<rect width='400' height='170' fill='url(#clcSky)'/>"+
+"<g fill='#fff'>"+
+"<circle cx='40' cy='20' r='.8' style='animation:clcTwinkle 3s infinite'/><circle cx='90' cy='40' r='1' style='animation:clcTwinkle 2.4s infinite .5s'/><circle cx='150' cy='18' r='.7' style='animation:clcTwinkle 3.2s infinite 1s'/><circle cx='250' cy='30' r='1.1' style='animation:clcTwinkle 2.8s infinite .3s'/><circle cx='320' cy='22' r='.8' style='animation:clcTwinkle 3.4s infinite .8s'/><circle cx='370' cy='48' r='1' style='animation:clcTwinkle 2.6s infinite 1.2s'/><circle cx='200' cy='14' r='.7' style='animation:clcTwinkle 3s infinite .6s'/><circle cx='120' cy='60' r='.7' style='animation:clcTwinkle 2.7s infinite .2s'/>"+
+"</g>"+
+"<circle cx='200' cy='120' r='58' fill='url(#clcSunG)'/>"+
+"<circle cx='200' cy='120' r='26' fill='#ffe08a' style='animation:clcSun 5s infinite'/>"+
+"<g fill='#161a3a'>"+
+"<rect x='20' y='96' width='16' height='76'/><rect x='40' y='74' width='13' height='98'/><rect x='56' y='108' width='18' height='64'/>"+
+"<polygon points='92,172 92,44 100,30 108,44 108,172'/>"+
+"<rect x='120' y='84' width='15' height='88'/><rect x='138' y='100' width='12' height='72'/>"+
+"<rect x='262' y='90' width='15' height='82'/><rect x='280' y='70' width='14' height='102'/>"+
+"<polygon points='300,172 300,38 308,20 316,38 316,172'/>"+
+"<rect x='332' y='86' width='16' height='86'/><rect x='352' y='104' width='14' height='68'/><rect x='370' y='120' width='12' height='52'/>"+
+"<rect x='166' y='62' width='20' height='110'/><rect x='190' y='54' width='20' height='118'/><rect x='214' y='62' width='20' height='110'/>"+
+"</g>"+
+"<g stroke='#ff5fa2' stroke-width='1.4' opacity='.9'><line x1='92' y1='44' x2='100' y2='30'/><line x1='108' y1='44' x2='100' y2='30'/><line x1='300' y1='38' x2='308' y2='20'/><line x1='316' y1='38' x2='308' y2='20'/></g>"+
+"<g fill='#38d6ba' opacity='.85'><rect x='190' y='54' width='20' height='3'/><rect x='166' y='62' width='20' height='3'/><rect x='214' y='62' width='20' height='3'/><circle cx='100' cy='28' r='2.2' fill='#ffd978'/><circle cx='308' cy='18' r='2.2' fill='#ffd978'/></g>"+
+"<g fill='#ffd06b' opacity='.8'><rect x='196' y='70' width='3' height='4'/><rect x='201' y='80' width='3' height='4'/><rect x='196' y='96' width='3' height='4'/><rect x='172' y='78' width='3' height='4'/><rect x='220' y='84' width='3' height='4'/><rect x='284' y='86' width='3' height='4'/><rect x='44' y='86' width='3' height='4'/><rect x='338' y='100' width='3' height='4'/></g>"+
+"<rect y='166' width='400' height='40' fill='url(#clcSea)'/>"+
+"<rect x='190' y='166' width='20' height='40' fill='#ffd98a' opacity='.5' style='animation:clcShimmer 3s infinite alternate'/>"+
+"<g stroke='#fff' stroke-width='1' opacity='.25' style='animation:clcShimmer 4s infinite alternate'><line x1='30' y1='178' x2='80' y2='178'/><line x1='120' y1='190' x2='180' y2='190'/><line x1='250' y1='184' x2='320' y2='184'/></g>"+
+"<path d='M0,200 Q200,188 400,200 L400,240 L0,240 Z' fill='url(#clcSand)'/>"+
+"<path d='M0,202 Q200,192 400,202' fill='none' stroke='#fff' stroke-width='2' opacity='.5'/>"+
+"<g transform='translate(48,212)' style='transform-origin:48px 212px'>"+
+"<path d='M0,0 C-3,-26 -2,-52 4,-74' fill='none' stroke='#3a2a17' stroke-width='5' stroke-linecap='round'/>"+
+"<path d='M0,0 C-3,-26 -2,-52 4,-74' fill='none' stroke='#5a4327' stroke-width='2.2' stroke-linecap='round'/>"+
+"<g style='transform-origin:4px -74px;animation:clcSway 4.2s ease-in-out infinite'>"+
+"<path d='M4,-74 C-22,-86 -40,-84 -54,-74 C-38,-80 -20,-80 4,-74Z' fill='#1f6b3a'/>"+
+"<path d='M4,-74 C-16,-94 -30,-104 -50,-108 C-30,-100 -14,-90 4,-74Z' fill='#247a42'/>"+
+"<path d='M4,-74 C4,-98 8,-116 16,-130 C10,-112 8,-94 4,-74Z' fill='#2b8c4c'/>"+
+"<path d='M4,-74 C26,-92 44,-100 62,-100 C42,-94 22,-86 4,-74Z' fill='#247a42'/>"+
+"<path d='M4,-74 C26,-84 46,-82 60,-72 C44,-78 24,-80 4,-74Z' fill='#1f6b3a'/>"+
+"<circle cx='4' cy='-74' r='3.4' fill='#caa24a'/></g></g>"+
+"<g transform='translate(356,212) scale(-1.12,1.12)' style='transform-origin:356px 212px'>"+
+"<path d='M0,0 C-3,-26 -2,-52 4,-74' fill='none' stroke='#3a2a17' stroke-width='5' stroke-linecap='round'/>"+
+"<g style='transform-origin:4px -74px;animation:clcSway2 4.2s ease-in-out infinite'>"+
+"<path d='M4,-74 C-22,-86 -40,-84 -54,-74 C-38,-80 -20,-80 4,-74Z' fill='#1f6b3a'/>"+
+"<path d='M4,-74 C-16,-94 -30,-104 -50,-108 C-30,-100 -14,-90 4,-74Z' fill='#247a42'/>"+
+"<path d='M4,-74 C4,-98 8,-116 16,-130 C10,-112 8,-94 4,-74Z' fill='#2b8c4c'/>"+
+"<path d='M4,-74 C26,-92 44,-100 62,-100 C42,-94 22,-86 4,-74Z' fill='#247a42'/>"+
+"<path d='M4,-74 C26,-84 46,-82 60,-72 C44,-78 24,-80 4,-74Z' fill='#1f6b3a'/>"+
+"<circle cx='4' cy='-74' r='3.4' fill='#caa24a'/></g></g>"+
+"</svg>";
+function CasinoHero({go}){
+  useLang(); // re-render al cambiar idioma
+  // Capa fotorrealista opcional ("mix"): si existe /casino-bg.jpg (generado GRATIS con
+  // FLUX/Wan/ComfyUI — ver docs/free-ai-generation-stack.md), entra como fondo bajo la
+  // escena vectorial. Si no existe, onError la oculta y queda solo el hero cinematográfico.
+  const [hasBg,setHasBg]=useState(true);
+  return (
+    <div className="clc-hero" style={{marginBottom:16}}>
+      {hasBg&&(
+        <img src="/casino-bg.jpg" alt="" aria-hidden="true" onError={()=>setHasBg(false)}
+          style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",zIndex:0,
+            filter:"saturate(1.05) contrast(1.03)"}}/>
+      )}
+      <div className="clc-scene" style={hasBg?{position:"relative",zIndex:1,opacity:.86,mixBlendMode:"luminosity"}:undefined} dangerouslySetInnerHTML={{__html:CLC_SCENE}}/>
+      <div className="clc-godray"/>
+      <div className="clc-grain"/>
+      <div className="clc-vignette"/>
+      <div style={{position:"absolute",top:8,left:0,right:0,textAlign:"center",pointerEvents:"none"}}>
+        <div className="clc-sign clc-neon" style={{fontSize:30}}>CUBA&nbsp;LIBRE</div>
+        <div className="clc-sign clc-gold" style={{fontSize:15,letterSpacing:"6px",marginTop:-2}}>★ CASINO ★</div>
+      </div>
+      <div style={{position:"absolute",bottom:10,left:0,right:0,padding:"0 14px",display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
+        <div style={{fontSize:11,color:"#fff",textShadow:"0 1px 4px rgba(0,0,0,.8)",fontWeight:600,maxWidth:200}}>
+          {t("hero.tagline")}<br/><span style={{opacity:.85,fontSize:10}}>{t("hero.sub")}</span>
+        </div>
+        <button className="btn clc-glass" style={{borderRadius:12,padding:"9px 16px",fontSize:13,whiteSpace:"nowrap",cursor:"pointer"}}
+          onClick={()=>go&&go("juega")}>{t("hero.play")}</button>
+      </div>
+    </div>
+  );
+}
+
 /* ============================ TAB: HOY ============================ */
 function PendingHero({session}){
   return (
@@ -347,12 +523,19 @@ function PendingHero({session}){
     </div>
   );
 }
-function TabHoy({lot,setLot}){
+function TabHoy({lot,setLot,go}){
   const lottery = LOTTERIES.find(l=>l.id===lot);
   const isLive = !!lottery.live;
   const [sess,setSess]=useState(lottery.sessions[0]);
   const [live,setLive]=useState(null);     // {ts,draws}
   const [lstate,setLstate]=useState("idle"); // idle|loading|ok|err
+  const [favs,setFavs]=useState([]);
+  useLang();
+  useEffect(()=>{(async()=>{ const r=await sGet("favs",false); if(Array.isArray(r)) setFavs(r); })();},[]);
+  const favSet=new Set(favs);
+  // Personalización: las loterías favoritas suben al frente del carrusel.
+  const orderedLots=[...LOTTERIES].sort((a,b)=>(favSet.has(b.id)?1:0)-(favSet.has(a.id)?1:0));
+  const toggleFav=async()=>{ const next=favSet.has(lot)?favs.filter(x=>x!==lot):[...favs,lot]; setFavs(next); await sSet("favs",next,false); };
   useEffect(()=>{setSess(lottery.sessions[0]);},[lot]);
   const load=async()=>{
     setLstate("loading");
@@ -380,23 +563,29 @@ function TabHoy({lot,setLot}){
 
   return (
     <div className="fade-in">
+      <CasinoHero go={go}/>
       <div className="scroll-x" style={{marginBottom:14}}>
-        {LOTTERIES.map(l=>(
-          <button key={l.id} className={"chip"+(lot===l.id?" on":"")} onClick={()=>setLot(l.id)}>{l.short}</button>
+        {orderedLots.map(l=>(
+          <button key={l.id} className={"chip"+(lot===l.id?" on":"")} onClick={()=>setLot(l.id)}>
+            {favSet.has(l.id)?"★ ":""}{l.short}
+          </button>
         ))}
       </div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.dim}}>
-          <span className="live-dot"/> {(isLive && (live?.realBoards||[]).includes(lot)) ? "EN VIVO · datos oficiales" : (isLive && (live?.aiBoards||[]).includes(lot)) ? "EN VIVO · búsqueda web" : "DEMO · referencia"} · {fmtDate(today)}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:T.dim,minWidth:0}}>
+          <span className="live-dot"/> <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(isLive && (live?.realBoards||[]).includes(lot)) ? t("today.live_official") : (isLive && (live?.aiBoards||[]).includes(lot)) ? t("today.live_web") : t("today.demo")} · {fmtDate(today)}</span>
         </div>
-        {isLive&&(
-          <button className="chip" onClick={load} disabled={lstate==="loading"}>
-            {lstate==="loading"?"Actualizando…":"⟳ Refrescar"}
-          </button>
-        )}
+        <div style={{display:"flex",gap:6,flexShrink:0}}>
+          <button className="chip" onClick={toggleFav} title={t("today.fav")} style={favSet.has(lot)?{borderColor:T.mango,color:T.mango}:undefined}>{favSet.has(lot)?"★":"☆"}</button>
+          {isLive&&(
+            <button className="chip" onClick={load} disabled={lstate==="loading"}>
+              {lstate==="loading"?t("today.updating"):t("today.refresh")}
+            </button>
+          )}
+        </div>
       </div>
       <div className="card" style={{padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <span style={{fontSize:12,color:T.dim}}>Próximo tiro · {nd.session}</span>
+        <span style={{fontSize:12,color:T.dim}}>{t("today.next")} · {nd.session}</span>
         <Countdown to={nd.at.getTime()}/>
       </div>
       <div className="scroll-x" style={{marginBottom:12}}>

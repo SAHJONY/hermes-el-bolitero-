@@ -208,6 +208,68 @@ function PlayerLeaderboard(){
   );
 }
 
+/* ============================ JUEGO: RULETA CUBANA ============================
+   Ruleta de la suerte con giro gratis diario. Premio en monedas virtuales vía
+   addCoins(). 100% CSS/SVG (conic-gradient + rotación), sin dependencias. */
+const RULETA_WEDGES=[100,0,250,50,500,25,150,75];
+function RuletaCubana(){
+  useLang();
+  const [rot,setRot]=useState(0);
+  const [spinning,setSpinning]=useState(false);
+  const [today]=useState(dateKey(new Date()));
+  const [done,setDone]=useState(null); // {prize}
+  useEffect(()=>{(async()=>{ const r=await sGet("ruleta:day",false); if(r&&r.day===today) setDone({prize:r.prize}); })();},[today]);
+  const segColor=(i)=>["#FFB838","#38D6BA","#F2545B","#9D8CFF","#FFD978","#2A7A9B","#E08C00","#247A42"][i];
+  const grad="conic-gradient("+RULETA_WEDGES.map((w,i)=>segColor(i)+" "+(i*45)+"deg "+((i+1)*45)+"deg").join(",")+")";
+  const spin=async()=>{
+    if(spinning||done) return;
+    setSpinning(true);
+    const idx=Math.floor(Math.random()*RULETA_WEDGES.length);
+    const landing=360-(idx*45+22.5);            // orienta el centro de la cuña bajo el puntero
+    let next=Math.ceil((rot+360*5)/360)*360+landing;
+    if(next<=rot+360*5) next+=360;              // siempre gira hacia delante
+    setRot(next);
+    setTimeout(async()=>{
+      const prize=RULETA_WEDGES[idx];
+      if(prize>0){ try{ await addCoins(prize); }catch(e){} fireConfetti(); }
+      await sSet("ruleta:day",{day:today,prize},false);
+      setDone({prize}); setSpinning(false);
+    },4300);
+  };
+  return (
+    <div className="card" style={{marginTop:14,textAlign:"center"}}>
+      <div className="disp" style={{fontWeight:800,fontSize:16,marginBottom:4}}>{t("ruleta.title")}</div>
+      <div style={{fontSize:12,color:T.dim,marginBottom:14}}>{t("ruleta.sub")}</div>
+      <div style={{position:"relative",width:220,height:220,margin:"0 auto 16px"}}>
+        <div style={{position:"absolute",top:-4,left:"50%",transform:"translateX(-50%)",zIndex:2,
+          width:0,height:0,borderLeft:"11px solid transparent",borderRight:"11px solid transparent",
+          borderTop:"18px solid "+T.mango,filter:"drop-shadow(0 2px 3px rgba(0,0,0,.5))"}}/>
+        <div style={{position:"relative",width:220,height:220,borderRadius:"50%",background:grad,
+          border:"6px solid #1A2E39",boxShadow:"0 10px 30px rgba(0,0,0,.5),inset 0 0 0 3px rgba(255,255,255,.08)",
+          transform:"rotate("+rot+"deg)",transition:"transform 4.2s cubic-bezier(.17,.67,.16,1)"}}>
+          {RULETA_WEDGES.map((w,i)=>{ const a=i*45+22.5; return (
+            <span key={i} className="mono" style={{position:"absolute",left:"50%",top:"50%",
+              transform:"translate(-50%,-50%) rotate("+a+"deg) translateY(-86px) rotate("+(-a)+"deg)",
+              fontWeight:800,fontSize:13,color:"#11202a"}}>{w}</span>
+          );})}
+        </div>
+        <div style={{position:"absolute",left:"50%",top:"50%",transform:"translate(-50%,-50%)",
+          width:34,height:34,borderRadius:"50%",background:"radial-gradient(circle at 35% 30%,#fff,#cfd9dd)",
+          boxShadow:"0 2px 6px rgba(0,0,0,.5)",zIndex:1}}/>
+      </div>
+      {!done&&<button className="btn primary" style={{width:"100%"}} disabled={spinning} onClick={spin}>{spinning?t("ruleta.spinning"):t("ruleta.spin")}</button>}
+      {done&&(
+        <div className="card" style={{background:T.raise,marginTop:4}}>
+          {done.prize>0
+            ? <div className="disp" style={{fontWeight:800,color:T.teal}}>{t("ruleta.won")} {done.prize} 🪙! 🎉</div>
+            : <div style={{color:T.dim,fontSize:13}}>{t("ruleta.nada")}</div>}
+          <div style={{fontSize:11,color:T.dim,marginTop:6}}>{t("ruleta.come_back")}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ============================ TAB: JUEGA (mini-juegos diarios) ============================ */
 function TabJuega({lot}){
   const [mini,setMini]=useState(null);
@@ -282,6 +344,7 @@ function TabJuega({lot}){
             </div>
           )}
         </div>
+        <RuletaCubana/>
       </Section>
       <div style={{fontSize:11,color:T.dim,textAlign:"center"}}>Mini-juegos de entretenimiento con monedas virtuales. No es dinero real ni apuestas.</div>
     </div>
@@ -999,8 +1062,15 @@ function TabPago(){
 }
 
 /* ============================ SHELL ============================ */
-const APP_VERSION="3.0";
+const APP_VERSION="3.1";
 const CHANGELOG=[
+  {v:"3.1",fecha:"19 jun 2026",items:[
+    "🎬 Nuevo hero cinematográfico Cuba Libre Casino — atardecer de La Habana, skyline, palmeras y neón premium",
+    "🌐 App bilingüe Español / English — cambia el idioma con el botón 🇨🇺/🇺🇸 arriba",
+    "🎡 Ruleta Cubana — gira gratis cada día y llévate monedas",
+    "🔊 Escucha el resultado en voz alta (Fijo y Corridos)",
+    "⭐ Marca tus loterías favoritas y súbelas al frente",
+  ]},
   {v:"2.1",fecha:"15 jun 2026",items:[
     "🎟️ Menú de jugadas completo: Cash 3, Cash 3 Box y Play 4 Box (cualquier orden), Pareja delantera/trasera",
     "💯 Centena (3 cifras directo) y 🎯 Straight/Box (un ticket que gana exacto O en cualquier orden) para Cash 3 y Play 4",
@@ -1016,17 +1086,17 @@ const CHANGELOG=[
   {v:"1.0",fecha:"lanzamiento",items:["🎱 Resultados, charada, estadísticas, foro y Hermes el agente"]},
 ];
 const TABS=[
-  {id:"hoy",icon:"🎱",label:"Hoy"},
-  {id:"hist",icon:"🗓️",label:"Historial"},
-  {id:"stats",icon:"📊",label:"Stats"},
-  {id:"charada",icon:"🌙",label:"Charada"},
-  {id:"ia",icon:"⚡",label:"Hermes"},
-  {id:"studio",icon:"🎨",label:"Studio"},
-  {id:"ticket",icon:"🎟️",label:"Ticket"},
-  {id:"juega",icon:"🎮",label:"Juega"},
-  {id:"pago",icon:"💳",label:"Pago"},
-  {id:"alertas",icon:"🔔",label:"Alertas"},
-  {id:"foro",icon:"💬",label:"Foro"},
+  {id:"hoy",icon:"🎱",label:"Hoy",en:"Today"},
+  {id:"hist",icon:"🗓️",label:"Historial",en:"History"},
+  {id:"stats",icon:"📊",label:"Stats",en:"Stats"},
+  {id:"charada",icon:"🌙",label:"Charada",en:"Charada"},
+  {id:"ia",icon:"⚡",label:"Hermes",en:"Hermes"},
+  {id:"studio",icon:"🎨",label:"Studio",en:"Studio"},
+  {id:"ticket",icon:"🎟️",label:"Ticket",en:"Ticket"},
+  {id:"juega",icon:"🎮",label:"Juega",en:"Play"},
+  {id:"pago",icon:"💳",label:"Pago",en:"Pay"},
+  {id:"alertas",icon:"🔔",label:"Alertas",en:"Alerts"},
+  {id:"foro",icon:"💬",label:"Foro",en:"Forum"},
 ];
 function CoinBalance({admin}){
   const [bal,setBal]=useState(null);
@@ -1060,6 +1130,7 @@ function MainApp({admin,onLock}){
   const [lot,setLot]=useState("labolita");
   const [showNews,setShowNews]=useState(false);
   const [acct,setAcct]=useState(null);
+  const [lang,setLng]=useLang();
   useEffect(()=>{(async()=>{ setAcct(await enforceAccount()); })();},[tab]);
   const memberActive=admin||accountActive(acct);
   const tabs=admin?[...TABS,{id:"admin",icon:"👑",label:"Admin"}]:TABS;
@@ -1073,13 +1144,14 @@ function MainApp({admin,onLock}){
             <Wordmark size={0.74}/>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <button className="chip" onClick={()=>setLng(lang==="en"?"es":"en")} title="Español / English" style={{fontWeight:800,letterSpacing:".04em"}}>{lang==="en"?"🇺🇸 EN":"🇨🇺 ES"}</button>
             <CoinBalance admin={admin}/>
-            <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?"👑 Admin":"🔒 Salir"}</button>
+            <button className="chip" onClick={onLock} title="Cerrar sesión" style={admin?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",borderColor:"#FFD978",fontWeight:800,boxShadow:"0 0 14px rgba(255,184,56,.35)"}:undefined}>{admin?t("hdr.admin"):t("hdr.exit")}</button>
           </div>
         </header>
         <div style={{marginBottom:12}}>
           <button className="chip" style={{width:"100%",justifyContent:"center",borderColor:"rgba(255,184,56,.4)"}} onClick={()=>setShowNews(!showNews)}>
-            ⚡ Hermes Daily Update · v{APP_VERSION} {showNews?"▲":"▼"}
+            {t("hdr.update")} · v{APP_VERSION} {showNews?"▲":"▼"}
           </button>
           {showNews&&(
             <div className="card fade-in" style={{marginTop:8}}>
@@ -1092,7 +1164,7 @@ function MainApp({admin,onLock}){
             </div>
           )}
         </div>
-        {tab==="hoy"&&<TabHoy lot={lot} setLot={setLot}/>}
+        {tab==="hoy"&&<TabHoy lot={lot} setLot={setLot} go={setTab}/>}
         {tab==="hist"&&<TabHistorial lot={lot}/>}
         {tab==="stats"&&<TabStats lot={lot}/>}
         {tab==="charada"&&<TabCharada/>}
@@ -1112,8 +1184,7 @@ function MainApp({admin,onLock}){
         {tab==="foro"&&<TabForo/>}
         {tab==="admin"&&admin&&<TabAdmin/>}
         <footer style={{marginTop:26,fontSize:10,color:T.dim,textAlign:"center",lineHeight:1.6}}>
-          HERMES EL BOLITERO es una app informativa y de entretenimiento. No vende boletos, no acepta apuestas
-          ni garantiza resultados. Si el juego deja de ser un juego, busca ayuda: 1-800-GAMBLER.
+          {t("foot.disc")}
         </footer>
       </div>
       <nav style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(11,20,26,.92)",backdropFilter:"blur(12px)",borderTop:`1px solid ${T.line}`}}>
@@ -1124,7 +1195,7 @@ function MainApp({admin,onLock}){
               color:tab===t.id?T.mango:T.dim,fontFamily:"inherit"
             }}>
               <div style={t.id==="admin"?{fontSize:18,filter:"drop-shadow(0 0 6px rgba(255,184,56,.8)) saturate(1.4)"}:{fontSize:18}}>{t.icon}</div>
-              <div style={{fontSize:9,fontWeight:600,marginTop:2}}>{t.label}</div>
+              <div style={{fontSize:9,fontWeight:600,marginTop:2}}>{lang==="en"&&t.en?t.en:t.label}</div>
             </button>
           ))}
         </div>
