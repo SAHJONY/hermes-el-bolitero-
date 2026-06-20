@@ -7,7 +7,7 @@
   },
   "crons": [
     { "path": "/api/results?cron=1", "schedule": "0 7 * * *" },
-    { "path": "/api/results?cron=1", "schedule": "0 19 * * *" }
+    { "path": "/api/cron-reminder", "schedule": "0 12 * * *" }
   ],
   "headers": [
     {

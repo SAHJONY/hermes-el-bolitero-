@@ -11,10 +11,12 @@ const cleanEnv = (v) => String(v || "").replace(/[^\x21-\x7E]/g, "").replace(/["
 
 module.exports = async (req, res) => {
   try {
-    // Vercel attaches `Authorization: Bearer <CRON_SECRET>` to scheduled calls.
+    // Vercel marks scheduled calls with an `x-vercel-cron` header (and, when
+    // CRON_SECRET is set, an `Authorization: Bearer <CRON_SECRET>`). Either one
+    // unlocks the full sweep so it works whether or not CRON_SECRET is configured.
     const secret = cleanEnv(process.env.CRON_SECRET) || cleanEnv(process.env.RESULTS_API_SECRET);
     const auth = String(req.headers.authorization || "");
-    const isCron = !!secret && auth === "Bearer " + secret;
+    const isCron = !!req.headers["x-vercel-cron"] || (!!secret && auth === "Bearer " + secret);
 
     const data = await buildResults({ fullSweep: isCron });
 
