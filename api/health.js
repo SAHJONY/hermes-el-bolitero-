@@ -19,6 +19,41 @@ function supaCfg() {
   return url && key ? { url: url.replace(/\/$/, ""), key } : null;
 }
 
+// magayo real-results feed: presence of the key + how many boards are mapped in
+// lib/magayo-codes.js (which boards CAN go live once the key works). New York is
+// always real via its own free feed and is intentionally not counted here.
+function magayoCfg() {
+  let codes = {};
+  try { codes = require("../lib/magayo-codes"); } catch { codes = {}; }
+  return { key: cleanEnv(process.env.MAGAYO_API_KEY), boards: Object.keys(codes).length };
+}
+
+// Live magayo probe — ONLY runs on ?deep=1 because it spends one API call against
+// the account quota. Distinguishes the three states the owner needs after
+// reactivating the account: no key · key set but account suspended (error 300) ·
+// key live (real draws flowing).
+async function pingMagayo() {
+  const { key } = magayoCfg();
+  if (!key) return { live: false, detail: "no_key" };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    const url = "https://www.magayo.com/api/results.php?api_key=" + encodeURIComponent(key) + "&game=us_fl_cash3_mid";
+    const r = await fetch(url, { headers: { Accept: "application/json" }, signal: ctrl.signal });
+    const d = await r.json().catch(() => ({}));
+    const code = (d && typeof d.error !== "undefined") ? Number(d.error) : -1;
+    const live = code === 0 && !!d.results && d.results !== "-";
+    const detail = code === 0 ? (live ? "ok" : "no_results_yet")
+      : code === 300 ? "account_suspended"
+      : code === -1 ? "bad_response" : ("error_" + code);
+    return { live, detail };
+  } catch (e) {
+    return { live: false, detail: e && e.name === "AbortError" ? "timeout" : String((e && e.message) || e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Live connectivity check against whichever datastore is configured. Short
 // timeout so a hung backend can't stall the function. Returns true only if the
 // store actually answered — that is the real "can persist shared state" signal.
@@ -61,6 +96,11 @@ module.exports = async (req, res) => {
 
   const db = await pingStore();
 
+  // ?deep=1 spends one magayo API call to confirm the feed is actually live.
+  const deep = /[?&]deep=1(\b|&|$)/.test(req.url || "") || !!(req.query && req.query.deep);
+  const mag = magayoCfg();
+  const magProbe = deep ? await pingMagayo() : null;
+
   // Core = the systems a real customer launch depends on.
   const checks = {
     database: { configured: !!db.backend, reachable: db.reachable, backend: db.backend, detail: db.detail },
@@ -77,6 +117,16 @@ module.exports = async (req, res) => {
       voice: has(process.env.VOICE_API_KEY),
     },
     appUrl: has(process.env.APP_URL),
+    // Real official result feeds. New York is always live (free keyless feed).
+    // magayo unlocks ~50 more boards once MAGAYO_API_KEY belongs to an ACTIVE
+    // account; without it those boards show clearly-labeled "DEMO · referencia".
+    resultsFeed: {
+      newyork: true,
+      magayo: Object.assign(
+        { configured: !!mag.key, mappedBoards: mag.boards },
+        magProbe ? { live: magProbe.live, detail: magProbe.detail } : { hint: "add ?deep=1 to live-probe the magayo account" },
+      ),
+    },
   };
 
   // "Can take real customers" = shared DB actually reachable + push fully wired
