@@ -100,6 +100,10 @@ module.exports = async (req, res) => {
   const deep = /[?&]deep=1(\b|&|$)/.test(req.url || "") || !!(req.query && req.query.deep);
   const mag = magayoCfg();
   const magProbe = deep ? await pingMagayo() : null;
+  // Quota usage this month — a plain datastore read (no API call), so it's safe
+  // to include on every request. Lets the owner see how much of the plan is left.
+  let magBudget = null;
+  try { magBudget = await require("../lib/results").magayoBudget(); } catch { magBudget = null; }
 
   // Core = the systems a real customer launch depends on.
   const checks = {
@@ -124,6 +128,7 @@ module.exports = async (req, res) => {
       newyork: true,
       magayo: Object.assign(
         { configured: !!mag.key, mappedBoards: mag.boards },
+        magBudget ? { quota: magBudget } : {},
         magProbe ? { live: magProbe.live, detail: magProbe.detail } : { hint: "add ?deep=1 to live-probe the magayo account" },
       ),
     },

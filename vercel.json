@@ -5,6 +5,10 @@
       "maxDuration": 30
     }
   },
+  "crons": [
+    { "path": "/api/results?cron=1", "schedule": "0 7 * * *" },
+    { "path": "/api/results?cron=1", "schedule": "0 19 * * *" }
+  ],
   "headers": [
     {
       "source": "/",
