@@ -558,6 +558,55 @@ const ENV_SCHEMA=[
 const ENV_DEFAULTS=Object.fromEntries(ENV_SCHEMA.flatMap(s=>s.vars.map(v=>[v.k,v.d])));
 const randSecret=(n=48)=>Array.from(crypto.getRandomValues(new Uint8Array(n))).map(b=>"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[b%62]).join("");
 
+/* Live system status for the owner: magayo API-call usage (quota) + notify
+   channels, read from the public /api/health probe. No secret needed. */
+function ApiUsageCard(){
+  const [h,setH]=useState(null);
+  const [err,setErr]=useState("");
+  const [loading,setLoading]=useState(true);
+  const load=async()=>{ setLoading(true); try{ const r=await fetch("/api/health"); const d=await r.json(); setH(d); setErr(""); }catch(e){ setErr("No se pudo cargar el estado."); } setLoading(false); };
+  useEffect(()=>{ load(); },[]);
+  const mag=h&&h.checks&&h.checks.resultsFeed&&h.checks.resultsFeed.magayo;
+  const q=mag&&mag.quota;
+  const n=h&&h.checks&&h.checks.notify;
+  const pct=q&&q.cap?Math.min(100,Math.round((q.used/q.cap)*100)):0;
+  const barColor=pct>=90?T.coral:pct>=70?T.mango:T.teal;
+  return (
+    <Section title="📊 Estado del sistema" sub="Llamadas a la API y canales — en vivo">
+      <div className="card" style={{display:"grid",gap:12}}>
+        {loading&&!h&&<div style={{color:T.dim,fontSize:12}}>Cargando…</div>}
+        {err&&<div style={{color:T.coral,fontSize:12}}>{err}</div>}
+        {q&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5}}>
+              <span style={{fontSize:12,fontWeight:700}}>🎯 API magayo · resultados reales</span>
+              <span className="mono" style={{fontSize:14,fontWeight:800,color:barColor}}>{q.used}/{q.cap}</span>
+            </div>
+            <div style={{height:9,borderRadius:6,background:T.bg,overflow:"hidden"}}>
+              <div style={{height:"100%",width:pct+"%",background:barColor,transition:"width .4s"}}/>
+            </div>
+            <div style={{fontSize:10,color:T.dim,marginTop:4,lineHeight:1.5}}>{q.remaining.toLocaleString()} llamadas restantes este mes · {pct}% usado.<br/>Sistema a prueba de cuota: el error 303 es imposible (tope {q.cap.toLocaleString()}).</div>
+          </div>
+        )}
+        {mag&&typeof mag.live!=="undefined"&&(
+          <div style={{fontSize:11,color:mag.live?T.teal:T.mango}}>{mag.live?"🟢 Feed magayo EN VIVO":"🟡 Feed magayo: "+(mag.detail||"sin verificar")} · {mag.mappedBoards} tableros</div>
+        )}
+        {n&&(
+          <div>
+            <div style={{fontSize:11,color:T.dim,marginBottom:5}}>Canales de notificación</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {[["Telegram",n.telegram],["Voz",n.voice],["Email",n.email]].map(([lab,on])=>(
+                <span key={lab} className="chip" style={{background:on?"rgba(46,204,150,.15)":"transparent",color:on?T.teal:T.dim,fontSize:11,fontWeight:700}}>{on?"✅":"⚪"} {lab}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        <button className="btn ghost" style={{width:"100%"}} onClick={load}>🔄 Actualizar</button>
+      </div>
+    </Section>
+  );
+}
+
 function EnvPage(){
   const [env,setEnv]=useState(ENV_DEFAULTS);
   const [show,setShow]=useState({});
@@ -585,6 +634,7 @@ function EnvPage(){
   };
   return (
     <div>
+      <ApiUsageCard/>
       <div className="card" style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
         <button className="btn primary" style={{flex:1}} onClick={save}>💾 Guardar</button>
         <button className="btn ghost" style={{flex:1}} onClick={copy}>📋 Copiar .env</button>

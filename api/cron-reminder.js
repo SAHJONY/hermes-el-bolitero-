@@ -3,7 +3,7 @@
 // sorteos (datos reales del horario, NO números) e invita a la app. Vercel
 // añade Authorization: Bearer CRON_SECRET cuando esa env var está configurada.
 const { sendTelegram } = require("../lib/notify");
-const { buildResults } = require("../lib/results");
+const { buildResults, magayoBudget } = require("../lib/results");
 
 // Latest REAL results to include in the broadcast (today only — real boards).
 async function realResultsLine() {
@@ -55,5 +55,20 @@ module.exports = async (req, res) => {
     `<i>Solo información y entretenimiento. Cada tiro es azar independiente.</i>`;
 
   const r = await sendTelegram(texto);
-  res.status(r.ok ? 200 : 502).json({ ...r, posted: r.ok, preview: texto });
+
+  // Owner-only ops report: daily magayo API-call usage so the owner is kept
+  // notified of quota burn without checking anything. Sent as a SEPARATE message
+  // to the owner chat so it never mixes into a customer-facing broadcast.
+  let ops = null;
+  try {
+    const q = await magayoBudget();
+    const pct = q.cap ? Math.round((q.used / q.cap) * 100) : 0;
+    const opsText =
+      `🔧 <b>Ops · HERMES</b> (solo dueño)\n` +
+      `📊 API magayo este mes: <b>${q.used}/${q.cap}</b> llamadas (${pct}%) · quedan <b>${q.remaining}</b>.\n` +
+      `<i>Sistema a prueba de cuota: error 303 imposible. Ver detalle en /api/health.</i>`;
+    ops = await sendTelegram(opsText);
+  } catch (e) { ops = { ok: false, detail: String((e && e.message) || e) }; }
+
+  res.status(r.ok ? 200 : 502).json({ ...r, posted: r.ok, ops: ops && ops.ok, preview: texto });
 };
