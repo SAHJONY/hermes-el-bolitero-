@@ -1231,7 +1231,26 @@ function TabAdmin(){
   const [label,setLabel]=useState("");
   const [pinNew,setPinNew]=useState("");
   const [saved,setSaved]=useState("");
-  useEffect(()=>{(async()=>{ setCodes(await sGet("members:codes",true)||{}); })();},[]);
+  const [econ,setEcon]=useState(null);   // economía de la comunidad (saldos globales)
+  const [top,setTop]=useState([]);       // miembros más activos por monedas ganadas
+  useEffect(()=>{(async()=>{
+    setCodes(await sGet("members:codes",true)||{});
+    try{ const b=await dbOp("balance"); if(b) setEcon({players:b.accounts||0,coins:b.totalCoins||0}); }catch(e){}
+    try{ const w=await dbOp("wallet.top",{limit:5}); if(w&&w.top) setTop(w.top); }catch(e){}
+  })();},[]);
+  // Conteo y señales de interacción derivadas del registro de miembros.
+  const mstats=useMemo(()=>{
+    const e=Object.entries(codes||{}); let active=0,paid=0,withDev=0,uses=0; const refCount={};
+    for(const [,i] of e){
+      if(i.active) active++;
+      if(i.plan==="miembro"||i.plan==="vip") paid++;
+      if(i.boundTo) withDev++;
+      uses+=i.uses||0;
+      if(i.ref) refCount[i.ref]=(refCount[i.ref]||0)+1;
+    }
+    return {total:e.length,active,paid,withDev,uses,refCount};
+  },[codes]);
+  const planBadge=(p)=> p==="vip"?"💎 VIP":p==="miembro"?"⭐ Miembro":p==="gratis"?"Gratis":"";
   const newCode=async()=>{
     const code=Array.from({length:6},()=> "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
     const next={...codes,[code]:{label:label||"Miembro",active:true,created:Date.now(),uses:0}};
@@ -1263,6 +1282,32 @@ function TabAdmin(){
       {view==="anuncios"&&<AnunciosAdmin/>}
       {view==="alertas"&&<AlertasAdmin/>}
       {view==="miembros"&&(<>
+      <div className="card" style={{marginBottom:12,padding:14}}>
+        <div className="disp" style={{fontWeight:800,fontSize:15,marginBottom:10}}>📊 Comunidad de un vistazo</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+          {[["👥","Miembros",mstats.total],["✅","Activos",mstats.active],["💎","De pago",mstats.paid],
+            ["📲","Con dispositivo",mstats.withDev],["🔓","Entradas",mstats.uses],["🎮","Jugadores",econ?econ.players:"—"]
+          ].map(([ic,lab,val],ix)=>(
+            <div key={ix} style={{background:T.raise,borderRadius:12,padding:"10px 8px",textAlign:"center"}}>
+              <div style={{fontSize:18}}>{ic}</div>
+              <div className="disp" style={{fontWeight:800,fontSize:18,color:T.ink}}>{typeof val==="number"?val.toLocaleString():val}</div>
+              <div style={{fontSize:10,color:T.dim}}>{lab}</div>
+            </div>
+          ))}
+        </div>
+        {econ&&<div style={{marginTop:10,fontSize:12,color:T.dim,textAlign:"center"}}>🪙 {econ.coins.toLocaleString()} monedas en circulación en la comunidad</div>}
+        {top&&top.length>0&&(
+          <div style={{marginTop:10,borderTop:"1px solid "+T.line,paddingTop:10}}>
+            <div style={{fontSize:11,color:T.dim,marginBottom:6}}>🔥 Más activos (por monedas ganadas)</div>
+            {top.map((p,ix)=>(
+              <div key={ix} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0"}}>
+                <span style={{color:T.ink}}>{["🥇","🥈","🥉"][ix]||(ix+1+".")} {p.alias}</span>
+                <span style={{color:T.teal}}>{(p.bal||0).toLocaleString()} 🪙 · XP {(p.xp||0).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <Section title="Códigos de miembros" sub="Crea, desactiva o elimina el acceso — solo tú lo controlas">
         <div className="card" style={{marginBottom:10}}>
           <div style={{display:"flex",gap:8}}>
@@ -1274,7 +1319,7 @@ function TabAdmin(){
           {codes&&Object.entries(codes).map(([c,info])=>(
             <div key={c} className="card" style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
               <span className="mono" style={{fontWeight:700,letterSpacing:"0.12em",color:info.active?T.teal:T.dim}}>{c}</span>
-              <span style={{fontSize:12,color:T.dim,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{info.label} · {info.uses||0} usos{info.boundTo?" · 🔒":""}</span>
+              <span style={{fontSize:12,color:T.dim,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{info.nombre||info.label||"Miembro"}{planBadge(info.plan)?" · "+planBadge(info.plan):""} · {info.uses||0} entradas{mstats.refCount[c]?" · 🔗 "+mstats.refCount[c]+" invitados":""}{info.created?" · "+new Date(info.created).toLocaleDateString("es-ES",{day:"numeric",month:"short"}):""}{info.boundTo?" · 🔒":""}</span>
               <button className="chip" style={{color:T.teal}} onClick={async()=>{ const n=parseInt(window.prompt("¿Cuántas monedas dar al miembro "+c+"? (negativo para quitar). Se aplican cuando el miembro abra la app."),10); if(!isNaN(n)){ await grantToMember(c,n); setSaved((n>=0?"+":"")+n.toLocaleString()+" 🪙 → "+c); } }}>💰</button>
               {info.boundTo&&<button className="chip" title="Desvincular dispositivo" onClick={()=>unbind(c)}>🔓</button>}
               <button className="chip" onClick={()=>toggle(c)}>{info.active?"Activo":"Pausado"}</button>
