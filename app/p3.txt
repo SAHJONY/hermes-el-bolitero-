@@ -1144,6 +1144,15 @@ function TabJuega({lot}){
   );
 }
 
+// Código de verificación tipo banca (FNV-1a, 16 hex) — determinista por ticket.
+// Es solo para autenticidad/referencia; el premio lo valida el SERVIDOR (anti-trampa).
+function tkHash(t){
+  const s=`${t.id}|${t.ts}|${t.tipo}|${t.fijo||t.play4||t.cash3||t.box3||t.box4||t.pair||t.cent||t.sb3||t.sb4||t.qnum||""}|${(t.corridos||[]).join("")}|${t.monto}`;
+  let h=0x811c9dc5; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193); }
+  let h2=(0x9e3779b9^h)>>>0; for(let i=0;i<s.length;i++){ h2=Math.imul(h2^s.charCodeAt(i),0x85ebca77)>>>0; }
+  return ((h>>>0).toString(16)+(h2>>>0).toString(16)).toUpperCase().padStart(16,"0").slice(0,16);
+}
+
 function TabTicket(){
   const [board,setBoard]=useState("labolita");
   const lottery=LOTTERIES.find(l=>l.id===board);
@@ -1164,7 +1173,7 @@ function TabTicket(){
   const [monto,setMonto]=useState("");
   const [tickets,setTickets]=useState(null);
   // Multiplicadores controlados 100% por el dueño (panel 👑 → 🪙 Monedas y premios). Solo monedas virtuales.
-  const [PAYOUTS,setPAYOUTS]=useState({fijo:75,corrido:25,parle:1000,candado:2000,play4:5000,cash3:500,box3:160,box4:1200,pair:70,centena:600,q1:60,q2:20,q3:10});
+  const [PAYOUTS,setPAYOUTS]=useState({fijo:56,corrido:25,parle:1300,candado:10000,play4:5000,cash3:500,box3:160,box4:1200,pair:70,centena:600,q1:60,q2:20,q3:10});
   useEffect(()=>{(async()=>{ const cfg=await getCoinsConfig(); setPAYOUTS({fijo:cfg.payFijo,corrido:cfg.payCorrido,parle:cfg.payParle,candado:cfg.payCandado,play4:cfg.payPlay4,cash3:cfg.payCash3,box3:cfg.payBox3,box4:cfg.payBox4,pair:cfg.payPair,centena:cfg.payCentena,q1:cfg.payQ1,q2:cfg.payQ2,q3:cfg.payQ3}); })();},[]);
   const num=v=>{ const n=parseFloat(String(v||"").replace(/[^0-9.]/g,"")); return isNaN(n)?0:n; };
   const nCorr=[c1,c2].filter(Boolean).length;
@@ -1349,7 +1358,7 @@ function TabTicket(){
     setChecking(false);
   };
   const compartir=async(t)=>{
-    const txt=`🎟️ HERMES EL BOLITERO · Ticket ${t.id}\n${t.boardName} · ${t.session} · ${t.date}\nFIJO ${t.fijo}${t.corridos.length?" · corridos "+t.corridos.join(" "):""}\nRecuerdo sin valor — juego estos números en la lotería legal.`;
+    const txt=`🎟️ BANCA HERMES EL BOLITERO · ★ ORIGINAL ★\nTicket ${t.id} · 🔐 ${tkHash(t)}\n${t.boardName} · ${t.session} · ${t.date}\nFIJO ${t.fijo}${t.corridos.length?" · corridos "+t.corridos.join(" "):""}\n🍀 ¡BUENA SUERTE! · Recuerdo sin valor — juego estos números en la lotería legal.`;
     try{ if(navigator.share) await navigator.share({text:txt}); else { await navigator.clipboard.writeText(txt); setMsg("Ticket copiado ✔"); } }catch{}
   };
   const ganados=(tickets||[]).filter(t=>t.status==="ganador").length;
@@ -1613,10 +1622,17 @@ function TabTicket(){
           {(tickets||[]).map(t=>(
             <div key={t.id} className="card" style={{padding:0,overflow:"hidden",border:t.status==="ganador"?"1.5px solid #FFD978":`1px solid ${T.line}`}}>
               <div style={{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span className="disp" style={{fontWeight:800,fontSize:13}}>HERMES EL BOLITERO</span>
+                <div style={{display:"flex",flexDirection:"column",lineHeight:1.05}}>
+                  <span className="disp" style={{fontWeight:800,fontSize:13}}>BANCA HERMES EL BOLITERO</span>
+                  <span className="mono" style={{fontSize:8,fontWeight:800,letterSpacing:"0.22em",opacity:.65}}>★ ORIGINAL ★</span>
+                </div>
                 <span className="mono" style={{fontSize:11,fontWeight:700}}>{t.id}</span>
               </div>
               <div style={{padding:"12px 14px"}}>
+                <div className="mono" style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:9,color:T.dim,marginBottom:8,opacity:.85}}>
+                  <span>{new Date(t.ts).toLocaleString()}</span>
+                  <span>🔐 {tkHash(t)}</span>
+                </div>
                 <div style={{fontSize:11,color:T.dim,marginBottom:8,display:"flex",justifyContent:"space-between"}}>
                   <span>{t.boardName} · {t.session} · {t.date}</span>
                   {num(t.monto)>0&&<span style={{color:T.mango}}>Jugado ${num(t.monto).toFixed(2)}{t.tipo==="play4"?` · Play 4 ×${PAYOUTS.play4}`:t.tipo==="cash3"?` · Cash 3 ×${PAYOUTS.cash3}`:t.tipo==="box3"?` · Cash 3 Box ×${PAYOUTS.box3}`:t.tipo==="box4"?` · Play 4 Box ×${PAYOUTS.box4}`:t.tipo==="pareja"?` · Pareja ×${PAYOUTS.pair}`:t.tipo==="centena"?` · Centena ×${PAYOUTS.centena}`:t.tipo==="sb3"?` · Str/Box ×${PAYOUTS.cash3}/${PAYOUTS.box3}`:t.tipo==="sb4"?` · Str/Box ×${PAYOUTS.play4}/${PAYOUTS.box4}`:t.tipo==="quiniela"?` · Quiniela ×${PAYOUTS.q1}/${PAYOUTS.q2}/${PAYOUTS.q3}`:` · posible ≈ $${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}`}</span>}
@@ -1723,7 +1739,11 @@ function TabTicket(){
                     </div>
                   );
                 })()}
-                <div style={{borderTop:`1px dashed ${T.line}`,marginTop:10,paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{borderTop:`1px dashed ${T.line}`,marginTop:10,paddingTop:8,textAlign:"center"}}>
+                  <div className="mono" style={{fontSize:10,color:T.mango,fontWeight:700,letterSpacing:"0.03em"}}>D.{PAYOUTS.fijo}×1 · P.{PAYOUTS.parle.toLocaleString()}×1 · T.{PAYOUTS.candado.toLocaleString()}×1</div>
+                  <div style={{fontSize:10,color:T.dim,marginTop:2}}>Revisa tu ticket · 🍀 ¡BUENA SUERTE! 🍀</div>
+                </div>
+                <div style={{borderTop:`1px dashed ${T.line}`,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span style={{fontSize:9,color:T.dim,maxWidth:"70%"}}>RECUERDO SIN VALOR MONETARIO · Juega estos números en una tienda autorizada de la lotería legal de tu estado. Aquí no se apuesta ni se paga premio.</span>
                   <button className="chip" onClick={()=>compartir(t)}>📤</button>
                 </div>

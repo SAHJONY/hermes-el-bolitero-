@@ -41,7 +41,7 @@ async function deleteAccount(){
    La CONFIGURACIÓN (saldo inicial, bono, multiplicadores, on/off) la controla el
    dueño desde el panel 👑 → 🪙 Monedas y se guarda en el store compartido
    "coins:config" para que aplique a TODOS los usuarios.                          */
-const COINS_DEFAULTS={ enabled:true, start:1000, daily:100, payFijo:75, payCorrido:25, payParle:1000, payCandado:2000, payPlay4:5000, payQ1:60, payQ2:20, payQ3:10, payCash3:500, payBox3:160, payBox4:1200, payPair:70, payCentena:600 };
+const COINS_DEFAULTS={ enabled:true, start:1000, daily:100, payFijo:56, payCorrido:25, payParle:1300, payCandado:10000, payPlay4:5000, payQ1:60, payQ2:20, payQ3:10, payCash3:500, payBox3:160, payBox4:1200, payPair:70, payCentena:600 };
 let _coinsCfg=null;
 async function getCoinsConfig(){
   if(_coinsCfg) return _coinsCfg;
