@@ -2164,8 +2164,81 @@ function InviteCard(){
   );
 }
 
+/* ============================ TAB: GUÍA DEL MIEMBRO 📖 ============================ */
+function TabGuia(){
+  const lang=useLang();
+  const share=async()=>{
+    let url="https://www.hermeselbolitero.com/";
+    try{ const s=await sGet("session",false); if(s&&s.code) url+="?ref="+encodeURIComponent(s.code); }catch(e){}
+    const text="🎱 HERMES EL BOLITERO — resultados, información y pronósticos GRATIS + casino virtual para tu diversión. Únete:";
+    try{ if(navigator.share){ await navigator.share({title:"HERMES EL BOLITERO",text,url}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+    try{ await navigator.clipboard.writeText(text+" "+url); alert("¡Enlace copiado! Compártelo con tus amigos 🎉"); }catch(e){}
+  };
+  const Row=({ic,h,d})=>(
+    <div style={{display:"flex",gap:11,padding:"10px 0",borderBottom:"1px solid "+T.line}}>
+      <div style={{fontSize:20,width:26,textAlign:"center",flexShrink:0}}>{ic}</div>
+      <div><div style={{fontWeight:700,fontSize:13,color:T.ink}}>{h}</div><div style={{fontSize:12,color:T.dim,lineHeight:1.5}}>{d}</div></div>
+    </div>
+  );
+  return (
+    <div className="fade-in">
+      <div style={{textAlign:"center",marginBottom:14}}>
+        <div style={{fontSize:34}}>📖</div>
+        <div className="disp" style={{fontWeight:800,fontSize:20,background:"linear-gradient(135deg,#FFE9A8,#FFB838 55%,#E08C00)",WebkitBackgroundClip:"text",backgroundClip:"text",color:"transparent"}}>{t("Guía del Miembro","Member Guide")}</div>
+        <div style={{fontSize:12.5,color:T.dim,marginTop:4,lineHeight:1.5}}>{t("Todo lo que HERMES EL BOLITERO hace por ti — y cómo acumular monedas mientras juegas.","Everything HERMES EL BOLITERO does for you — and how to stack coins while you play.")}</div>
+      </div>
+
+      <Section title={t("¿Qué es HERMES EL BOLITERO?","What is HERMES EL BOLITERO?")}>
+        <div className="card" style={{fontSize:12.5,color:T.dim,lineHeight:1.6}}>
+          {t("Es tu app GRATIS de resultados, información y pronósticos de la bolita y la lotería — con un casino virtual para tu entretenimiento y diversión. Los números oficiales son información real; los juegos y las monedas 🪙 son solo para divertirte. No vendemos boletos ni aceptamos apuestas.","Your FREE app for lottery results, info and forecasts — plus a virtual casino for fun. Official numbers are real info; the games and coins 🪙 are just for entertainment. We don't sell tickets or take bets.")}
+        </div>
+      </Section>
+
+      <Section title={t("Cómo funciona — sección por sección","How it works — section by section")}>
+        <div className="card">
+          <Row ic="🎱" h={t("Hoy","Today")} d={t("Resultados oficiales en vivo de tu lotería, con el próximo tiro y la hora exacta de cada estado.","Live official results, with the next draw and each state's exact time.")}/>
+          <Row ic="🗓️" h={t("Historial","History")} d={t("Los números de días anteriores para comparar y estudiar.","Past days' numbers to compare and study.")}/>
+          <Row ic="📊" h="Stats" d={t("Números calientes y atrasados — orientativos, no predicen nada.","Hot and overdue numbers — for reference only, they predict nothing.")}/>
+          <Row ic="🌙" h="Charada" d={t("El significado tradicional de cada número (1–100) y qué número es tu sueño.","The traditional meaning of each number (1–100) and which number your dream is.")}/>
+          <Row ic="🍀" h="Suerte" d={t("Pronósticos, zodiaco y números del día, para tu diversión.","Forecasts, zodiac and numbers of the day, for fun.")}/>
+          <Row ic="⚡" h="Hermes" d={t("Tu asistente personal: pregúntale lo que sea, te da tus números de la suerte, tu saldo y tu bono.","Your personal assistant: ask anything, get your lucky numbers, balance and bonus.")}/>
+          <Row ic="🎟️" h="Ticket" d={t("Arma tu ticket souvenir con tus números; cuando salgan, lo ves al instante. Recuerdo sin valor — juégalos en la lotería legal.","Build your souvenir ticket; when your numbers hit, you see it instantly. No cash value — play them at the legal lottery.")}/>
+          <Row ic="🎮" h={t("Juega","Play")} d={t("El arcade diario: ruleta, raspadito, tragamonedas, dados, 21, memoria y más. Gratis una vez al día — ganas monedas 🪙.","The daily arcade: roulette, scratcher, slots, dice, 21, memory and more. Free once a day — earn coins 🪙.")}/>
+          <Row ic="🔔" h="Alertas" d={t("Deja tu nombre y teléfono: cuando caiga tu número, HERMES te avisa por llamada, email o el grupo de Telegram.","Leave your name and phone: when your number hits, HERMES alerts you by call, email or the Telegram group.")}/>
+          <Row ic="💬" h="Foro" d={t("La comunidad: comparte, comenta y celebra con otros boliteros.","The community: share, comment and celebrate with other players.")}/>
+          <Row ic="💳" h="Pago" d={t("Hazte Miembro o VIP para desbloquear el chat privado con Hermes y más beneficios.","Become a Member or VIP to unlock the private Hermes chat and more perks.")}/>
+        </div>
+      </Section>
+
+      <Section title={t("Gana y acumula monedas 🪙","Earn and stack coins 🪙")} sub={t("Mientras más juegas, más acumulas","The more you play, the more you stack")}>
+        <div className="card">
+          <Row ic="🎁" h={t("Bono diario","Daily bonus")} d={t("Reclama monedas cada día. Mientras más días seguidos vengas, más ganas — ¡al 7º día el bono se multiplica ×10 (jackpot)!","Claim coins every day. The longer your streak, the more you get — on day 7 the bonus multiplies ×10 (jackpot)!")}/>
+          <Row ic="🎮" h={t("Juega el arcade","Play the arcade")} d={t("Cada juego diario te paga monedas. Completa todos los del día y gana +300 🪙 de bono.","Each daily game pays coins. Finish all of the day's games and earn a +300 🪙 bonus.")}/>
+          <Row ic="🔥" h={t("Premios grandes","Big wins")} d={t("La Bola Caliente paga +200 🪙 y el Reto de la Charada +150 🪙, además de premios en cada minijuego.","The Hot Ball pays +200 🪙 and the Charada Challenge +150 🪙, plus prizes in every mini-game.")}/>
+          <Row ic="🔗" h={t("Invita y gana","Invite and earn")} d={t("Por cada persona que entre con tu enlace, ganas monedas. Crecemos juntos.","For every person who joins with your link, you earn coins. We grow together.")}/>
+          <Row ic="🏆" h={t("Sube de nivel","Level up")} d={t("Mientras más monedas ganas, subes de rango: Novato → Bolitero → Maestro → Leyenda → Mito.","The more coins you earn, the higher your rank: Rookie → Bolitero → Master → Legend → Myth.")}/>
+        </div>
+      </Section>
+
+      <Section title={t("Invita y crece con la comunidad","Invite and grow the community")}>
+        <div className="card" style={{textAlign:"center"}}>
+          <div style={{fontSize:12.5,color:T.dim,lineHeight:1.6,marginBottom:12}}>
+            {t("Comparte tu enlace personal. Cada amigo que se une con él te suma monedas — y juntos hacemos la comunidad más grande.","Share your personal link. Every friend who joins with it adds coins for you — and together we grow the community.")}
+          </div>
+          <button className="btn primary" style={{width:"100%"}} onClick={share}>{t("📲 Compartir mi enlace e invitar","📲 Share my link & invite")}</button>
+        </div>
+      </Section>
+
+      <div className="card" style={{fontSize:11.5,color:T.dim,lineHeight:1.6,marginTop:4}}>
+        ⚠️ {t("Las monedas 🪙 son virtuales, para tu entretenimiento y diversión dentro de la app — no son dinero real ni apuestas. Los números oficiales son información; si decides jugarlos, hazlo en una tienda autorizada de la lotería legal de tu estado. Si el juego deja de ser un juego, busca ayuda: 1-800-GAMBLER.","Coins 🪙 are virtual, for entertainment and fun inside the app — not real money or betting. Official numbers are information; if you choose to play them, do so at an authorized legal lottery retailer in your state. If gambling stops being a game, get help: 1-800-GAMBLER.")}
+      </div>
+    </div>
+  );
+}
+
 const TABS=[
   {id:"hoy",icon:"🎱",label:"Hoy"},
+  {id:"guia",icon:"📖",label:"Guía"},
   {id:"hist",icon:"🗓️",label:"Historial"},
   {id:"stats",icon:"📊",label:"Stats"},
   {id:"charada",icon:"🌙",label:"Charada"},
@@ -2392,6 +2465,7 @@ function MainApp({admin,onLock}){
         {tab==="hoy"&&<CubaLibreHero onPlay={()=>goTab("juega")}/>}
         {tab==="hoy"&&!admin&&<InviteCard/>}
         {tab==="hoy"&&<TabHoy lot={lot} setLot={setLot}/>}
+        {tab==="guia"&&<TabGuia/>}
         {tab==="hist"&&<TabHistorial lot={lot}/>}
         {tab==="stats"&&<TabStats lot={lot}/>}
         {tab==="charada"&&<TabCharada/>}
