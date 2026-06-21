@@ -1884,11 +1884,11 @@ const CHANGELOG=[
   {v:"2.0",fecha:"12 jun 2026",items:[
     "🎟️ Mi Ticket — elige tus números y llévate tu souvenir",
     "📣 Canal oficial de Telegram en Alertas",
-    "⚡ Motor NVIDIA NIM añadido al cerebro de Hermes",
+    "⚡ HERMES EL BOLITERO ahora responde más rápido y con más potencia",
     "💳 Pagos con PayPal y Cash App junto a tarjeta",
     "🔴 7 tableros con datos oficiales y varios tiros diarios",
   ]},
-  {v:"1.0",fecha:"lanzamiento",items:["🎱 Resultados, charada, estadísticas, foro y Hermes el agente"]},
+  {v:"1.0",fecha:"lanzamiento",items:["🎱 Resultados, charada, estadísticas, foro y HERMES EL BOLITERO"]},
 ];
 /* ============================ TAB: SUERTE 🍀 ============================ */
 const ZODIACO=[

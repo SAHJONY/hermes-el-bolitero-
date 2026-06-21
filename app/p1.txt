@@ -31,7 +31,45 @@ const LOTTERIES = [
   ...INTL_BOARDS.map(([id,name,fl,sessions]) => ({ id, name, short: `${name} ${fl}`, sessions, live: true, region: "Internacional" })),
 ];
 
-const SESSION_TIMES = { "Mañana": 10.5, "Mediodía": 13.5, "Tarde": 19.0, "Noche": 21.8 };
+// Horarios OFICIALES de cada sorteo, por tablero y en la ZONA HORARIA del estado
+// (no la del dispositivo). Así "Próximo tiro" y el estado pendiente/ya-cayó son
+// puntuales en cada juego y cada estado. Horas LOCALES del estado, "HH:MM".
+const BOARD_TZ = {
+  labolita:"America/New_York", newyork:"America/New_York", florida:"America/New_York",
+  georgia:"America/New_York", chicago:"America/Chicago",
+  pr:"America/Puerto_Rico", rd:"America/Santo_Domingo",
+};
+const BOARD_TIMES = {
+  // La Bolita sigue a sus fuentes reales (TN mañana · FL mediodía · GA tarde · FL noche), hora del Este.
+  labolita:{ "Mañana":"10:30","Mediodía":"13:30","Tarde":"18:59","Noche":"21:45" },
+  newyork:{ "Mediodía":"14:30","Noche":"22:30" },                 // NY Numbers/Win-4 (ET)
+  florida:{ "Mediodía":"13:30","Noche":"21:45" },                 // FL Pick 3/4 (ET)
+  georgia:{ "Mediodía":"12:29","Tarde":"18:59","Noche":"23:34" }, // GA Cash 3/4 (ET)
+  chicago:{ "Mediodía":"12:40","Noche":"21:20" },                 // Illinois Pick 3/4 (CT)
+  pr:{ "Mediodía":"13:45","Noche":"21:00" },                      // Puerto Rico Pega (AST) — ajustable
+  rd:{ "Mediodía":"13:00","Noche":"20:55" },                      // Rep. Dominicana (AST) — ajustable
+};
+const DEFAULT_TIMES = { "Mañana":"10:30","Mediodía":"13:30","Tarde":"19:00","Noche":"21:45" };
+// Offset (ms) de una zona IANA en un instante: (hora local de pared) − UTC.
+function tzOffsetMs(tz, date){
+  try{
+    const p={}; new Intl.DateTimeFormat("en-US",{timeZone:tz,hour12:false,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"})
+      .formatToParts(date).forEach(x=>{p[x.type]=x.value;});
+    return Date.UTC(+p.year,+p.month-1,+p.day,(p.hour==="24"?0:+p.hour),+p.minute,+p.second)-date.getTime();
+  }catch(e){ return -date.getTimezoneOffset()*60000; }
+}
+// Fecha (Y/M/D) de "ahora" en la zona del tablero.
+function nowPartsInTz(tz){
+  try{ const p={}; new Intl.DateTimeFormat("en-US",{timeZone:tz,hour12:false,year:"numeric",month:"2-digit",day:"2-digit"})
+      .formatToParts(new Date()).forEach(x=>{p[x.type]=x.value;});
+    return {y:+p.year,m:+p.month,d:+p.day};
+  }catch(e){ const n=new Date(); return {y:n.getFullYear(),m:n.getMonth()+1,d:n.getDate()}; }
+}
+// Instante absoluto del sorteo: "Y-M-D a las HH:MM en la zona tz".
+function drawInstant(tz, y, m, d, hh, mm){
+  const guess=Date.UTC(y, m-1, d, hh, mm, 0);
+  return new Date(guess - tzOffsetMs(tz, new Date(guess)));
+}
 
 const CHARADA = {1:"Caballo",2:"Mariposa",3:"Marinero",4:"Gato",5:"Monja",6:"Jicotea",7:"Caracol",8:"Muerto",9:"Elefante",10:"Pescado grande",11:"Gallo",12:"Mujer santa",13:"Pavo real",14:"Gato tigre",15:"Perro",16:"Toro",17:"Luna",18:"Pescado chico",19:"Lombriz",20:"Gato fino",21:"Majá",22:"Sapo",23:"Vapor",24:"Paloma",25:"Piedra fina",26:"Anguila",27:"Avispa",28:"Chivo",29:"Ratón",30:"Camarón",31:"Venado",32:"Cochino",33:"Tiñosa",34:"Mono",35:"Araña",36:"Cachimba",37:"Gallina",38:"Dinero",39:"Conejo",40:"Cura",41:"Lagartija",42:"Pato",43:"Alacrán",44:"Año del cuero",45:"Tiburón",46:"Humo",47:"Pájaro",48:"Cucaracha",49:"Borracho",50:"Policía",51:"Soldado",52:"Bicicleta",53:"Luz eléctrica",54:"Flores",55:"Cangrejo",56:"Reina",57:"Cama",58:"Retrato",59:"Loco",60:"Payaso",61:"Caballo grande",62:"Matrimonio",63:"Asesino",64:"Muerto grande",65:"Comida",66:"Divorcio",67:"Puñalada",68:"Cementerio",69:"Pozo",70:"Coco",71:"Río",72:"Collar",73:"Maleta",74:"Papalote",75:"Perro grande",76:"Bailarina",77:"Banderas",78:"Obispo",79:"Tren",80:"Médico",81:"Teatro",82:"Leona",83:"Tragedia",84:"Sangre",85:"Espejo",86:"Convento",87:"Plátano",88:"Espejuelos",89:"Lotería",90:"Espejo grande",91:"Zapato",92:"Globo",93:"Revolución",94:"Machete",95:"Guerra",96:"Desafío",97:"Mosquito",98:"Piano",99:"Serrucho",100:"Inodoro"};
 
@@ -61,14 +99,20 @@ const fmtDate = (d) => d.toLocaleDateString("es-ES",{weekday:"long",day:"numeric
 function pastDays(n){const out=[];const t=new Date();for(let i=0;i<n;i++){const d=new Date(t);d.setDate(t.getDate()-i);out.push(d);}return out;}
 function nextDraw(lot){
   const now=new Date();
+  const tz=BOARD_TZ[lot.id]||"America/New_York";
+  const times=BOARD_TIMES[lot.id]||DEFAULT_TIMES;
+  const base=nowPartsInTz(tz);                 // hoy, en la zona del tablero
   for(let add=0;add<2;add++){
+    const day=new Date(Date.UTC(base.y, base.m-1, base.d+add)); // rueda el calendario con seguridad
+    const Y=day.getUTCFullYear(), M=day.getUTCMonth()+1, D=day.getUTCDate();
     for(const s of lot.sessions){
-      const t=new Date(now); t.setDate(now.getDate()+add);
-      const h=SESSION_TIMES[s]; t.setHours(Math.floor(h),Math.round((h%1)*60),0,0);
-      if(t>now) return {session:s,at:t};
+      const hm=times[s]||DEFAULT_TIMES[s]; if(!hm) continue;
+      const [hh,mm]=hm.split(":").map(Number);
+      const at=drawInstant(tz, Y, M, D, hh, mm);
+      if(at>now) return {session:s, at};
     }
   }
-  return {session:lot.sessions[0],at:now};
+  return {session:lot.sessions[0], at:now};
 }
 
 /* ---------- design tokens: "Habana nocturna" ---------- */
