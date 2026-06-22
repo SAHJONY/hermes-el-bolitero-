@@ -4,6 +4,19 @@
 // añade Authorization: Bearer CRON_SECRET cuando esa env var está configurada.
 const { sendTelegram } = require("../lib/notify");
 const { buildResults, magayoBudget } = require("../lib/results");
+const store = require("../lib/store");
+
+// Count payments still awaiting the owner's confirm (neither confirmed nor
+// rejected), read from the same shared crm:pagos the admin Finanzas writes.
+// Count only — no customer PII — so it's safe even if it lands in a group chat.
+async function pendingPagosCount() {
+  try {
+    const raw = await store.get("crm:pagos");
+    const list = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) return 0;
+    return list.filter(p => p && !p.confirmed && !p.rejected).length;
+  } catch { return 0; }
+}
 
 // Latest REAL results to include in the broadcast (today only — real boards).
 async function realResultsLine() {
@@ -85,5 +98,23 @@ module.exports = async (req, res) => {
     settle = await rs.json().catch(() => ({}));
   } catch (e) { settle = { ok: false, detail: String((e && e.message) || e) }; }
 
-  res.status(r.ok ? 200 : 502).json({ ...r, posted: r.ok, ops: ops && ops.ok, settle, preview: texto });
+  // Owner-only digest: how many payments are waiting for confirmation. Sent to
+  // the owner's private chat when TELEGRAM_OWNER_CHAT_ID is set, otherwise the
+  // default chat. Count-only (no names/amounts), so no sensitive data leaks.
+  let digest = null;
+  try {
+    const n = await pendingPagosCount();
+    if (n > 0) {
+      const ownerChat = process.env.TELEGRAM_OWNER_CHAT_ID || undefined;
+      const dtext =
+        `🔔 <b>Pagos pendientes · HERMES</b> (solo dueño)\n` +
+        `Tienes <b>${n}</b> pago${n > 1 ? "s" : ""} esperando tu confirmación.\n` +
+        `Ábrelo en 👑 Admin → 💰 Finanzas para aprobar (✓) o rechazar (✖).`;
+      digest = await sendTelegram(dtext, ownerChat);
+    } else {
+      digest = { ok: true, skipped: "no_pending" };
+    }
+  } catch (e) { digest = { ok: false, detail: String((e && e.message) || e) }; }
+
+  res.status(r.ok ? 200 : 502).json({ ...r, posted: r.ok, ops: ops && ops.ok, settle, digest: digest && digest.ok, preview: texto });
 };

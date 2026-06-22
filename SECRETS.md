@@ -55,6 +55,7 @@ Se autodetecta: Supabase primero, si no Upstash/KV.
 |---|---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Opcional | Bot que canta el número | Telegram → @BotFather |
 | `TELEGRAM_CHAT_ID` | Opcional | Grupo/canal destino | id. |
+| `TELEGRAM_OWNER_CHAT_ID` | Opcional | Chat privado del dueño para avisos solo-dueño (p. ej. pagos pendientes). Si falta, usa `TELEGRAM_CHAT_ID` | id. |
 
 ## 📞 Llamadas de voz (`lib/notify.js` — Bland.ai)
 | Variable | Req. | Para qué | Dónde |
