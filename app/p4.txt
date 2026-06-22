@@ -1261,12 +1261,17 @@ function FinanzasPage(){
   if(!pagos) return <div style={{color:T.dim,fontSize:13}}>Cargando finanzas…</div>;
   const total=pagos.reduce((a,p)=>a+num(p.monto),0);
   const clientes=new Set(pagos.map(p=>p.alias||p.contacto||p.ref)).size;
-  const pending=pagos.filter(p=>!p.confirmed).length;
+  const isResolved=p=>!!(p.confirmed||p.rejected);
+  const pending=pagos.filter(p=>!isResolved(p)).length;
   const confirmar=async(ref)=>{
-    const next=pagos.map(p=>p.ref===ref?{...p,confirmed:true,confirmedAt:Date.now()}:p);
+    const next=pagos.map(p=>p.ref===ref?{...p,confirmed:true,rejected:false,confirmedAt:Date.now()}:p);
     setPagos(next); await sSet("crm:pagos",next,true); setMsg("Pago "+ref+" confirmado ✔");
   };
-  const sorted=[...pagos].sort((a,b)=>((a.confirmed?1:0)-(b.confirmed?1:0))||(b.ts-a.ts));
+  const rechazar=async(ref)=>{
+    const next=pagos.map(p=>p.ref===ref?{...p,rejected:true,confirmed:false,confirmedAt:Date.now()}:p);
+    setPagos(next); await sSet("crm:pagos",next,true); setMsg("Pago "+ref+" rechazado ✖");
+  };
+  const sorted=[...pagos].sort((a,b)=>((isResolved(a)?1:0)-(isResolved(b)?1:0))||(b.ts-a.ts));
   return (
     <div>
       <Section title="Finanzas · CRM" sub="Hermes lleva la cuenta de cada cliente y del negocio">
@@ -1280,12 +1285,17 @@ function FinanzasPage(){
         <div style={{display:"grid",gap:8}}>
           {pagos.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no hay pagos. Aparecen aquí cuando los clientes confirman pagos (global al conectar la base de datos).</div>}
           {sorted.slice(0,100).map(p=>(
-            <div key={p.ref} className="card" style={{padding:"10px 12px",border:p.confirmed?`1px solid ${T.line}`:`1px solid ${T.coral}66`}}>
+            <div key={p.ref} className="card" style={{padding:"10px 12px",border:isResolved(p)?`1px solid ${T.line}`:`1px solid ${T.coral}66`,opacity:p.rejected?0.6:1}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:T.mango,fontWeight:600,fontSize:13}}>{p.alias||"Cliente"}</span><span className="mono" style={{fontSize:11,color:T.dim}}>{p.ref}</span></div>
               <div style={{fontSize:12,color:T.dim}}>{p.metodo}{p.monto?` · ${p.monto}`:""}{p.tx?` · Tx ${p.tx}`:""}{p.contacto?` · ${p.contacto}`:""}</div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
                 <span style={{fontSize:10,color:T.dim}}>{new Date(p.ts).toLocaleString("es-ES")}</span>
-                {p.confirmed?<span className="chip" style={{cursor:"default",color:T.teal}}>✔ Confirmado</span>:<button className="btn primary" style={{padding:"4px 12px",fontSize:12}} onClick={()=>confirmar(p.ref)}>✓ Confirmar</button>}
+                {p.confirmed?<span className="chip" style={{cursor:"default",color:T.teal}}>✔ Confirmado</span>
+                 :p.rejected?<span className="chip" style={{cursor:"default",color:T.coral}}>✖ Rechazado</span>
+                 :<span style={{display:"flex",gap:6}}>
+                    <button className="btn primary" style={{padding:"4px 12px",fontSize:12}} onClick={()=>confirmar(p.ref)}>✓ Confirmar</button>
+                    <button className="chip" style={{color:T.coral}} onClick={()=>rechazar(p.ref)}>✖ Rechazar</button>
+                  </span>}
               </div>
             </div>
           ))}
@@ -1401,7 +1411,7 @@ function TabAdmin(){
     setCodes(await sGet("members:codes",true)||{});
     try{ const b=await dbOp("balance"); if(b) setEcon({players:b.accounts||0,coins:b.totalCoins||0}); }catch(e){}
     try{ const w=await dbOp("wallet.top",{limit:5}); if(w&&w.top) setTop(w.top); }catch(e){}
-    try{ const cp=await sGet("crm:pagos",true)||[]; setPendingPagos(cp.filter(p=>!p.confirmed).length); }catch(e){}
+    try{ const cp=await sGet("crm:pagos",true)||[]; setPendingPagos(cp.filter(p=>!p.confirmed&&!p.rejected).length); }catch(e){}
   })();},[]);
   // Conteo y señales de interacción derivadas del registro de miembros.
   const mstats=useMemo(()=>{
