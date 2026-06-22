@@ -434,14 +434,41 @@ const COIN_PACKS_DEFAULT=[
   {id:"p4",label:"Bóveda",coins:200000,price:"19.99",bonus:30},
   {id:"p5",label:"El Banco 🏦",coins:600000,price:"49.99",bonus:40},
 ];
+/* Presentational: lista las wallets cripto configuradas con botón "copiar".
+   Cripto se paga a una dirección (no es un link), así que copiamos al portapapeles. */
+function CryptoWallets({wallets, amount}){
+  const [copied,setCopied]=useState("");
+  if(!wallets) return null;
+  const list=CRYPTO_COINS.filter(c=>wallets[c.id]&&String(wallets[c.id]).trim());
+  if(!list.length) return null;
+  const copy=async(c)=>{ const v=String(wallets[c.id]).trim();
+    try{ await navigator.clipboard.writeText(v); }catch{ try{ const t=document.createElement("textarea"); t.value=v; document.body.appendChild(t); t.select(); document.execCommand("copy"); document.body.removeChild(t); }catch{} }
+    setCopied(c.id); setTimeout(()=>setCopied(x=>x===c.id?"":x),1600);
+  };
+  return (
+    <div style={{display:"grid",gap:6,marginTop:2}}>
+      <div style={{fontSize:11,color:T.mango,fontWeight:700,textAlign:"center"}}>₿ Pagar con cripto · envía ${amount}</div>
+      {list.map(c=>(
+        <button key={c.id} type="button" onClick={()=>copy(c)} className="card" style={{display:"flex",alignItems:"center",gap:8,textAlign:"left",cursor:"pointer",border:`1px solid ${c.color}66`,background:T.bg,padding:"8px 10px"}}>
+          <span style={{fontWeight:800,color:c.color,fontSize:12,minWidth:50}}>{c.sym}</span>
+          <span className="mono" style={{flex:1,minWidth:0,fontSize:11,color:T.dim,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{wallets[c.id]}</span>
+          <span style={{fontSize:11,color:copied===c.id?T.teal:T.gold,fontWeight:700,whiteSpace:"nowrap"}}>{copied===c.id?"✓ Copiado":"📋 Copiar"}</span>
+        </button>
+      ))}
+      <div style={{fontSize:10,color:T.dim,textAlign:"center",lineHeight:1.5}}>Envía el equivalente a <b>${amount}</b> y manda el hash o captura al admin para recibir tu acceso.</div>
+    </div>
+  );
+}
 function CoinStore(){
   const [packs,setPacks]=useState(null);
+  const [crypto,setCrypto]=useState(null);
   const [links,setLinks]=useState(null);
   const [code,setCode]=useState("");
   const [picked,setPicked]=useState(null);
   useEffect(()=>{(async()=>{
     const p=await sGet("coins:packs",true); setPacks(Array.isArray(p)&&p.length?p:COIN_PACKS_DEFAULT);
     setLinks((await sGet("pay:links",true))||{});
+    setCrypto((await sGet("pay:crypto",true))||{});
     const sess=await sGet("session",false); if(sess&&sess.code) setCode(sess.code);
   })();},[]);
   if(!packs) return null;
@@ -452,6 +479,7 @@ function CoinStore(){
       <div style={{display:"grid",gap:10}}>
         {packs.map(p=>{
           const opts=buildPayOptions(links,p.price);
+          const cryptoOn=hasCryptoWallets(crypto);
           const sel=picked===p.id;
           return (
             <div key={p.id} className="card" style={p.popular?{border:"1.5px solid #FFD978",background:`linear-gradient(180deg,rgba(255,184,56,.12),${T.surface} 60%)`}:{}}>
@@ -464,11 +492,12 @@ function CoinStore(){
               </div>
               {sel&&(
                 <div style={{marginTop:12,display:"grid",gap:8}}>
-                  {opts.length===0&&<div style={{fontSize:12,color:T.dim,textAlign:"center"}}>El administrador aún no publicó los métodos de pago.</div>}
+                  {(opts.length===0&&!cryptoOn)&&<div style={{fontSize:12,color:T.dim,textAlign:"center"}}>El administrador aún no publicó los métodos de pago.</div>}
                   {opts.map(o=>(
                     <a key={o.id} href={o.href} target="_blank" rel="noreferrer" className="btn ghost" style={{textAlign:"center",textDecoration:"none",borderColor:o.color,color:o.color}}>Pagar ${p.price} con {o.label}</a>
                   ))}
-                  {opts.length>0&&<div style={{fontSize:11,color:T.dim,textAlign:"center",lineHeight:1.5}}>Envía <b>${p.price}</b> por tu método y manda tu comprobante {code?<>y tu código <b className="mono">{code}</b> </>:null}al administrador. Te acreditan las 🪙 al instante.</div>}
+                  <CryptoWallets wallets={crypto} amount={p.price}/>
+                  {(opts.length>0||cryptoOn)&&<div style={{fontSize:11,color:T.dim,textAlign:"center",lineHeight:1.5}}>Tras pagar, manda tu comprobante {code?<>y tu código <b className="mono">{code}</b> </>:null}al administrador. Te acreditan las 🪙 al instante.</div>}
                 </div>
               )}
             </div>
@@ -2672,7 +2701,8 @@ function Planes({payLinks,onBack}){
   const [list,setList]=useState(null);
   const [prices,setPrices]=useState(null);
   const [period,setPeriod]=useState("mes"); // mes | anual
-  useEffect(()=>{(async()=>{ setList(await sGet("plans:list",true)); setPrices(await sGet("pay:prices",true)); })();},[]);
+  const [crypto,setCrypto]=useState(null);
+  useEffect(()=>{(async()=>{ setList(await sGet("plans:list",true)); setPrices(await sGet("pay:prices",true)); setCrypto((await sGet("pay:crypto",true))||{}); })();},[]);
   // El dueño gestiona los planes desde 👑 → 💳 Pagos (lista custom); si no hay
   // lista, usa los de fábrica con el precio editable como respaldo.
   const base=(Array.isArray(list)&&list.length)?list:PLANES.map(p=>({...p,monto:(prices&&prices[p.id])||p.monto}));
@@ -2730,8 +2760,9 @@ function Planes({payLinks,onBack}){
                 );
                 const stripe=p.stripe||payLinks?.[p.id];
                 const opts=buildPayOptions(payLinks,p.monto);
+                const cryptoOn=hasCryptoWallets(crypto);
                 const goldStyle=p.gold?{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604"}:{};
-                if(!stripe&&!opts.length) return (
+                if(!stripe&&!opts.length&&!cryptoOn) return (
                   <div className="card" style={{textAlign:"center",fontSize:12,color:T.dim,background:T.bg}}>
                     Pídele tu código al administrador para activar este plan.
                   </div>
@@ -2744,7 +2775,8 @@ function Planes({payLinks,onBack}){
                         <a key={o.id} href={o.href} target="_blank" rel="noreferrer" className="btn ghost" style={{flex:"1 1 calc(50% - 4px)",minWidth:0,textAlign:"center",textDecoration:"none",borderColor:o.color,color:o.color}}>{o.label}</a>
                       ))}
                     </div>}
-                    {opts.length>0&&<div style={{fontSize:10,color:T.dim,textAlign:"center"}}>Envía {p.precio} por tu método y manda el comprobante al admin para recibir tu código.</div>}
+                    <CryptoWallets wallets={crypto} amount={p.monto}/>
+                    {(opts.length>0||cryptoOn)&&<div style={{fontSize:10,color:T.dim,textAlign:"center"}}>Envía {p.precio} por tu método y manda el comprobante al admin para recibir tu código.</div>}
                   </div>
                 );
               })()}

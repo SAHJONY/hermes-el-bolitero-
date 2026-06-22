@@ -382,6 +382,60 @@ function buildPayOptions(payLinks, amount){
     .map(r=>({id:r.id,label:r.name,color:r.color,exact:r.exact,href:r.mk(amt,String(payLinks[r.id]).trim())}));
 }
 
+/* ---------- Cripto: wallets de todas las monedas. El dueño pega su dirección
+   por moneda (pay:crypto); el cliente la copia, envía el equivalente y manda el
+   hash. Incluye redes de USDT, privacidad (Monero/Zcash) y Bitcoin (sirve para
+   Cash App: enviar BTC a esta dirección). ---------- */
+const CRYPTO_COINS=[
+  {id:"btc",        name:"Bitcoin (Cash App BTC)",  sym:"BTC",   color:"#F7931A"},
+  {id:"eth",        name:"Ethereum",                sym:"ETH",   color:"#8FA2F3"},
+  {id:"usdt_trc20", name:"USDT · TRON (TRC20)",     sym:"USDT",  color:"#26A17B"},
+  {id:"usdt_erc20", name:"USDT · Ethereum (ERC20)", sym:"USDT",  color:"#26A17B"},
+  {id:"usdt_bep20", name:"USDT · BNB (BEP20)",      sym:"USDT",  color:"#26A17B"},
+  {id:"usdc",       name:"USD Coin",                sym:"USDC",  color:"#2775CA"},
+  {id:"bnb",        name:"BNB Chain",               sym:"BNB",   color:"#F0B90B"},
+  {id:"sol",        name:"Solana",                  sym:"SOL",   color:"#9945FF"},
+  {id:"xrp",        name:"XRP",                     sym:"XRP",   color:"#C8CCD0"},
+  {id:"trx",        name:"TRON",                    sym:"TRX",   color:"#FF4F4F"},
+  {id:"ltc",        name:"Litecoin",                sym:"LTC",   color:"#BFBBBB"},
+  {id:"doge",       name:"Dogecoin",                sym:"DOGE",  color:"#C2A633"},
+  {id:"ada",        name:"Cardano",                 sym:"ADA",   color:"#4FC3F7"},
+  {id:"matic",      name:"Polygon",                 sym:"POL",   color:"#A06BE8"},
+  {id:"avax",       name:"Avalanche",               sym:"AVAX",  color:"#E84142"},
+  {id:"dot",        name:"Polkadot",                sym:"DOT",   color:"#E6427A"},
+  {id:"ton",        name:"Toncoin",                 sym:"TON",   color:"#3FA2E0"},
+  {id:"bch",        name:"Bitcoin Cash",            sym:"BCH",   color:"#8DC351"},
+  {id:"xmr",        name:"Monero",                  sym:"XMR",   color:"#FF6600"},
+  {id:"zec",        name:"Zcash",                   sym:"ZEC",   color:"#ECB244"},
+  {id:"dash",       name:"Dash",                    sym:"DASH",  color:"#4F9BE7"},
+  {id:"shib",       name:"Shiba Inu",               sym:"SHIB",  color:"#F4623A"},
+];
+function hasCryptoWallets(w){ return !!(w && CRYPTO_COINS.some(c=>w[c.id]&&String(w[c.id]).trim())); }
+function CryptoWalletsManager(){
+  const [w,setW]=useState(null);
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{(async()=>{ setW(await sGet("pay:crypto",true)||{}); })();},[]);
+  if(!w) return null;
+  const save=async()=>{
+    const clean={}; CRYPTO_COINS.forEach(c=>{ const v=String(w[c.id]||"").trim(); if(v) clean[c.id]=v; });
+    setMsg((await sSet("pay:crypto",clean,true))?"Wallets cripto publicadas — ya aparecen al pagar. ✔":"No se pudo guardar.");
+  };
+  return (
+    <Section title="Cripto · wallets (todas las monedas) ₿" sub="Pega tu dirección por moneda — el cliente la copia, paga y manda el hash. Deja vacías las que no uses">
+      <div className="card" style={{display:"grid",gap:10}}>
+        {CRYPTO_COINS.map(c=>(
+          <div key={c.id}>
+            <Label>{c.name} · {c.sym}</Label>
+            <input className="input mono" style={{fontSize:11}} placeholder={c.sym+" dirección / wallet"} value={w[c.id]||""} onChange={e=>setW({...w,[c.id]:e.target.value})}/>
+          </div>
+        ))}
+        <button className="btn primary" onClick={save}>Publicar wallets cripto</button>
+        {msg&&<div style={{color:T.teal,fontSize:12}}>{msg}</div>}
+      </div>
+    </Section>
+  );
+}
+
 /* ---------- Seguridad del acceso (Opción A): PIN propio por cliente, código
    amarrado al dispositivo, PIN de admin cifrado (hash) y límite de intentos.
    Privado: NO se piden email ni teléfono. ---------- */
@@ -1121,6 +1175,7 @@ function PagosPage(){
     <div>
       <PayMethodsManager/>
       <PlansManager/>
+      <CryptoWalletsManager/>
       <Section title="Cajero · links de cobro (mundial)" sub="Como una casa de apuestas: pega el link/QR de cobro de cada método y aparece como botón de Pagar">
         <div className="card" style={{display:"grid",gap:10}}>
           <div>
