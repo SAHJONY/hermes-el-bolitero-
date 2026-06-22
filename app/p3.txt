@@ -2446,9 +2446,30 @@ function MainApp({admin,onLock}){
   const moreTabs=tabs.filter(t=>!PRIMARY_TABS.includes(t.id));
   const inMore=moreTabs.some(t=>t.id===tab);
   const goTab=(id)=>{ setTab(id); setShowMore(false); try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){} };
+  // Activación: bienvenida de una sola vez que lleva al visitante nuevo directo a
+  // armar su primer ticket (con sus 1,000 🪙 de regalo). No se muestra al dueño.
+  const [welcome,setWelcome]=useState(false);
+  useEffect(()=>{ if(admin) return; try{ if(!localStorage.getItem("hb:seen:welcome")) setWelcome(true); }catch(e){} },[admin]);
+  const closeWelcome=(toTicket)=>{ try{ localStorage.setItem("hb:seen:welcome","1"); }catch(e){} setWelcome(false); if(toTicket) goTab("ticket"); };
   return (
     <div className="bol-app">
       <style>{FONT_CSS}</style>
+      {welcome&&(
+        <div onClick={()=>closeWelcome(false)} style={{position:"fixed",inset:0,zIndex:200,background:"rgba(8,16,20,.80)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div onClick={e=>e.stopPropagation()} className="card fade-in" style={{maxWidth:380,width:"100%",textAlign:"center",border:"1.5px solid #FFD978",background:`linear-gradient(180deg, rgba(255,184,56,.14), ${T.surface} 60%)`,boxShadow:"0 0 40px rgba(255,184,56,.25)"}}>
+            <div style={{fontSize:38,marginBottom:4}}>🎟️🍀</div>
+            <div className="disp" style={{fontWeight:800,fontSize:20,color:"#FFD978"}}>{t("¡Bienvenido a la bolita!","Welcome to la bolita!")}</div>
+            <div style={{fontSize:13,color:T.dim,margin:"8px 0 4px",lineHeight:1.6}}>{t("Resultados en vivo GRATIS, la charada y tu propio ticket de banca — con 1,000 🪙 de regalo para empezar a jugar.","FREE live results, the charada, and your own banca ticket — with 1,000 🪙 on the house to start playing.")}</div>
+            <ul style={{listStyle:"none",padding:0,margin:"10px 0 14px",display:"grid",gap:6,textAlign:"left",fontSize:13}}>
+              <li style={{display:"flex",gap:8}}><span style={{color:T.teal}}>✓</span>{t("Arma un ticket con varias jugadas, como en la banca real.","Build a ticket with several plays, like the real banca.")}</li>
+              <li style={{display:"flex",gap:8}}><span style={{color:T.teal}}>✓</span>{t("Comprueba contra los tiros oficiales y gana 🪙.","Check against the official draws and win 🪙.")}</li>
+              <li style={{display:"flex",gap:8}}><span style={{color:T.teal}}>✓</span>{t("Solo diversión — monedas virtuales, sin dinero real.","Just for fun — virtual coins, no real money.")}</li>
+            </ul>
+            <button className="btn primary" style={{width:"100%",background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",fontWeight:800}} onClick={()=>closeWelcome(true)}>{t("🎟️ Armar mi primer ticket","🎟️ Build my first ticket")}</button>
+            <button className="chip" style={{marginTop:10}} onClick={()=>closeWelcome(false)}>{t("Explorar primero","Explore first")}</button>
+          </div>
+        </div>
+      )}
       <div className="wrap" style={{maxWidth:520,margin:"0 auto",padding:"18px 16px 90px"}}>
         <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
