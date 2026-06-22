@@ -424,7 +424,7 @@ function CryptoWalletsManager(){
   return (
     <Section title="Cripto · wallets (todas las monedas) ₿" sub="Pega tu dirección por moneda — el cliente la copia, paga y manda el hash. Deja vacías las que no uses">
       <div className="card" style={{display:"grid",gap:10}}>
-        <div style={{fontSize:11,color:T.teal,lineHeight:1.5,background:T.bg,border:`1px solid ${T.teal}44`,borderRadius:8,padding:"8px 10px"}}>🔒 <b>Máxima privacidad:</b> usa <b>Monero (XMR)</b> o <b>Zcash blindado</b> con una wallet sin custodia (tú tienes las llaves) como Cake Wallet o Monero GUI — sin KYC y no rastreables. Genera tu dirección ahí y pégala abajo.</div>
+        <div style={{fontSize:11,color:T.teal,lineHeight:1.6,background:T.bg,border:`1px solid ${T.teal}44`,borderRadius:8,padding:"8px 10px"}}>🔒 <b>Máxima privacidad en 3 pasos</b> — cobra sin KYC y sin que nadie rastree el dinero:<br/>① Baja <b>Cake Wallet</b> (cakewallet.com) en el teléfono, o <b>Monero GUI</b> en la PC.<br/>② Crea una wallet <b>Monero (XMR)</b> y guarda tu frase semilla en papel — sin email, sin ID.<br/>③ Toca <b>Receive</b>, copia tu dirección y pégala en el campo <b>Monero · XMR</b> de abajo. ¡Listo! (Zcash blindado con la wallet <b>Zashi</b> funciona igual.) Nunca recibas en una dirección de Binance/Coinbase: eso re-amarra tu identidad.</div>
         {CRYPTO_COINS.map(c=>(
           <div key={c.id}>
             <Label>{c.name} · {c.sym}{c.priv?" 🔒":""}</Label>
