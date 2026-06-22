@@ -387,6 +387,9 @@ function buildPayOptions(payLinks, amount){
    hash. Incluye redes de USDT, privacidad (Monero/Zcash) y Bitcoin (sirve para
    Cash App: enviar BTC a esta dirección). ---------- */
 const CRYPTO_COINS=[
+  // 🔒 Privacidad primero (sin KYC, no rastreables a nivel de protocolo)
+  {id:"xmr",        name:"Monero",                  sym:"XMR",   color:"#FF6600", priv:true},
+  {id:"zec",        name:"Zcash (shielded)",        sym:"ZEC",   color:"#ECB244", priv:true},
   {id:"btc",        name:"Bitcoin (Cash App BTC)",  sym:"BTC",   color:"#F7931A"},
   {id:"eth",        name:"Ethereum",                sym:"ETH",   color:"#8FA2F3"},
   {id:"usdt_trc20", name:"USDT · TRON (TRC20)",     sym:"USDT",  color:"#26A17B"},
@@ -405,8 +408,6 @@ const CRYPTO_COINS=[
   {id:"dot",        name:"Polkadot",                sym:"DOT",   color:"#E6427A"},
   {id:"ton",        name:"Toncoin",                 sym:"TON",   color:"#3FA2E0"},
   {id:"bch",        name:"Bitcoin Cash",            sym:"BCH",   color:"#8DC351"},
-  {id:"xmr",        name:"Monero",                  sym:"XMR",   color:"#FF6600"},
-  {id:"zec",        name:"Zcash",                   sym:"ZEC",   color:"#ECB244"},
   {id:"dash",       name:"Dash",                    sym:"DASH",  color:"#4F9BE7"},
   {id:"shib",       name:"Shiba Inu",               sym:"SHIB",  color:"#F4623A"},
 ];
@@ -423,9 +424,10 @@ function CryptoWalletsManager(){
   return (
     <Section title="Cripto · wallets (todas las monedas) ₿" sub="Pega tu dirección por moneda — el cliente la copia, paga y manda el hash. Deja vacías las que no uses">
       <div className="card" style={{display:"grid",gap:10}}>
+        <div style={{fontSize:11,color:T.teal,lineHeight:1.5,background:T.bg,border:`1px solid ${T.teal}44`,borderRadius:8,padding:"8px 10px"}}>🔒 <b>Máxima privacidad:</b> usa <b>Monero (XMR)</b> o <b>Zcash blindado</b> con una wallet sin custodia (tú tienes las llaves) como Cake Wallet o Monero GUI — sin KYC y no rastreables. Genera tu dirección ahí y pégala abajo.</div>
         {CRYPTO_COINS.map(c=>(
           <div key={c.id}>
-            <Label>{c.name} · {c.sym}</Label>
+            <Label>{c.name} · {c.sym}{c.priv?" 🔒":""}</Label>
             <input className="input mono" style={{fontSize:11}} placeholder={c.sym+" dirección / wallet"} value={w[c.id]||""} onChange={e=>setW({...w,[c.id]:e.target.value})}/>
           </div>
         ))}

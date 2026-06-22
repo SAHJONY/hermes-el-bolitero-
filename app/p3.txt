@@ -450,11 +450,12 @@ function CryptoWallets({wallets, amount}){
       <div style={{fontSize:11,color:T.mango,fontWeight:700,textAlign:"center"}}>₿ Pagar con cripto · envía ${amount}</div>
       {list.map(c=>(
         <button key={c.id} type="button" onClick={()=>copy(c)} className="card" style={{display:"flex",alignItems:"center",gap:8,textAlign:"left",cursor:"pointer",border:`1px solid ${c.color}66`,background:T.bg,padding:"8px 10px"}}>
-          <span style={{fontWeight:800,color:c.color,fontSize:12,minWidth:50}}>{c.sym}</span>
+          <span style={{fontWeight:800,color:c.color,fontSize:12,minWidth:50}}>{c.sym}{c.priv?<span title="Moneda privada" style={{marginLeft:3}}>🔒</span>:null}</span>
           <span className="mono" style={{flex:1,minWidth:0,fontSize:11,color:T.dim,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{wallets[c.id]}</span>
           <span style={{fontSize:11,color:copied===c.id?T.teal:T.gold,fontWeight:700,whiteSpace:"nowrap"}}>{copied===c.id?"✓ Copiado":"📋 Copiar"}</span>
         </button>
       ))}
+      {list.some(c=>c.priv)&&<div style={{fontSize:10,color:T.teal,textAlign:"center",lineHeight:1.5}}>🔒 Monero/Zcash son <b>privadas</b> — sin KYC ni rastreo. Máxima discreción.</div>}
       <div style={{fontSize:10,color:T.dim,textAlign:"center",lineHeight:1.5}}>Envía el equivalente a <b>${amount}</b> y manda el hash o captura al admin para recibir tu acceso.</div>
     </div>
   );
