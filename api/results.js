@@ -20,6 +20,23 @@ module.exports = async (req, res) => {
 
     const data = await buildResults({ fullSweep: isCron });
 
+    // Same-morning payouts: right after the full sweep publishes fresh draws,
+    // settle every wallet and notify winners. Best-effort and time-boxed so it
+    // never makes the results cron time out — the noon reminder cron is the
+    // reliable backstop, and settle.all is idempotent (no double-credit).
+    if (isCron) {
+      try {
+        const app = (cleanEnv(process.env.APP_URL) || "https://hermeselbolitero.com").replace(/\/+$/, "");
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        await fetch(app + "/api/db", {
+          method: "POST", signal: ctrl.signal,
+          headers: { "Content-Type": "application/json", ...(secret ? { Authorization: "Bearer " + secret } : {}) },
+          body: JSON.stringify({ op: "settle.all" }),
+        }).finally(() => clearTimeout(timer));
+      } catch { /* best-effort; the 12:00 reminder cron settles again */ }
+    }
+
     // A cron run is a write-path refresh — don't let it be served from cache, and
     // don't pollute the edge cache with it.
     if (isCron) res.setHeader("Cache-Control", "no-store");
