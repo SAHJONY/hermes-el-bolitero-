@@ -28,7 +28,7 @@ function magayoCfg() {
   const ids = Object.keys(codes);
   // Which mapped boards are actually polled (MAGAYO_BOARDS allowlist) — the rest
   // show DEMO and spend zero quota. Mirror the default in lib/results.js.
-  const raw = cleanEnv(process.env.MAGAYO_BOARDS || "florida,georgia,chicago,pr")
+  const raw = cleanEnv(process.env.MAGAYO_BOARDS || "florida,georgia,chicago,pr,texas,newjersey")
     .split(",").map((s) => s.trim()).filter(Boolean);
   const allowAll = raw.length === 1 && raw[0].toLowerCase() === "all";
   const active = allowAll ? ids : ids.filter((id) => raw.includes(id));
