@@ -350,6 +350,38 @@ async function getActivePayMethods(){
   return all.filter(m=> am ? !!am[m.id] : PAY_DEFAULT_ACTIVE.includes(m.id));
 }
 
+/* ---------- Cajero global: links de cobro reales (como una casa de apuestas).
+   El dueño pega el link/QR de cobro de cada rail en 👑 → 💳 Pagos; aparece como
+   botón de "Pagar" en planes y monedas. `mk` arma la URL: PayPal y Cash App
+   admiten el monto en el link; el resto abre el link tal cual (monto exacto).
+   La llave de almacenamiento es el `id` (pay:links[id]). ---------- */
+const PAY_RAILS=[
+  {id:"paypal",     name:"PayPal",            color:"#7FB4E8", exact:false, mk:(a,v)=>v.replace(/\/+$/,"")+"/"+a+"USD"},
+  {id:"cashtag",    name:"Cash App",          color:"#3FE873", exact:false, mk:(a,v)=>"https://cash.app/$"+String(v).replace(/^\$/,"")+"/"+a},
+  {id:"square",     name:"Square",            color:"#E0E0E0", exact:true,  mk:(a,v)=>v},
+  {id:"alipay",     name:"Alipay 支付宝",      color:"#4DA2FF", exact:true,  mk:(a,v)=>v},
+  {id:"wechatpay",  name:"WeChat Pay 微信",    color:"#5FE07A", exact:true,  mk:(a,v)=>v},
+  {id:"unionpay",   name:"UnionPay 银联",      color:"#FF8A8A", exact:true,  mk:(a,v)=>v},
+  {id:"upi",        name:"UPI / GPay (IN)",    color:"#B79CFF", exact:true,  mk:(a,v)=>v},
+  {id:"pix",        name:"Pix (BR)",           color:"#4FE3D0", exact:true,  mk:(a,v)=>v},
+  {id:"mercadopago",name:"Mercado Pago",       color:"#4FC3F7", exact:true,  mk:(a,v)=>v},
+  {id:"binancepay", name:"Binance Pay",        color:"#F0B90B", exact:true,  mk:(a,v)=>v},
+  {id:"crypto",     name:"Cripto · USDT/BTC",  color:"#F7B955", exact:true,  mk:(a,v)=>v},
+  {id:"wise",       name:"Wise",               color:"#9FE870", exact:true,  mk:(a,v)=>v},
+  {id:"revolut",    name:"Revolut",            color:"#C4AAFF", exact:true,  mk:(a,v)=>v},
+  {id:"interac",    name:"Interac e-Transfer (CA)", color:"#FFC85C", exact:true, mk:(a,v)=>v},
+  {id:"sepa",       name:"SEPA / iDEAL (EU)",  color:"#8FC0EE", exact:true,  mk:(a,v)=>v},
+];
+const PAY_RAILS_GLOBAL=["paypal","cashtag","square"]; // los que tienen su propia tarjeta con auto-formato
+// Pure: devuelve los botones de pago configurados para un monto dado.
+function buildPayOptions(payLinks, amount){
+  if(!payLinks) return [];
+  const amt=String(amount);
+  return PAY_RAILS
+    .filter(r=>payLinks[r.id]&&String(payLinks[r.id]).trim())
+    .map(r=>({id:r.id,label:r.name,color:r.color,exact:r.exact,href:r.mk(amt,String(payLinks[r.id]).trim())}));
+}
+
 /* ---------- Seguridad del acceso (Opción A): PIN propio por cliente, código
    amarrado al dispositivo, PIN de admin cifrado (hash) y límite de intentos.
    Privado: NO se piden email ni teléfono. ---------- */
@@ -1089,7 +1121,7 @@ function PagosPage(){
     <div>
       <PayMethodsManager/>
       <PlansManager/>
-      <Section title="Pago global · PayPal, Cash App y Square" sub="Se aplican a todos los planes; el monto se añade solo a PayPal y Cash App">
+      <Section title="Cajero · links de cobro (mundial)" sub="Como una casa de apuestas: pega el link/QR de cobro de cada método y aparece como botón de Pagar">
         <div className="card" style={{display:"grid",gap:10}}>
           <div>
             <Label>PayPal.Me (link o usuario)</Label>
@@ -1104,6 +1136,15 @@ function PagosPage(){
             <input className="input mono" style={{fontSize:12}} placeholder="https://square.link/u/XXXXXXXX" value={links.square} onChange={e=>setLinks({...links,square:e.target.value.trim()})}/>
             <div style={{fontSize:10,color:T.dim,marginTop:4,lineHeight:1.5}}>En Square → <b>Online checkout / Payment links</b>, crea un link de “<b>aceptar un pago</b>” con monto que escribe el cliente, y pégalo aquí.</div>
           </div>
+          <div style={{height:1,background:T.line,margin:"2px 0"}}/>
+          <div style={{fontSize:12,color:T.mango,fontWeight:700}}>China e internacionales 🌍</div>
+          <div style={{fontSize:10,color:T.dim,lineHeight:1.5,marginTop:-4}}>Pega el link o página de cobro de tu proveedor (Alipay/WeChat por gateway o QR, UPI, Pix, Binance Pay, cripto, etc.). El cliente paga el monto exacto y manda el comprobante.</div>
+          {PAY_RAILS.filter(r=>!PAY_RAILS_GLOBAL.includes(r.id)).map(r=>(
+            <div key={r.id}>
+              <Label>{r.name}</Label>
+              <input className="input mono" style={{fontSize:12}} placeholder="https://… link o QR de cobro" value={links[r.id]||""} onChange={e=>setLinks({...links,[r.id]:e.target.value.trim()})}/>
+            </div>
+          ))}
           <button className="btn primary" onClick={save}>Publicar links de pago</button>
           {msg&&<div style={{color:T.teal,fontSize:12}}>{msg}</div>}
         </div>
