@@ -12,7 +12,7 @@
 // Generic ops: get/set/del/list/ping.
 // Game ops (server-authoritative, anti-cheat economy): wallet.top (ranking by
 //   real capital), ticket.create + ticket.settle (see lib/payouts.js).
-const { readBody } = require("../lib/notify");
+const { readBody, checkSecret, sendTelegram, sendEmail, placeCall } = require("../lib/notify");
 const { buildResults } = require("../lib/results");
 const { settleAll, PAYOUT_DEFAULTS, num } = require("../lib/payouts");
 
@@ -216,6 +216,67 @@ module.exports = async (req, res) => {
       const w = await getWallet();
       if (r.credited > 0) { w.bal += r.credited; w.xp = (w.xp || 0) + r.credited; await saveWallet(w); }
       return res.status(200).json({ configured: true, ok: true, tickets: r.tickets, credited: r.credited, wins: r.wins, wallet: w });
+    }
+
+    // ----- Daily auto-settlement + win notifications (cron safety-net) -----
+    // Credits winners server-side even if they never open the app, then notifies
+    // opted-in players. Idempotent: settleAll's coinPaid guard prevents any
+    // double-credit across cron runs and client "Comprobar". Gated to cron/owner.
+    if (op === "settle.all") {
+      const isCron = !!(req.headers && req.headers["x-vercel-cron"]);
+      if (!isCron && !checkSecret(req).ok) return res.status(403).json({ error: "forbidden" });
+      const parse = (s) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
+      const cfg = parse(await store.get("coins:config")) || {};
+      const start = Number.isFinite(cfg.start) ? cfg.start : 1000;
+      const P = {
+        fijo: cfg.payFijo ?? PAYOUT_DEFAULTS.fijo, corrido: cfg.payCorrido ?? PAYOUT_DEFAULTS.corrido,
+        parle: cfg.payParle ?? PAYOUT_DEFAULTS.parle, candado: cfg.payCandado ?? PAYOUT_DEFAULTS.candado,
+        play4: cfg.payPlay4 ?? PAYOUT_DEFAULTS.play4, cash3: cfg.payCash3 ?? PAYOUT_DEFAULTS.cash3,
+        box3: cfg.payBox3 ?? PAYOUT_DEFAULTS.box3, box4: cfg.payBox4 ?? PAYOUT_DEFAULTS.box4,
+        pair: cfg.payPair ?? PAYOUT_DEFAULTS.pair, centena: cfg.payCentena ?? PAYOUT_DEFAULTS.centena,
+        q1: cfg.payQ1 ?? PAYOUT_DEFAULTS.q1, q2: cfg.payQ2 ?? PAYOUT_DEFAULTS.q2, q3: cfg.payQ3 ?? PAYOUT_DEFAULTS.q3,
+      };
+      const draws = await getDraws();
+      if (!draws.length) return res.status(200).json({ configured: true, ok: true, scanned: 0, note: "no_draws_yet" });
+      const subs = parse(await store.get("alertas:subs")) || {};
+      const byPid = {};
+      for (const id in subs) { const s = subs[id]; if (s && s.pid && s.activo !== false) byPid[s.pid] = s; }
+      const keys = await store.list("tickets:");
+      let scanned = 0, winPlayers = 0, winsTotal = 0, creditedTotal = 0;
+      const notif = [];
+      for (const tkey of keys) {
+        const pid = tkey.replace(/^tickets:/, "");
+        const list = parse(await store.get(tkey));
+        if (!Array.isArray(list) || !list.length) continue; // skips tickets:all registry
+        scanned++;
+        const r = settleAll(list, draws, P);
+        if (JSON.stringify(r.tickets) !== JSON.stringify(list)) await store.set(tkey, JSON.stringify(r.tickets));
+        if (r.credited > 0) {
+          const wkey = "wallet:" + pid;
+          const w = parse(await store.get(wkey)) || { bal: start, streak: 0, bestStreak: 0, xp: 0 };
+          w.bal += r.credited; w.xp = (w.xp || 0) + r.credited;
+          await store.set(wkey, JSON.stringify(w));
+          await store.set("bal:" + pid, JSON.stringify({ bal: w.bal, ts: Date.now() }));
+          winPlayers++; winsTotal += r.wins; creditedTotal += r.credited;
+          const c = byPid[pid];
+          if (c) notif.push({ c, wins: r.wins, credited: r.credited });
+        }
+      }
+      // Personal channels per opted-in winner (email/call). Best-effort, capped.
+      const jobs = [];
+      for (const n of notif.slice(0, 60)) {
+        const c = n.c;
+        const texto = `🎉👑 ¡FELICIDADES ${c.nombre || ""}! Tu número SALIÓ en HERMES EL BOLITERO — ${n.wins} ticket(s) ganador(es) · +${n.credited.toLocaleString()} 🪙 acreditados a tu saldo. Abre la app para verlo. Solo diversión: monedas virtuales, cada tiro es azar.`;
+        if (c.mail && c.email) jobs.push(sendEmail({ to: c.email, subject: "🎉 ¡Tu número salió! · HERMES EL BOLITERO", html: `<p>${texto}</p>` }));
+        if (c.voz && c.tel) jobs.push(placeCall({ phone: String(c.tel).replace(/[^\d+]/g, ""), task: `Felicita con alegría cubana y di exactamente: ${texto}. No hables de apuestas ni pagos.` }));
+      }
+      // One batched Telegram to the group (never floods it) when anyone wins.
+      if (winPlayers > 0) {
+        const names = notif.filter(n => n.c && n.c.tg && n.c.nombre).map(n => n.c.nombre).slice(0, 12);
+        jobs.push(sendTelegram(`🎉👑 ¡Hoy salieron números en HERMES EL BOLITERO!\n${winPlayers} jugador(es) con ticket ganador · +${creditedTotal.toLocaleString()} 🪙 en premios de juego.${names.length ? "\n🏆 " + names.join(", ") : ""}\nAbre la app y comprueba tu ticket. 🎱 <i>Solo diversión, monedas virtuales.</i>`));
+      }
+      const sent = (await Promise.allSettled(jobs)).filter(x => x.status === "fulfilled" && x.value && x.value.ok).length;
+      return res.status(200).json({ configured: true, ok: true, scanned, winPlayers, winsTotal, creditedTotal, notified: notif.length, sent });
     }
 
     res.status(400).json({ error: "bad_op" });

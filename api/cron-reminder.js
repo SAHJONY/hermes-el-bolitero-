@@ -70,5 +70,20 @@ module.exports = async (req, res) => {
     ops = await sendTelegram(opsText);
   } catch (e) { ops = { ok: false, detail: String((e && e.message) || e) }; }
 
-  res.status(r.ok ? 200 : 502).json({ ...r, posted: r.ok, ops: ops && ops.ok, preview: texto });
+  // Daily auto-settlement safety-net: credit winners who haven't opened the app
+  // and notify those who opted into alerts. Calls the game engine with the cron
+  // secret (server-to-server has no Origin → originAllowed passes; checkSecret
+  // accepts CRON_SECRET / RESULTS_API_SECRET).
+  let settle = null;
+  try {
+    const sec = process.env.CRON_SECRET || process.env.RESULTS_API_SECRET || "";
+    const rs = await fetch(app.replace(/\/+$/, "") + "/api/db", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(sec ? { Authorization: "Bearer " + sec } : {}) },
+      body: JSON.stringify({ op: "settle.all" }),
+    });
+    settle = await rs.json().catch(() => ({}));
+  } catch (e) { settle = { ok: false, detail: String((e && e.message) || e) }; }
+
+  res.status(r.ok ? 200 : 502).json({ ...r, posted: r.ok, ops: ops && ops.ok, settle, preview: texto });
 };
