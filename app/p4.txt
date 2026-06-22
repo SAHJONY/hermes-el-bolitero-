@@ -277,6 +277,52 @@ const PAY_CATALOG=[
   {id:"zinli",name:"Zinli",icon:"🟦",type:"service"},
   {id:"binancepay",name:"Binance Pay",icon:"🟨",type:"service"},
   {id:"usdt",name:"USDT / Cripto",icon:"₿",type:"service"},
+  // China 🇨🇳
+  {id:"alipay",name:"Alipay 支付宝",icon:"🔵",type:"service"},
+  {id:"wechatpay",name:"WeChat Pay 微信",icon:"💚",type:"service"},
+  {id:"unionpay",name:"UnionPay 银联",icon:"🟥",type:"service"},
+  // Asia / Pacífico
+  {id:"upi",name:"UPI (IN)",icon:"🇮🇳",type:"service"},
+  {id:"paytm",name:"Paytm (IN)",icon:"🟦",type:"service"},
+  {id:"phonepe",name:"PhonePe (IN)",icon:"🟪",type:"service"},
+  {id:"gcash",name:"GCash (PH)",icon:"🇵🇭",type:"service"},
+  {id:"maya",name:"Maya (PH)",icon:"🟢",type:"service"},
+  {id:"grabpay",name:"GrabPay",icon:"🟩",type:"service"},
+  {id:"touchngo",name:"Touch’n Go (MY)",icon:"🔷",type:"service"},
+  {id:"duitnow",name:"DuitNow (MY)",icon:"🇲🇾",type:"service"},
+  {id:"promptpay",name:"PromptPay (TH)",icon:"🇹🇭",type:"service"},
+  {id:"truemoney",name:"TrueMoney",icon:"🟧",type:"service"},
+  {id:"dana",name:"DANA (ID)",icon:"🔵",type:"service"},
+  {id:"ovo",name:"OVO (ID)",icon:"🟣",type:"service"},
+  {id:"gopay",name:"GoPay (ID)",icon:"🟩",type:"service"},
+  {id:"momo",name:"MoMo (VN)",icon:"🇻🇳",type:"service"},
+  {id:"kakaopay",name:"KakaoPay (KR)",icon:"🟡",type:"service"},
+  {id:"naverpay",name:"Naver Pay (KR)",icon:"🟢",type:"service"},
+  {id:"paypay",name:"PayPay (JP)",icon:"🇯🇵",type:"service"},
+  {id:"linepay",name:"LINE Pay",icon:"🟢",type:"service"},
+  // África
+  {id:"mpesa",name:"M-Pesa",icon:"🟩",type:"service"},
+  {id:"mtnmomo",name:"MTN MoMo",icon:"🟨",type:"service"},
+  {id:"airtelmoney",name:"Airtel Money",icon:"🟥",type:"service"},
+  {id:"flutterwave",name:"Flutterwave",icon:"🟧",type:"service"},
+  {id:"paystack",name:"Paystack",icon:"🔵",type:"service"},
+  // Europa
+  {id:"sepa",name:"SEPA (EU)",icon:"🇪🇺",type:"service"},
+  {id:"ideal",name:"iDEAL (NL)",icon:"🇳🇱",type:"service"},
+  {id:"klarna",name:"Klarna",icon:"🩷",type:"service"},
+  {id:"blik",name:"BLIK (PL)",icon:"🇵🇱",type:"service"},
+  {id:"swish",name:"Swish (SE)",icon:"🇸🇪",type:"service"},
+  {id:"mbway",name:"MB Way (PT)",icon:"🇵🇹",type:"service"},
+  {id:"twint",name:"TWINT (CH)",icon:"🇨🇭",type:"service"},
+  // Américas / Medio Oriente
+  {id:"interac",name:"Interac (CA)",icon:"🇨🇦",type:"service"},
+  {id:"spei",name:"SPEI (MX)",icon:"🇲🇽",type:"service"},
+  {id:"oxxo",name:"OXXO (MX)",icon:"🟥",type:"service"},
+  {id:"pse",name:"PSE (CO)",icon:"🇨🇴",type:"service"},
+  {id:"daviplata",name:"Daviplata (CO)",icon:"🟥",type:"service"},
+  {id:"boleto",name:"Boleto (BR)",icon:"🇧🇷",type:"service"},
+  {id:"stcpay",name:"STC Pay",icon:"🟣",type:"service"},
+  {id:"fawry",name:"Fawry (EG)",icon:"🟡",type:"service"},
   // Tarjetas prepago mundiales
   {id:"visa_prepaid",name:"Visa Prepaid",icon:"💳",type:"prepaid"},
   {id:"mc_prepaid",name:"Mastercard Prepaid",icon:"💳",type:"prepaid"},
@@ -296,7 +342,7 @@ const PAY_CATALOG=[
   {id:"mifinity",name:"MiFinity eVoucher",icon:"🔵",type:"prepaid"},
   {id:"recharge",name:"Recharge.com",icon:"🔋",type:"prepaid"},
 ];
-const PAY_DEFAULT_ACTIVE=["paypal","cashapp","zelle","venmo","stripe","square"];
+const PAY_DEFAULT_ACTIVE=["paypal","cashapp","zelle","venmo","stripe","square","alipay","wechatpay","unionpay"];
 async function getActivePayMethods(){
   const cfg=await sGet("pay:methods",true)||{};
   const all=[...PAY_CATALOG,...((cfg.custom)||[])];
