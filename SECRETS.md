@@ -42,6 +42,8 @@ Se autodetecta: Supabase primero, si no Upstash/KV.
 | Variable | Req. | Para qué | Dónde |
 |---|---|---|---|
 | `MAGAYO_API_KEY` | Opcional | Resultados oficiales (cuenta suspendida hoy) | https://www.magayo.com → API |
+| `MAGAYO_BOARDS` | Opcional | Tableros que SÍ se consultan en magayo (ahorra cuota). Por defecto `florida,georgia,chicago,pr`. New York es gratis y siempre real; el resto muestra DEMO. Pon `all` para todos | ids de tablero |
+| `MAGAYO_MONTHLY_CAP` | Opcional | Tope duro de llamadas/mes (default 950) — al llegar, se frena todo (error 303 imposible) | número |
 
 ## ✉️ Email (`lib/notify.js`) — Resend **o** SMTP
 | Variable | Req. | Para qué | Dónde |

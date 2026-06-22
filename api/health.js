@@ -25,7 +25,14 @@ function supaCfg() {
 function magayoCfg() {
   let codes = {};
   try { codes = require("../lib/magayo-codes"); } catch { codes = {}; }
-  return { key: cleanEnv(process.env.MAGAYO_API_KEY), boards: Object.keys(codes).length };
+  const ids = Object.keys(codes);
+  // Which mapped boards are actually polled (MAGAYO_BOARDS allowlist) — the rest
+  // show DEMO and spend zero quota. Mirror the default in lib/results.js.
+  const raw = cleanEnv(process.env.MAGAYO_BOARDS || "florida,georgia,chicago,pr")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  const allowAll = raw.length === 1 && raw[0].toLowerCase() === "all";
+  const active = allowAll ? ids : ids.filter((id) => raw.includes(id));
+  return { key: cleanEnv(process.env.MAGAYO_API_KEY), boards: ids.length, activeBoards: active.length, active };
 }
 
 // Live magayo probe — ONLY runs on ?deep=1 because it spends one API call against
@@ -127,7 +134,7 @@ module.exports = async (req, res) => {
     resultsFeed: {
       newyork: true,
       magayo: Object.assign(
-        { configured: !!mag.key, mappedBoards: mag.boards },
+        { configured: !!mag.key, mappedBoards: mag.boards, activeBoards: mag.activeBoards, polling: mag.active },
         magBudget ? { quota: magBudget } : {},
         magProbe ? { live: magProbe.live, detail: magProbe.detail } : { hint: "add ?deep=1 to live-probe the magayo account" },
       ),
