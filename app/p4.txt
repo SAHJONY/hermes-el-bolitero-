@@ -260,6 +260,7 @@ const PAY_CATALOG=[
   {id:"applepay",name:"Apple Pay",icon:"",type:"service"},
   {id:"googlepay",name:"Google Pay",icon:"🟢",type:"service"},
   {id:"stripe",name:"Tarjeta (Stripe)",icon:"💳",type:"service"},
+  {id:"square",name:"Square",icon:"⬛",type:"service"},
   {id:"wise",name:"Wise",icon:"🌍",type:"service"},
   {id:"revolut",name:"Revolut",icon:"🟣",type:"service"},
   {id:"skrill",name:"Skrill",icon:"🟪",type:"service"},
@@ -295,7 +296,7 @@ const PAY_CATALOG=[
   {id:"mifinity",name:"MiFinity eVoucher",icon:"🔵",type:"prepaid"},
   {id:"recharge",name:"Recharge.com",icon:"🔋",type:"prepaid"},
 ];
-const PAY_DEFAULT_ACTIVE=["paypal","cashapp","zelle","venmo","stripe"];
+const PAY_DEFAULT_ACTIVE=["paypal","cashapp","zelle","venmo","stripe","square"];
 async function getActivePayMethods(){
   const cfg=await sGet("pay:methods",true)||{};
   const all=[...PAY_CATALOG,...((cfg.custom)||[])];
@@ -1034,7 +1035,7 @@ function PlansManager(){
   );
 }
 function PagosPage(){
-  const [links,setLinks]=useState({paypal:"",cashtag:""});
+  const [links,setLinks]=useState({paypal:"",cashtag:"",square:""});
   const [msg,setMsg]=useState("");
   useEffect(()=>{(async()=>{ const l=await sGet("pay:links",true); if(l) setLinks(x=>({...x,...l})); })();},[]);
   const save=async()=>{ setMsg((await sSet("pay:links",links,true))?"Pago global guardado. ✔":"No se pudo guardar."); };
@@ -1042,7 +1043,7 @@ function PagosPage(){
     <div>
       <PayMethodsManager/>
       <PlansManager/>
-      <Section title="Pago global · PayPal y Cash App" sub="Se aplican a todos los planes; el monto se añade solo a cada link">
+      <Section title="Pago global · PayPal, Cash App y Square" sub="Se aplican a todos los planes; el monto se añade solo a PayPal y Cash App">
         <div className="card" style={{display:"grid",gap:10}}>
           <div>
             <Label>PayPal.Me (link o usuario)</Label>
@@ -1052,6 +1053,11 @@ function PagosPage(){
             <Label>Cash App · $Cashtag</Label>
             <input className="input mono" style={{fontSize:12}} placeholder="$TuCashtag" value={links.cashtag} onChange={e=>setLinks({...links,cashtag:e.target.value})}/>
           </div>
+          <div>
+            <Label>Square · link de pago</Label>
+            <input className="input mono" style={{fontSize:12}} placeholder="https://square.link/u/XXXXXXXX" value={links.square} onChange={e=>setLinks({...links,square:e.target.value.trim()})}/>
+            <div style={{fontSize:10,color:T.dim,marginTop:4,lineHeight:1.5}}>En Square → <b>Online checkout / Payment links</b>, crea un link de “<b>aceptar un pago</b>” con monto que escribe el cliente, y pégalo aquí.</div>
+          </div>
           <button className="btn primary" onClick={save}>Publicar links de pago</button>
           {msg&&<div style={{color:T.teal,fontSize:12}}>{msg}</div>}
         </div>
@@ -1059,7 +1065,8 @@ function PagosPage(){
       <div style={{fontSize:11,color:T.dim,lineHeight:1.7}}>
         Gestiona tus planes arriba (añade, edita o borra tiers). El <b>Link Stripe</b> de cada plan es opcional
         (tarjeta con cobro recurrente). <b>PayPal.Me</b> y <b>Cash App</b> son globales: el monto de cada plan se
-        añade solo al link. Son pagos manuales, así que verifica el comprobante antes de renovar el código desde 🎟️ Miembros.
+        añade solo al link. <b>Square</b> abre tu link de pago y el cliente escribe el monto exacto. Son pagos
+        manuales, así que verifica el comprobante antes de renovar el código desde 🎟️ Miembros.
       </div>
     </div>
   );
