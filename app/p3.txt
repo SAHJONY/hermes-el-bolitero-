@@ -448,6 +448,15 @@ function CryptoWallets({wallets, amount}){
   return (
     <div style={{display:"grid",gap:6,marginTop:2}}>
       <div style={{fontSize:11,color:T.mango,fontWeight:700,textAlign:"center"}}>₿ Pagar con cripto · envía ${amount}</div>
+      <details style={{fontSize:10,color:T.dim,lineHeight:1.6,background:T.bg,border:`1px solid ${T.line||T.dim}33`,borderRadius:8,padding:"6px 10px"}}>
+        <summary style={{cursor:"pointer",color:T.gold,fontWeight:700}}>🔒 ¿Primera vez? Cómo pagar con cripto en 4 pasos</summary>
+        <div style={{marginTop:6}}>
+          <b>1.</b> Baja una billetera gratis: <b>Cake Wallet</b> (cakewallet.com) sirve para Monero 🔒, Bitcoin y USDT; <b>Zashi</b> para Zcash.<br/>
+          <b>2.</b> Consigue la moneda dentro de la app: toca <b>“Buy / Comprar”</b> para comprarla con tarjeta, o <b>“Exchange”</b> para cambiar otra cripto que ya tengas a XMR.<br/>
+          <b>3.</b> Copia aquí la dirección (📋), pégala en <b>“Send / Enviar”</b> de tu billetera, escribe el monto de <b>${amount}</b> y envía.<br/>
+          <b>4.</b> Manda el <b>hash</b> (ID de la transacción) o una captura al admin por WhatsApp/Telegram. Él confirma y activa tu acceso. 🎉
+        </div>
+      </details>
       {list.map(c=>(
         <button key={c.id} type="button" onClick={()=>copy(c)} className="card" style={{display:"flex",alignItems:"center",gap:8,textAlign:"left",cursor:"pointer",border:`1px solid ${c.color}66`,background:T.bg,padding:"8px 10px"}}>
           <span style={{fontWeight:800,color:c.color,fontSize:12,minWidth:50}}>{c.sym}{c.priv?<span title="Moneda privada" style={{marginLeft:3}}>🔒</span>:null}</span>
