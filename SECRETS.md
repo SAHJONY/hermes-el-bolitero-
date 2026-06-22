@@ -57,6 +57,13 @@ Se autodetecta: Supabase primero, si no Upstash/KV.
 | `TELEGRAM_CHAT_ID` | Opcional | Grupo/canal destino | id. |
 | `TELEGRAM_OWNER_CHAT_ID` | Opcional | Chat privado del dueño para avisos solo-dueño (p. ej. pagos pendientes). Si falta, usa `TELEGRAM_CHAT_ID` | id. |
 
+> **Conseguir tu `TELEGRAM_OWNER_CHAT_ID` (chat privado, 1 min):**
+> 1. En Telegram, abre un chat con **tu bot** (el de `TELEGRAM_BOT_TOKEN`) y envíale cualquier mensaje (ej. `hola`).
+> 2. Abre en el navegador: `https://api.telegram.org/bot<TU_TOKEN>/getUpdates` (pega tu token real).
+> 3. Copia el número en `"chat":{"id": ...}` — ese es tu ID privado (a veces empieza con `-` o es largo).
+> 4. Pégalo en **Vercel → Settings → Environment Variables** como `TELEGRAM_OWNER_CHAT_ID` (Production) y **Redeploy/Promote**.
+> Sin esta variable, el aviso de pagos pendientes cae en el grupo de `TELEGRAM_CHAT_ID` (solo un conteo, sin datos sensibles).
+
 ## 📞 Llamadas de voz (`lib/notify.js` — Bland.ai)
 | Variable | Req. | Para qué | Dónde |
 |---|---|---|---|
