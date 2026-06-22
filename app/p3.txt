@@ -1153,8 +1153,41 @@ function tkHash(t){
   return ((h>>>0).toString(16)+(h2>>>0).toString(16)).toUpperCase().padStart(16,"0").slice(0,16);
 }
 
+// Etiqueta corta, números y mejor pago de una jugada — para el slip multi-jugada.
+function playLabel(t){
+  return ({play4:"4️⃣ Play 4",cash3:"3️⃣ Cash 3",box3:"🔀 Cash 3 Box",box4:"🔀 Play 4 Box",pareja:"👫 Pareja",centena:"💯 Centena",sb3:"🎯 Str/Box 3",sb4:"🎯 Str/Box 4",quiniela:"🎲 Quiniela"})[t.tipo]||"🔴 Bolita";
+}
+function playPicks(t){
+  if(t.tipo==="play4") return [t.play4];
+  if(t.tipo==="cash3") return [t.cash3];
+  if(t.tipo==="box3") return [t.box3];
+  if(t.tipo==="box4") return [t.box4];
+  if(t.tipo==="pareja") return [t.pair];
+  if(t.tipo==="centena") return [t.cent];
+  if(t.tipo==="sb3") return [t.sb3];
+  if(t.tipo==="sb4") return [t.sb4];
+  if(t.tipo==="quiniela") return [t.qnum];
+  return [t.fijo,...((t.corridos)||[])].filter(Boolean);
+}
+function playTopPay(t,P,num){
+  const bet=num(t.monto); if(!bet) return 0;
+  switch(t.tipo){
+    case "play4": return bet*P.play4;
+    case "cash3": return bet*P.cash3;
+    case "box3": return bet*P.box3;
+    case "box4": return bet*P.box4;
+    case "pareja": return bet*P.pair;
+    case "centena": return bet*P.centena;
+    case "sb3": return bet*P.cash3;
+    case "sb4": return bet*P.play4;
+    case "quiniela": return bet*P.q1;
+    default:{ const nc=((t.corridos)||[]).length; if(nc>=2) return bet*(P.fijo+2*P.corrido+P.candado); if(nc>=1) return bet*(P.fijo+nc*P.corrido+P.parle); return bet*P.fijo; }
+  }
+}
+
 function TabTicket(){
   const [board,setBoard]=useState("labolita");
+  const [cart,setCart]=useState([]); // jugadas en construcción de UN ticket multi-jugada
   const lottery=LOTTERIES.find(l=>l.id===board);
   const [sess,setSess]=useState("Noche");
   const [fijo,setFijo]=useState("");
@@ -1190,53 +1223,56 @@ function TabTicket(){
     let key=mine?.id;
     if(!key){ key=await sGet("chat:alias",false); if(!key){ key="anon-"+Math.random().toString(36).slice(2,9); await sSet("chat:alias",key,false); } }
     all[key]=list.slice(0,20); await sSet("tickets:all",all,true); };
-  const crear=async()=>{
-    setMsg("");
-    if(modo==="play4"){
-      if(!/^\d{4}$/.test(play4)){ setMsg("El Play 4 son 4 dígitos (0000–9999)."); return; }
-    } else if(modo==="cash3"){
-      if(!/^\d{3}$/.test(cash3)){ setMsg("El Cash 3 son 3 dígitos (000–999)."); return; }
-    } else if(modo==="box3"){
-      if(!/^\d{3}$/.test(box3)){ setMsg("El Cash 3 Box son 3 dígitos (000–999)."); return; }
-    } else if(modo==="box4"){
-      if(!/^\d{4}$/.test(box4)){ setMsg("El Play 4 Box son 4 dígitos (0000–9999)."); return; }
-    } else if(modo==="pareja"){
-      if(!d2ok(pair)){ setMsg("La pareja son 2 dígitos (00–99)."); return; }
-    } else if(modo==="centena"){
-      if(!/^\d{3}$/.test(cent)){ setMsg("La centena son 3 dígitos (000–999)."); return; }
-    } else if(modo==="sb3"){
-      if(!/^\d{3}$/.test(sb3v)){ setMsg("Straight/Box 3 son 3 dígitos (000–999)."); return; }
-    } else if(modo==="sb4"){
-      if(!/^\d{4}$/.test(sb4v)){ setMsg("Straight/Box 4 son 4 dígitos (0000–9999)."); return; }
-    } else if(modo==="quiniela"){
-      if(!d2ok(qnum)){ setMsg("La quiniela es un número de 2 cifras (00–99)."); return; }
-    } else {
-      if(!d2ok(fijo)){ setMsg("El fijo son 2 dígitos (00–99)."); return; }
-      if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))){ setMsg("Los corridos son de 2 dígitos."); return; }
-    }
-    const bet=num(monto);
-    const t={ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
+  // Valida el formulario y devuelve {play} o {err}. NO toca saldo (eso es al generar).
+  const buildPlay=()=>{
+    if(modo==="play4"){ if(!/^\d{4}$/.test(play4)) return {err:"El Play 4 son 4 dígitos (0000–9999)."}; }
+    else if(modo==="cash3"){ if(!/^\d{3}$/.test(cash3)) return {err:"El Cash 3 son 3 dígitos (000–999)."}; }
+    else if(modo==="box3"){ if(!/^\d{3}$/.test(box3)) return {err:"El Cash 3 Box son 3 dígitos (000–999)."}; }
+    else if(modo==="box4"){ if(!/^\d{4}$/.test(box4)) return {err:"El Play 4 Box son 4 dígitos (0000–9999)."}; }
+    else if(modo==="pareja"){ if(!d2ok(pair)) return {err:"La pareja son 2 dígitos (00–99)."}; }
+    else if(modo==="centena"){ if(!/^\d{3}$/.test(cent)) return {err:"La centena son 3 dígitos (000–999)."}; }
+    else if(modo==="sb3"){ if(!/^\d{3}$/.test(sb3v)) return {err:"Straight/Box 3 son 3 dígitos (000–999)."}; }
+    else if(modo==="sb4"){ if(!/^\d{4}$/.test(sb4v)) return {err:"Straight/Box 4 son 4 dígitos (0000–9999)."}; }
+    else if(modo==="quiniela"){ if(!d2ok(qnum)) return {err:"La quiniela es un número de 2 cifras (00–99)."}; }
+    else { if(!d2ok(fijo)) return {err:"El fijo son 2 dígitos (00–99)."}; if((c1&&!d2ok(c1))||(c2&&!d2ok(c2))) return {err:"Los corridos son de 2 dígitos."}; }
+    return { play:{ id:"HB-"+Math.random().toString(36).slice(2,8).toUpperCase(),
       board, boardName:lottery.short.replace(" 🔴",""), session:sess, date:dateKey(new Date()),
       tipo:modo, play4:modo==="play4"?play4:"", cash3:modo==="cash3"?cash3:"",
       box3:modo==="box3"?box3:"", box4:modo==="box4"?box4:"", pair:modo==="pareja"?pair:"", pairPos:modo==="pareja"?pairPos:"",
       cent:modo==="centena"?cent:"", sb3:modo==="sb3"?sb3v:"", sb4:modo==="sb4"?sb4v:"",
       qnum:modo==="quiniela"?qnum:"",
       fijo:(modo!=="bolita")?"":fijo, corridos:(modo!=="bolita")?[]:[c1,c2].filter(Boolean),
-      monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null };
-    // Anti-trampa: el SERVIDOR descuenta el saldo y guarda el ticket. Fallback local si no hay store.
+      monto:monto.trim(), ts:Date.now(), status:"pendiente", premio:null } };
+  };
+  const clearInputs=()=>{ setFijo("");setC1("");setC2("");setPlay4("");setCash3("");setBox3("");setBox4("");setPair("");setCent("");setSb3v("");setSb4v("");setQnum("");setMonto(""); };
+  const formHasPlay=()=>(modo==="play4"&&play4)||(modo==="cash3"&&cash3)||(modo==="box3"&&box3)||(modo==="box4"&&box4)||(modo==="pareja"&&pair)||(modo==="centena"&&cent)||(modo==="sb3"&&sb3v)||(modo==="sb4"&&sb4v)||(modo==="quiniela"&&qnum)||(modo==="bolita"&&fijo);
+  // ➕ Añade la jugada actual al ticket (carrito) sin descontar todavía.
+  const addPlay=()=>{ setMsg(""); const r=buildPlay(); if(r.err){ setMsg(r.err); return; } setCart(c=>[...c,r.play].slice(0,20)); clearInputs(); setMsg("➕ Jugada añadida ("+(cart.length+1)+") — añade más o genera el ticket."); };
+  const crear=async()=>{
+    setMsg("");
+    let plays=[...cart];
+    if(formHasPlay()){ const r=buildPlay(); if(r.err){ setMsg(r.err); return; } plays.push(r.play); }
+    if(!plays.length){ setMsg("Añade al menos una jugada al ticket (➕)."); return; }
+    plays=plays.slice(0,20);
+    const total=plays.reduce((s,p)=>s+num(p.monto),0);
+    const group="G-"+Date.now().toString(36).toUpperCase();
+    // Anti-trampa: el SERVIDOR descuenta el saldo (UNA vez por el total) y guarda
+    // todas las jugadas del ticket. Fallback local si no hay store.
     const _pid=await coinsAlias();
-    const _sv=await dbOp("ticket.create",{pid:_pid,ticket:t});
+    const _sv=await dbOp("ticket.createMany",{pid:_pid,group,tickets:plays});
     if(_sv){
       if(_sv.ok===false){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; }
-      if(bet>0) await recordWager(bet);
+      if(total>0) await recordWager(total);
       await save(_sv.tickets);
     } else {
-      if(bet>0){ const s=await spendCoins(bet); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } await recordWager(bet); }
-      await save([t,...(tickets||[])].slice(0,30));
+      if(total>0){ const s=await spendCoins(total); if(!s.ok){ setMsg("Te faltan monedas 🪙 — reclama tu bono diario o juega menos."); return; } await recordWager(total); }
+      const groupTs=Date.now();
+      const made=plays.map((p,i)=>({...p,group,groupTs,ts:groupTs-i}));
+      await save([...made,...(tickets||[])].slice(0,60));
     }
-    setFijo("");setC1("");setC2("");setPlay4("");setCash3("");setBox3("");setBox4("");setPair("");setCent("");setSb3v("");setSb4v("");setQnum("");setMonto("");
+    setCart([]); clearInputs();
     try{ await bumpMission("play3"); }catch{}
-    setMsg("🎟️ Ticket creado — guárdalo y juega esos mismos números en una tienda autorizada.");
+    setMsg("🎟️ Ticket creado con "+plays.length+" jugada(s) — guárdalo y juega esos números en una tienda autorizada.");
   };
   const comprobar=async()=>{
     if(checking) return; setChecking(true); setMsg("");
@@ -1357,11 +1393,18 @@ function TabTicket(){
     }catch{ setMsg("La señal no respondió — intenta en un momento."); }
     setChecking(false);
   };
-  const compartir=async(t)=>{
-    const txt=`🎟️ BANCA HERMES EL BOLITERO · ★ ORIGINAL ★\nTicket ${t.id} · 🔐 ${tkHash(t)}\n${t.boardName} · ${t.session} · ${t.date}\nFIJO ${t.fijo}${t.corridos.length?" · corridos "+t.corridos.join(" "):""}\n🍀 ¡BUENA SUERTE! · Recuerdo sin valor — juego estos números en la lotería legal.`;
+  const compartir=async(g)=>{
+    const plays=g.plays||[g]; const gid=g.k||g.id;
+    const total=plays.reduce((s,p)=>s+num(p.monto),0);
+    const gts=plays[0].groupTs||plays[0].ts;
+    const ghash=tkHash({id:gid,ts:gts,tipo:"grp",fijo:"",corridos:[],monto:String(total)});
+    const lines=plays.map(p=>`• ${playLabel(p)} ${playPicks(p).join(" ")}${num(p.monto)>0?" · $"+num(p.monto).toFixed(2):""}`).join("\n");
+    const txt=`🎟️ BANCA HERMES EL BOLITERO · ★ ORIGINAL ★\nTicket ${gid} · 🔐 ${ghash}\n${plays[0].boardName} · ${plays[0].session} · ${plays[0].date}\n${lines}\nTOTAL $${total.toFixed(2)}\n🍀 ¡BUENA SUERTE! · Recuerdo sin valor — juego estos números en la lotería legal.`;
     try{ if(navigator.share) await navigator.share({text:txt}); else { await navigator.clipboard.writeText(txt); setMsg("Ticket copiado ✔"); } }catch{}
   };
   const ganados=(tickets||[]).filter(t=>t.status==="ganador").length;
+  // Agrupa las jugadas por "group" (un ticket = varias jugadas, como el slip real).
+  const groups=(()=>{ const m=new Map(); (tickets||[]).forEach(t=>{ const k=t.group||t.id; if(!m.has(k)) m.set(k,[]); m.get(k).push(t); }); return [...m.entries()].map(([k,plays])=>({k,plays})); })();
   return (
     <div className="fade-in">
       <GameHub/>
@@ -1611,145 +1654,98 @@ function TabTicket(){
             </div>
             );
           })()}
-          <button className="btn primary" onClick={crear}>🎟️ Generar mi ticket souvenir</button>
+          {cart.length>0&&(
+            <div className="card" style={{background:T.raise,padding:"10px 12px"}}>
+              <div style={{fontSize:11,color:T.mango,fontWeight:700,marginBottom:6}}>🎟️ Jugadas en este ticket ({cart.length}/20)</div>
+              <div style={{display:"grid",gap:5}}>
+                {cart.map((p,i)=>(
+                  <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,borderBottom:i<cart.length-1?`1px dashed ${T.line}`:"none",paddingBottom:4}}>
+                    <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}}><b>{playLabel(p)}</b> <span className="mono">{playPicks(p).join(" ")}</span> <span style={{color:T.dim}}>· {p.boardName} {p.session}</span></span>
+                    <span style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                      <span className="mono" style={{color:T.dim}}>{num(p.monto)>0?`$${num(p.monto).toFixed(2)}`:"—"}</span>
+                      <button className="chip" style={{padding:"2px 7px"}} onClick={()=>setCart(c=>c.filter((_,j)=>j!==i))}>✕</button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:12,fontWeight:700}}>
+                <span>TOTAL jugado</span>
+                <span className="mono" style={{color:T.mango}}>${cart.reduce((s,p)=>s+num(p.monto),0).toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn ghost" style={{flex:1}} onClick={addPlay} disabled={cart.length>=20}>➕ Añadir jugada</button>
+            <button className="btn primary" style={{flex:2}} onClick={crear}>🎟️ Generar ticket{cart.length?` (${cart.length})`:""}</button>
+          </div>
           <button className="btn ghost" onClick={comprobar} disabled={checking}>{checking?"Comprobando con los tiros oficiales…":"🔎 Comprobar mis tickets"}</button>
-          {msg&&<div style={{fontSize:12,color:msg.includes("🎉")||msg.includes("✔")||msg.includes("🎟️")?T.teal:T.coral}}>{msg}</div>}
+          {msg&&<div style={{fontSize:12,color:msg.includes("🎉")||msg.includes("✔")||msg.includes("🎟️")||msg.includes("➕")?T.teal:T.coral}}>{msg}</div>}
         </div>
       </Section>
       <Section title="Mis tickets" right={<span style={{fontSize:11,color:T.dim}}>{(tickets||[]).length}</span>}>
         <div style={{display:"grid",gap:10}}>
           {tickets&&tickets.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no tienes tickets. Elige tus números arriba.</div>}
-          {(tickets||[]).map(t=>(
-            <div key={t.id} className="card" style={{padding:0,overflow:"hidden",border:t.status==="ganador"?"1.5px solid #FFD978":`1px solid ${T.line}`}}>
+          {groups.map(g=>{
+            const gts=g.plays[0].groupTs||g.plays[0].ts;
+            const total=g.plays.reduce((s,p)=>s+num(p.monto),0);
+            const wins=g.plays.filter(p=>p.status==="ganador");
+            const won=wins.length>0;
+            const credited=wins.reduce((s,p)=>s+num(p.ganancia),0);
+            const allSame=g.plays.every(p=>p.board===g.plays[0].board&&p.session===g.plays[0].session&&p.date===g.plays[0].date);
+            const ghash=tkHash({id:g.k,ts:gts,tipo:"grp",fijo:"",corridos:[],monto:String(total)});
+            return (
+            <div key={g.k} className="card" style={{padding:0,overflow:"hidden",border:won?"1.5px solid #FFD978":`1px solid ${T.line}`}}>
               <div style={{background:"linear-gradient(135deg,#FFE9A8,#FFB838 60%,#E08C00)",color:"#3A2604",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div style={{display:"flex",flexDirection:"column",lineHeight:1.05}}>
                   <span className="disp" style={{fontWeight:800,fontSize:13}}>BANCA HERMES EL BOLITERO</span>
                   <span className="mono" style={{fontSize:8,fontWeight:800,letterSpacing:"0.22em",opacity:.65}}>★ ORIGINAL ★</span>
                 </div>
-                <span className="mono" style={{fontSize:11,fontWeight:700}}>{t.id}</span>
+                <span className="mono" style={{fontSize:11,fontWeight:700}}>{g.k}</span>
               </div>
               <div style={{padding:"12px 14px"}}>
                 <div className="mono" style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:9,color:T.dim,marginBottom:8,opacity:.85}}>
-                  <span>{new Date(t.ts).toLocaleString()}</span>
-                  <span>🔐 {tkHash(t)}</span>
+                  <span>{new Date(gts).toLocaleString()}</span>
+                  <span>🔐 {ghash}</span>
                 </div>
-                <div style={{fontSize:11,color:T.dim,marginBottom:8,display:"flex",justifyContent:"space-between"}}>
-                  <span>{t.boardName} · {t.session} · {t.date}</span>
-                  {num(t.monto)>0&&<span style={{color:T.mango}}>Jugado ${num(t.monto).toFixed(2)}{t.tipo==="play4"?` · Play 4 ×${PAYOUTS.play4}`:t.tipo==="cash3"?` · Cash 3 ×${PAYOUTS.cash3}`:t.tipo==="box3"?` · Cash 3 Box ×${PAYOUTS.box3}`:t.tipo==="box4"?` · Play 4 Box ×${PAYOUTS.box4}`:t.tipo==="pareja"?` · Pareja ×${PAYOUTS.pair}`:t.tipo==="centena"?` · Centena ×${PAYOUTS.centena}`:t.tipo==="sb3"?` · Str/Box ×${PAYOUTS.cash3}/${PAYOUTS.box3}`:t.tipo==="sb4"?` · Str/Box ×${PAYOUTS.play4}/${PAYOUTS.box4}`:t.tipo==="quiniela"?` · Quiniela ×${PAYOUTS.q1}/${PAYOUTS.q2}/${PAYOUTS.q3}`:` · posible ≈ $${(num(t.monto)*(PAYOUTS.fijo+(t.corridos.length*PAYOUTS.corrido))).toFixed(2)}`}</span>}
+                <div style={{fontSize:11,color:T.dim,marginBottom:6,display:"flex",justifyContent:"space-between"}}>
+                  <span>{allSame?`${g.plays[0].boardName} · ${g.plays[0].session} · ${g.plays[0].date}`:"Varios tableros / sesiones"}</span>
+                  <span style={{color:T.mango}}>{g.plays.length} jugada{g.plays.length>1?"s":""}</span>
                 </div>
-                <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                  {t.tipo==="play4"
-                    ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.14em"}}>{t.play4}</div>
-                    : t.tipo==="cash3"
-                    ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.16em"}}>{t.cash3}</div>
-                    : t.tipo==="box3"
-                    ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.16em"}}>{t.box3}</div>
-                    : t.tipo==="box4"
-                    ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.16em"}}>{t.box4}</div>
-                    : t.tipo==="pareja"
-                    ? <div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.pair}</div>
-                    : t.tipo==="centena"
-                    ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.16em"}}>{t.cent}</div>
-                    : t.tipo==="sb3"
-                    ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.16em"}}>{t.sb3}</div>
-                    : t.tipo==="sb4"
-                    ? <div className="ball hot" style={{width:"auto",height:54,padding:"0 16px",borderRadius:16,fontSize:24,letterSpacing:"0.14em"}}>{t.sb4}</div>
-                    : t.tipo==="quiniela"
-                    ? <div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.qnum}</div>
-                    : <><div className="ball hot" style={{width:54,height:54,fontSize:21}}>{t.fijo}</div>
-                      {t.corridos.map((c,i)=><div key={i} className="ball">{c}</div>)}</>}
-                  <div style={{marginLeft:"auto",textAlign:"right"}}>
-                    {t.status==="pendiente"&&<span className="chip" style={{cursor:"default"}}>⏳ pendiente</span>}
-                    {t.status==="ganador"&&<span className="chip" style={{cursor:"default",background:"#FFD978",color:"#3A2604",fontWeight:800}}>🏆 {t.premio}{num(t.ganancia)>0?` · +${num(t.ganancia).toLocaleString()}🪙`:""}</span>}
-                    {t.status==="no salió"&&<span className="chip" style={{cursor:"default"}}>{t.resultado||"no salió"}</span>}
-                  </div>
-                </div>
-                {num(t.monto)>0&&t.tipo==="play4"&&(
-                  <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙):</div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                      <span>4️⃣ Play 4 directo</span>
-                      <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*PAYOUTS.play4).toLocaleString()} 🪙</span>
-                    </div>
-                  </div>
-                )}
-                {num(t.monto)>0&&t.tipo==="cash3"&&(
-                  <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙):</div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                      <span>3️⃣ Cash 3 directo</span>
-                      <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*PAYOUTS.cash3).toLocaleString()} 🪙</span>
-                    </div>
-                  </div>
-                )}
-                {num(t.monto)>0&&(t.tipo==="box3"||t.tipo==="box4"||t.tipo==="pareja"||t.tipo==="centena")&&(
-                  <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙):</div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                      <span>{t.tipo==="box3"?"🔀 Cash 3 Box":t.tipo==="box4"?"🔀 Play 4 Box":t.tipo==="centena"?"💯 Centena":"👫 Pareja "+(t.pairPos==="back"?"trasera":"delantera")}</span>
-                      <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*(t.tipo==="box3"?PAYOUTS.box3:t.tipo==="box4"?PAYOUTS.box4:t.tipo==="centena"?PAYOUTS.centena:PAYOUTS.pair)).toLocaleString()} 🪙</span>
-                    </div>
-                  </div>
-                )}
-                {num(t.monto)>0&&(t.tipo==="sb3"||t.tipo==="sb4")&&(
-                  <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga (en monedas 🪙) — gana de dos formas:</div>
-                    <div style={{display:"grid",gap:4}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                        <span>🎯 Directo (exacto)</span>
-                        <span className="mono" style={{fontWeight:700,color:"#FFD978"}}>≈ {(num(t.monto)*(t.tipo==="sb3"?PAYOUTS.cash3:PAYOUTS.play4)).toLocaleString()} 🪙</span>
+                <div>
+                  {g.plays.map((p,i)=>(
+                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderTop:i>0?`1px dashed ${T.line}`:"none"}}>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {playPicks(p).map((n,j)=><div key={j} className={"ball"+(j===0&&p.tipo==="bolita"?" hot":"")} style={{width:"auto",minWidth:32,height:32,padding:"0 7px",fontSize:14,borderRadius:9}}>{n}</div>)}
                       </div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                        <span>🔀 Box (cualquier orden)</span>
-                        <span className="mono" style={{fontWeight:700,color:T.teal}}>≈ {(num(t.monto)*(t.tipo==="sb3"?PAYOUTS.box3:PAYOUTS.box4)).toLocaleString()} 🪙</span>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:700}}>{playLabel(p)}</div>
+                        <div style={{fontSize:10,color:T.dim}}>{allSame?"":`${p.boardName} ${p.session} · `}{num(p.monto)>0?`$${num(p.monto).toFixed(2)} · ≈ ${playTopPay(p,PAYOUTS,num).toLocaleString()} 🪙`:"sin monto"}</div>
+                      </div>
+                      <div style={{marginLeft:"auto",textAlign:"right",flexShrink:0}}>
+                        {p.status==="pendiente"&&<span className="chip" style={{cursor:"default",fontSize:10}}>⏳</span>}
+                        {p.status==="ganador"&&<span className="chip" style={{cursor:"default",background:"#FFD978",color:"#3A2604",fontWeight:800,fontSize:10}}>🏆{num(p.ganancia)>0?` +${num(p.ganancia).toLocaleString()}🪙`:""}</span>}
+                        {p.status==="no salió"&&<span className="chip" style={{cursor:"default",fontSize:10}}>❌</span>}
                       </div>
                     </div>
-                  </div>
-                )}
-                {num(t.monto)>0&&t.tipo==="quiniela"&&(
-                  <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                    <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga según la posición (en monedas 🪙):</div>
-                    <div style={{display:"grid",gap:4}}>
-                      {[["🥇 1er premio",PAYOUTS.q1,true],["🥈 2do premio",PAYOUTS.q2,false],["🥉 3er premio",PAYOUTS.q3,false]].map((f,i)=>(
-                        <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                          <span>{f[0]}</span>
-                          <span className="mono" style={{fontWeight:700,color:f[2]?"#FFD978":T.teal}}>≈ {(num(t.monto)*f[1]).toLocaleString()} 🪙</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {num(t.monto)>0&&t.tipo!=="play4"&&t.tipo!=="cash3"&&t.tipo!=="box3"&&t.tipo!=="box4"&&t.tipo!=="pareja"&&t.tipo!=="centena"&&t.tipo!=="sb3"&&t.tipo!=="sb4"&&t.tipo!=="quiniela"&&(()=>{
-                  const bet=num(t.monto); const ncor=t.corridos.length;
-                  const filas=[["🎯 Fijo",bet*PAYOUTS.fijo,true]];
-                  if(ncor>0) filas.push([`➡️ Corrido${ncor>1?"s":""} (${ncor})`,bet*ncor*PAYOUTS.corrido,true]);
-                  if(ncor>=1) filas.push(["🎯 Parlé",bet*(PAYOUTS.fijo+ncor*PAYOUTS.corrido+PAYOUTS.parle),true]);
-                  if(ncor>=2) filas.push(["🔒 Candado",bet*(PAYOUTS.fijo+2*PAYOUTS.corrido+PAYOUTS.candado),false]);
-                  return (
-                    <div style={{borderTop:`1px dashed ${T.line}`,marginTop:12,paddingTop:8}}>
-                      <div style={{fontSize:10,color:T.dim,marginBottom:6}}>Paga cada juego (en monedas 🪙):</div>
-                      <div style={{display:"grid",gap:4}}>
-                        {filas.map((f,i)=>(
-                          <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                            <span>{f[0]}</span>
-                            <span className="mono" style={{fontWeight:700,color:f[0].includes("Candado")?"#FFD978":T.teal}}>≈ {f[1].toLocaleString()} 🪙</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
+                  ))}
+                </div>
+                <div style={{borderTop:`1px solid ${T.line}`,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700}}>
+                  <span>TOTAL jugado</span>
+                  <span className="mono" style={{color:T.mango}}>${total.toFixed(2)}</span>
+                </div>
+                {won&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:800,marginTop:4}}><span style={{color:"#FFD978"}}>🏆 GANADO ({wins.length})</span><span className="mono" style={{color:"#FFD978"}}>+{credited.toLocaleString()} 🪙</span></div>}
                 <div style={{borderTop:`1px dashed ${T.line}`,marginTop:10,paddingTop:8,textAlign:"center"}}>
                   <div className="mono" style={{fontSize:10,color:T.mango,fontWeight:700,letterSpacing:"0.03em"}}>D.{PAYOUTS.fijo}×1 · P.{PAYOUTS.parle.toLocaleString()}×1 · T.{PAYOUTS.candado.toLocaleString()}×1</div>
                   <div style={{fontSize:10,color:T.dim,marginTop:2}}>Revisa tu ticket · 🍀 ¡BUENA SUERTE! 🍀</div>
                 </div>
                 <div style={{borderTop:`1px dashed ${T.line}`,marginTop:8,paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span style={{fontSize:9,color:T.dim,maxWidth:"70%"}}>RECUERDO SIN VALOR MONETARIO · Juega estos números en una tienda autorizada de la lotería legal de tu estado. Aquí no se apuesta ni se paga premio.</span>
-                  <button className="chip" onClick={()=>compartir(t)}>📤</button>
+                  <button className="chip" onClick={()=>compartir(g)}>📤</button>
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </Section>
       <PlayerLeaderboard/>

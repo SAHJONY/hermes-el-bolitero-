@@ -157,7 +157,7 @@ module.exports = async (req, res) => {
     }
 
     // ----- Ticket economy (server-authoritative: stake + payout anti-cheat) -----
-    if (op === "ticket.create" || op === "ticket.settle") {
+    if (op === "ticket.create" || op === "ticket.createMany" || op === "ticket.settle") {
       const pid = String(b.pid || "").slice(0, 80);
       if (!pid) return res.status(400).json({ error: "missing_pid" });
       const parse = (s) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
@@ -183,10 +183,30 @@ module.exports = async (req, res) => {
         if (stake > 0) w.bal -= stake;
         const t = { ...ticket, status: "pendiente", premio: null, ganancia: 0, coinPaid: false, ts: Date.now() };
         const list = parse(await store.get(tkey)) || [];
-        const next = [t, ...list].slice(0, 30);
+        const next = [t, ...list].slice(0, 60);
         await store.set(tkey, JSON.stringify(next));
         await saveWallet(w);
         return res.status(200).json({ configured: true, ok: true, ticket: t, wallet: w, tickets: next });
+      }
+
+      if (op === "ticket.createMany") {
+        // Un ticket = varias jugadas (como un slip real de banca). Cada jugada se
+        // guarda como su PROPIO registro liquidable (settleAll no cambia); todas
+        // comparten un "group" para mostrarse juntas. El saldo se descuenta UNA vez.
+        const plays = Array.isArray(b.tickets) ? b.tickets.slice(0, 20) : [];
+        if (!plays.length) return res.status(400).json({ error: "no_plays" });
+        const group = (String(b.group || "").slice(0, 40)) || ("G-" + Date.now().toString(36).toUpperCase());
+        const groupTs = Date.now();
+        let total = 0; for (const p of plays) total += num(p.monto);
+        const w = await getWallet();
+        if (total > 0 && w.bal < total) return res.status(200).json({ configured: true, ok: false, error: "insufficient_coins", wallet: w });
+        if (total > 0) w.bal -= total;
+        const made = plays.map((p, i) => ({ ...p, group, groupTs, status: "pendiente", premio: null, ganancia: 0, coinPaid: false, ts: groupTs - i }));
+        const list = parse(await store.get(tkey)) || [];
+        const next = [...made, ...list].slice(0, 60);
+        await store.set(tkey, JSON.stringify(next));
+        await saveWallet(w);
+        return res.status(200).json({ configured: true, ok: true, group, tickets: next, wallet: w });
       }
       // ticket.settle
       const list = parse(await store.get(tkey)) || [];
