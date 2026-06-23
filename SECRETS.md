@@ -42,6 +42,8 @@ Se autodetecta: Supabase primero, si no Upstash/KV.
 | Variable | Req. | Para qué | Dónde |
 |---|---|---|---|
 | `MAGAYO_API_KEY` | Opcional | Resultados oficiales (cuenta suspendida hoy) | https://www.magayo.com → API |
+| `MAGAYO_BOARDS` | Opcional | Tableros que SÍ se consultan en magayo (ahorra cuota). Por defecto `florida,georgia,chicago,pr,texas`. New York es gratis y siempre real; el resto muestra DEMO. Pon `all` para todos | ids de tablero |
+| `MAGAYO_MONTHLY_CAP` | Opcional | Tope duro de llamadas/mes (default 950) — al llegar, se frena todo (error 303 imposible) | número |
 
 ## ✉️ Email (`lib/notify.js`) — Resend **o** SMTP
 | Variable | Req. | Para qué | Dónde |
@@ -55,6 +57,14 @@ Se autodetecta: Supabase primero, si no Upstash/KV.
 |---|---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Opcional | Bot que canta el número | Telegram → @BotFather |
 | `TELEGRAM_CHAT_ID` | Opcional | Grupo/canal destino | id. |
+| `TELEGRAM_OWNER_CHAT_ID` | Opcional | Chat privado del dueño para avisos solo-dueño (p. ej. pagos pendientes). Si falta, usa `TELEGRAM_CHAT_ID` | id. |
+
+> **Conseguir tu `TELEGRAM_OWNER_CHAT_ID` (chat privado, 1 min):**
+> 1. En Telegram, abre un chat con **tu bot** (el de `TELEGRAM_BOT_TOKEN`) y envíale cualquier mensaje (ej. `hola`).
+> 2. Abre en el navegador: `https://api.telegram.org/bot<TU_TOKEN>/getUpdates` (pega tu token real).
+> 3. Copia el número en `"chat":{"id": ...}` — ese es tu ID privado (a veces empieza con `-` o es largo).
+> 4. Pégalo en **Vercel → Settings → Environment Variables** como `TELEGRAM_OWNER_CHAT_ID` (Production) y **Redeploy/Promote**.
+> Sin esta variable, el aviso de pagos pendientes cae en el grupo de `TELEGRAM_CHAT_ID` (solo un conteo, sin datos sensibles).
 
 ## 📞 Llamadas de voz (`lib/notify.js` — Bland.ai)
 | Variable | Req. | Para qué | Dónde |

@@ -424,7 +424,7 @@ function CryptoWalletsManager(){
   return (
     <Section title="Cripto · wallets (todas las monedas) ₿" sub="Pega tu dirección por moneda — el cliente la copia, paga y manda el hash. Deja vacías las que no uses">
       <div className="card" style={{display:"grid",gap:10}}>
-        <div style={{fontSize:11,color:T.teal,lineHeight:1.5,background:T.bg,border:`1px solid ${T.teal}44`,borderRadius:8,padding:"8px 10px"}}>🔒 <b>Máxima privacidad:</b> usa <b>Monero (XMR)</b> o <b>Zcash blindado</b> con una wallet sin custodia (tú tienes las llaves) como Cake Wallet o Monero GUI — sin KYC y no rastreables. Genera tu dirección ahí y pégala abajo.</div>
+        <div style={{fontSize:11,color:T.teal,lineHeight:1.6,background:T.bg,border:`1px solid ${T.teal}44`,borderRadius:8,padding:"8px 10px"}}>🔒 <b>Máxima privacidad en 3 pasos</b> — cobra sin KYC y sin que nadie rastree el dinero:<br/>① Baja <b>Cake Wallet</b> (cakewallet.com) en el teléfono, o <b>Monero GUI</b> en la PC.<br/>② Crea una wallet <b>Monero (XMR)</b> y guarda tu frase semilla en papel — sin email, sin ID.<br/>③ Toca <b>Receive</b>, copia tu dirección y pégala en el campo <b>Monero · XMR</b> de abajo. ¡Listo! (Zcash blindado con la wallet <b>Zashi</b> funciona igual.) Nunca recibas en una dirección de Binance/Coinbase: eso re-amarra tu identidad.</div>
         {CRYPTO_COINS.map(c=>(
           <div key={c.id}>
             <Label>{c.name} · {c.sym}{c.priv?" 🔒":""}</Label>
@@ -1255,26 +1255,48 @@ function PayMethodsManager(){
 
 function FinanzasPage(){
   const [pagos,setPagos]=useState(null);
+  const [msg,setMsg]=useState("");
   useEffect(()=>{(async()=>{ setPagos(await sGet("crm:pagos",true)||[]); })();},[]);
   const num=s=>{ const n=parseFloat(String(s||"").replace(/[^0-9.]/g,"")); return isNaN(n)?0:n; };
   if(!pagos) return <div style={{color:T.dim,fontSize:13}}>Cargando finanzas…</div>;
   const total=pagos.reduce((a,p)=>a+num(p.monto),0);
   const clientes=new Set(pagos.map(p=>p.alias||p.contacto||p.ref)).size;
+  const isResolved=p=>!!(p.confirmed||p.rejected);
+  const pending=pagos.filter(p=>!isResolved(p)).length;
+  const confirmar=async(ref)=>{
+    const next=pagos.map(p=>p.ref===ref?{...p,confirmed:true,rejected:false,confirmedAt:Date.now()}:p);
+    setPagos(next); await sSet("crm:pagos",next,true); setMsg("Pago "+ref+" confirmado ✔");
+  };
+  const rechazar=async(ref)=>{
+    const next=pagos.map(p=>p.ref===ref?{...p,rejected:true,confirmed:false,confirmedAt:Date.now()}:p);
+    setPagos(next); await sSet("crm:pagos",next,true); setMsg("Pago "+ref+" rechazado ✖");
+  };
+  const sorted=[...pagos].sort((a,b)=>((isResolved(a)?1:0)-(isResolved(b)?1:0))||(b.ts-a.ts));
   return (
     <div>
       <Section title="Finanzas · CRM" sub="Hermes lleva la cuenta de cada cliente y del negocio">
+        {pending>0&&<div className="card" style={{marginBottom:12,textAlign:"center",border:`1.5px solid ${T.coral}`,background:"rgba(255,107,107,.10)"}}><div style={{fontWeight:800,color:T.coral}}>🔔 {pending} pago{pending>1?"s":""} pendiente{pending>1?"s":""} de confirmar</div><div style={{fontSize:11,color:T.dim}}>Revisa el hash/recibo y toca ✓ Confirmar.</div></div>}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
           {[["Pagos",pagos.length],["Clientes",clientes],["Total","$"+total.toFixed(2)]].map(([k,v])=>(
             <div key={k} className="card" style={{textAlign:"center"}}><div className="disp" style={{fontWeight:800,fontSize:18,color:T.mango}}>{v}</div><div style={{fontSize:11,color:T.dim}}>{k}</div></div>
           ))}
         </div>
+        {msg&&<div style={{fontSize:12,color:T.teal,marginBottom:8}}>{msg}</div>}
         <div style={{display:"grid",gap:8}}>
           {pagos.length===0&&<div className="card" style={{color:T.dim,fontSize:13,textAlign:"center"}}>Aún no hay pagos. Aparecen aquí cuando los clientes confirman pagos (global al conectar la base de datos).</div>}
-          {pagos.slice(0,100).map(p=>(
-            <div key={p.ref} className="card" style={{padding:"10px 12px"}}>
-              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:T.mango,fontWeight:600,fontSize:13}}>{p.alias||"Cliente"}</span><span className="mono" style={{fontSize:11,color:T.dim}}>{p.ref}</span></div>
+          {sorted.slice(0,100).map(p=>(
+            <div key={p.ref} className="card" style={{padding:"10px 12px",border:isResolved(p)?`1px solid ${T.line}`:`1px solid ${T.coral}66`,opacity:p.rejected?0.6:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:T.mango,fontWeight:600,fontSize:13}}>{p.alias||"Cliente"}</span><span className="mono" style={{fontSize:11,color:T.dim}}>{p.ref}</span></div>
               <div style={{fontSize:12,color:T.dim}}>{p.metodo}{p.monto?` · ${p.monto}`:""}{p.tx?` · Tx ${p.tx}`:""}{p.contacto?` · ${p.contacto}`:""}</div>
-              <div style={{fontSize:10,color:T.dim}}>{new Date(p.ts).toLocaleString("es-ES")}</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
+                <span style={{fontSize:10,color:T.dim}}>{new Date(p.ts).toLocaleString("es-ES")}</span>
+                {p.confirmed?<span className="chip" style={{cursor:"default",color:T.teal}}>✔ Confirmado</span>
+                 :p.rejected?<span className="chip" style={{cursor:"default",color:T.coral}}>✖ Rechazado</span>
+                 :<span style={{display:"flex",gap:6}}>
+                    <button className="btn primary" style={{padding:"4px 12px",fontSize:12}} onClick={()=>confirmar(p.ref)}>✓ Confirmar</button>
+                    <button className="chip" style={{color:T.coral}} onClick={()=>rechazar(p.ref)}>✖ Rechazar</button>
+                  </span>}
+              </div>
             </div>
           ))}
         </div>
@@ -1384,10 +1406,12 @@ function TabAdmin(){
   const [saved,setSaved]=useState("");
   const [econ,setEcon]=useState(null);   // economía de la comunidad (saldos globales)
   const [top,setTop]=useState([]);       // miembros más activos por monedas ganadas
+  const [pendingPagos,setPendingPagos]=useState(0);
   useEffect(()=>{(async()=>{
     setCodes(await sGet("members:codes",true)||{});
     try{ const b=await dbOp("balance"); if(b) setEcon({players:b.accounts||0,coins:b.totalCoins||0}); }catch(e){}
     try{ const w=await dbOp("wallet.top",{limit:5}); if(w&&w.top) setTop(w.top); }catch(e){}
+    try{ const cp=await sGet("crm:pagos",true)||[]; setPendingPagos(cp.filter(p=>!p.confirmed&&!p.rejected).length); }catch(e){}
   })();},[]);
   // Conteo y señales de interacción derivadas del registro de miembros.
   const mstats=useMemo(()=>{
@@ -1422,7 +1446,7 @@ function TabAdmin(){
       </div>
       <div className="scroll-x" style={{marginBottom:14}}>
         {[["miembros","🎟️ Miembros"],["finanzas","💰 Finanzas"],["monedas","🪙 Monedas y premios"],["sucursales","🏦 Sucursales"],["alertas","🔔 Alertas"],["anuncios","📢 Anuncios"],["pagos","💳 Pagos"],["env","🔐 ENV · Secretos"],["seguridad","🛡️ Seguridad"]].map(([id,lab])=>(
-          <button key={id} className={"chip"+(view===id?" on":"")} onClick={()=>setView(id)}>{lab}</button>
+          <button key={id} className={"chip"+(view===id?" on":"")} onClick={()=>setView(id)}>{lab}{id==="finanzas"&&pendingPagos>0?<span style={{marginLeft:6,background:T.coral,color:"#0b0f12",borderRadius:99,padding:"0 6px",fontSize:10,fontWeight:800}}>{pendingPagos}</span>:null}</button>
         ))}
       </div>
       {view==="env"&&<EnvPage/>}
